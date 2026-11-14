@@ -1,5 +1,6 @@
 import A from 'aladin-lite'
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
+import { mapPosition } from '../../shared/config/epoch'
 import { TARGETS, type TargetKey } from '../../shared/config/targets'
 import { aladinSliceArgument, DSS_SURVEY, sliceForDetector, SPHEREX_SURVEY, type SurveyInfo } from './surveys'
 import './sky-map.css'
@@ -168,7 +169,13 @@ export const AladinMap = forwardRef<SkyMapHandle, Props>(function AladinMap(
           labelColor: '#FFF3D6',
           labelFont: '14px Andika, sans-serif',
         })
-        cat.addSources(TARGETS.map((t) => A.source(t.raDeg, t.decDeg, { name: t.shortName, key: t.key })))
+        // Markers at the stars' positions in the SPHEREx DR1 map epoch, not J2000 (proper motion).
+        cat.addSources(
+          TARGETS.map((t) => {
+            const p = mapPosition(t)
+            return A.source(p.ra, p.dec, { name: t.shortName, key: t.key })
+          }),
+        )
         aladin.addCatalog(cat)
         targetCatRef.current = cat
 
@@ -229,7 +236,10 @@ export const AladinMap = forwardRef<SkyMapHandle, Props>(function AladinMap(
     if (!ready || !sel) return
     sel.removeAll()
     const t = TARGETS.find((x) => x.key === selectedKey)
-    if (t) sel.addSources([A.source(t.raDeg, t.decDeg, { key: t.key })])
+    if (t) {
+      const p = mapPosition(t)
+      sel.addSources([A.source(p.ra, p.dec, { key: t.key })])
+    }
   }, [ready, selectedKey])
 
   useImperativeHandle(
