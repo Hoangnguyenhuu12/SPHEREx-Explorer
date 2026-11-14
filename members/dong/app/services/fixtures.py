@@ -17,7 +17,7 @@ from ..api_models import (
 )
 from .catalog import resolve_name, targets
 from .frame_rendering import NoCoverage
-from .live_cutouts import cached_result, load_cutouts, workspace
+from .live_cutouts import cached_result, harvest_mode, load_cutouts, workspace
 from .observed_frames import matching_cutouts, render_cached
 from .observed_science import measure
 from shared.pipeline.irsa import UpstreamError, UpstreamTimeout
@@ -49,12 +49,17 @@ def fail(status, code, message, details=None):
 
 
 def require_fixture_mode():
-    if os.getenv("DATA_MODE", "fixture") != "fixture":
+    if os.getenv("DATA_MODE", "fixture") not in {"fixture", "real", "harvest"}:
         fail(500, "INTERNAL", "Unsupported data mode.")
 
 
+def real_mode():
+    """Local, provenance-tracked DR1 cutouts only; never falls back to demo images."""
+    return os.getenv("DATA_MODE", "fixture") == "real"
+
+
 def live_mode():
-    return os.getenv("DATA_MODE", "live") == "live"
+    return os.getenv("DATA_MODE", "live") in {"live", "harvest"}
 
 
 def archive_cutouts(query, directory):
@@ -83,10 +88,14 @@ def target(query):
 
 
 def health():
-    result = (
-        {"status": "ok", "mode": "live", "fixture_targets": [], "irsa_reachable": None}
-        if live_mode() else sample("health.json")
-    )
+    if harvest_mode():
+        result = {"api_version": "0.1", "status": "ok", "mode": "harvest", "fixture_targets": [], "irsa_reachable": False}
+    elif real_mode():
+        result = {"api_version": "0.1", "status": "ok", "mode": "local", "fixture_targets": [], "irsa_reachable": None}
+    elif live_mode():
+        result = {"status": "ok", "mode": "live", "fixture_targets": [], "irsa_reachable": None}
+    else:
+        result = sample("health.json")
     result["git_sha"] = os.getenv("GIT_SHA", "unknown")
     return result
 
@@ -112,6 +121,10 @@ def frames(query: FramesQuery, response=None):
     else:
         require_fixture_mode()
         cutouts = matching_cutouts(query)
+        if real_mode() and not cutouts:
+            fail(404, "NO_FRAMES", "No validated local cutouts for this target, detector and selected release.",
+                 {"target_key": query.target_key, "detector": query.detector,
+                  "release": os.getenv("DATA_RELEASE", "dr1")})
         if cutouts is None:
             result, published = sample_frames(query, requested_target)
         else:
@@ -226,7 +239,9 @@ def measured_science(query, operation, aperture_arcsec=None):
 
 
 def photometry(query: PhotometryQuery):
-    observed = measured_science(query, "photometry", query.aperture_arcsec)
+    if real_mode():
+        fail(503, "INTERNAL", "Photometry is not yet validated for the selected local dataset.")
+    observed =measured_science(query, "photometry", query.aperture_arcsec)
     if observed is not None:
         return observed
     if live_mode():
@@ -245,6 +260,8 @@ def photometry(query: PhotometryQuery):
 
 
 def astrometry(query: ScienceQuery):
+    if real_mode():
+        fail(503, "INTERNAL", "Astrometry is not yet validated for the selected local dataset.")
     observed = measured_science(query, "astrometry")
     if observed is not None:
         return observed

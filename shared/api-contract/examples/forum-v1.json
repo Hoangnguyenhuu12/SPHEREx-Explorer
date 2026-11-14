@@ -1,0 +1,1325 @@
+{
+  "notice": "Synthetic contract examples only. Scenarios independent; The Eyes URL is illustrative, not a verified deployment route.",
+  "operations": {
+    "forumGetMe": {
+      "method": "GET",
+      "path": "/api/forum/me",
+      "response_status": 200,
+      "response": {
+        "api_version": "0.1",
+        "profile": {
+          "id": "11111111-1111-4111-8111-111111111111",
+          "display_name": "Sky observer"
+        },
+        "role": "user"
+      }
+    },
+    "forumUpdateProfile": {
+      "method": "PATCH",
+      "path": "/api/forum/me",
+      "response_status": 200,
+      "request": {
+        "display_name": "Sky observer"
+      },
+      "response": {
+        "api_version": "0.1",
+        "profile": {
+          "id": "11111111-1111-4111-8111-111111111111",
+          "display_name": "Sky observer"
+        },
+        "role": "user"
+      }
+    },
+    "forumListTags": {
+      "method": "GET",
+      "path": "/api/forum/hashtags",
+      "response_status": 200,
+      "response": {
+        "api_version": "0.1",
+        "hashtags": [
+          {
+            "tag": {
+              "id": "66666666-6666-4666-8666-666666666666",
+              "slug": "spherex",
+              "display_name": "SPHEREx",
+              "active": true,
+              "version": 1
+            },
+            "published_post_count": 1
+          }
+        ],
+        "next_cursor": null
+      }
+    },
+    "forumCreateTag": {
+      "method": "POST",
+      "path": "/api/forum/admin/hashtags",
+      "response_status": 201,
+      "headers": {
+        "Idempotency-Key": "77777777-7777-4777-8777-777777777777"
+      },
+      "request": {
+        "slug": "spherex",
+        "display_name": "SPHEREx"
+      },
+      "response": {
+        "api_version": "0.1",
+        "hashtag": {
+          "id": "66666666-6666-4666-8666-666666666666",
+          "slug": "spherex",
+          "display_name": "SPHEREx",
+          "active": true,
+          "version": 1
+        }
+      }
+    },
+    "forumUpdateTag": {
+      "method": "PATCH",
+      "path": "/api/forum/admin/hashtags/{tag_id}",
+      "response_status": 200,
+      "request": {
+        "expected_version": 1,
+        "active": false
+      },
+      "response": {
+        "api_version": "0.1",
+        "hashtag": {
+          "id": "66666666-6666-4666-8666-666666666666",
+          "slug": "spherex",
+          "display_name": "SPHEREx",
+          "active": false,
+          "version": 2
+        }
+      }
+    },
+    "forumListPosts": {
+      "method": "GET",
+      "path": "/api/forum/posts",
+      "response_status": 200,
+      "response": {
+        "api_version": "0.1",
+        "posts": [
+          {
+            "id": "22222222-2222-4222-8222-222222222222",
+            "author": {
+              "id": "11111111-1111-4111-8111-111111111111",
+              "display_name": "Sky observer"
+            },
+            "published_revision_id": "55555555-5555-4555-8555-555555555555",
+            "title": "Possible motion near Barnard Star",
+            "body": "Could this change in position be motion or an image artifact?",
+            "hashtags": [
+              {
+                "id": "66666666-6666-4666-8666-666666666666",
+                "slug": "spherex",
+                "display_name": "SPHEREx",
+                "active": true,
+                "version": 1
+              }
+            ],
+            "links": [
+              {
+                "label": "The Eyes",
+                "url": "https://example.org/the-eyes?ra=269.4521&dec=4.6934"
+              }
+            ],
+            "sky_context": {
+              "ra": 269.4521,
+              "dec": 4.6934,
+              "size": 0.1,
+              "detector": 6,
+              "target_key": "barnard"
+            },
+            "published_at": "2026-11-14T10:00:00Z",
+            "edited_at": null
+          }
+        ],
+        "next_cursor": null
+      }
+    },
+    "forumCreateDraftPost": {
+      "method": "POST",
+      "path": "/api/forum/posts",
+      "response_status": 201,
+      "headers": {
+        "Idempotency-Key": "77777777-7777-4777-8777-777777777777"
+      },
+      "request": {
+        "title": "Possible motion near Barnard Star",
+        "body": "Could this change in position be motion or an image artifact?",
+        "hashtag_ids": [
+          "66666666-6666-4666-8666-666666666666"
+        ],
+        "links": [
+          {
+            "label": "The Eyes",
+            "url": "https://example.org/the-eyes?ra=269.4521&dec=4.6934"
+          }
+        ],
+        "sky_context": {
+          "ra": 269.4521,
+          "dec": 4.6934,
+          "size": 0.1,
+          "detector": 6,
+          "target_key": "barnard"
+        }
+      },
+      "response": {
+        "api_version": "0.1",
+        "workspace": {
+          "post": {
+            "id": "22222222-2222-4222-8222-222222222222",
+            "author": {
+              "id": "11111111-1111-4111-8111-111111111111",
+              "display_name": "Sky observer"
+            },
+            "visibility": "unpublished",
+            "version": 1,
+            "published_revision_id": null,
+            "working_revision_id": "55555555-5555-4555-8555-555555555555",
+            "published_at": null,
+            "edited_at": null,
+            "created_at": "2026-11-14T10:00:00Z",
+            "updated_at": "2026-11-14T10:00:00Z",
+            "visibility_reason": null
+          },
+          "published_revision": null,
+          "working_revision": {
+            "id": "55555555-5555-4555-8555-555555555555",
+            "post_id": "22222222-2222-4222-8222-222222222222",
+            "number": 1,
+            "status": "draft",
+            "version": 1,
+            "title": "Possible motion near Barnard Star",
+            "body": "Could this change in position be motion or an image artifact?",
+            "hashtag_ids": [
+              "66666666-6666-4666-8666-666666666666"
+            ],
+            "links": [
+              {
+                "label": "The Eyes",
+                "url": "https://example.org/the-eyes?ra=269.4521&dec=4.6934"
+              }
+            ],
+            "sky_context": {
+              "ra": 269.4521,
+              "dec": 4.6934,
+              "size": 0.1,
+              "detector": 6,
+              "target_key": "barnard"
+            },
+            "created_at": "2026-11-14T10:00:00Z",
+            "updated_at": "2026-11-14T10:00:00Z",
+            "submitted_at": null,
+            "reviewed_at": null,
+            "reviewed_by": null,
+            "rejection_reason": null,
+            "withdrawn_at": null
+          },
+          "hashtags": [
+            {
+              "id": "66666666-6666-4666-8666-666666666666",
+              "slug": "spherex",
+              "display_name": "SPHEREx",
+              "active": true,
+              "version": 1
+            }
+          ]
+        }
+      }
+    },
+    "forumGetPublicPost": {
+      "method": "GET",
+      "path": "/api/forum/posts/{post_id}",
+      "response_status": 200,
+      "response": {
+        "api_version": "0.1",
+        "post": {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "author": {
+            "id": "11111111-1111-4111-8111-111111111111",
+            "display_name": "Sky observer"
+          },
+          "published_revision_id": "55555555-5555-4555-8555-555555555555",
+          "title": "Possible motion near Barnard Star",
+          "body": "Could this change in position be motion or an image artifact?",
+          "hashtags": [
+            {
+              "id": "66666666-6666-4666-8666-666666666666",
+              "slug": "spherex",
+              "display_name": "SPHEREx",
+              "active": true,
+              "version": 1
+            }
+          ],
+          "links": [
+            {
+              "label": "The Eyes",
+              "url": "https://example.org/the-eyes?ra=269.4521&dec=4.6934"
+            }
+          ],
+          "sky_context": {
+            "ra": 269.4521,
+            "dec": 4.6934,
+            "size": 0.1,
+            "detector": 6,
+            "target_key": "barnard"
+          },
+          "published_at": "2026-11-14T10:00:00Z",
+          "edited_at": null
+        }
+      }
+    },
+    "forumDeletePost": {
+      "method": "DELETE",
+      "path": "/api/forum/posts/{post_id}",
+      "response_status": 204
+    },
+    "forumListOwnPosts": {
+      "method": "GET",
+      "path": "/api/forum/me/posts",
+      "response_status": 200,
+      "response": {
+        "api_version": "0.1",
+        "items": [
+          {
+            "post": {
+              "id": "22222222-2222-4222-8222-222222222222",
+              "author": {
+                "id": "11111111-1111-4111-8111-111111111111",
+                "display_name": "Sky observer"
+              },
+              "visibility": "unpublished",
+              "version": 1,
+              "published_revision_id": null,
+              "working_revision_id": "55555555-5555-4555-8555-555555555555",
+              "published_at": null,
+              "edited_at": null,
+              "created_at": "2026-11-14T10:00:00Z",
+              "updated_at": "2026-11-14T10:00:00Z",
+              "visibility_reason": null
+            },
+            "published_revision": null,
+            "working_revision": {
+              "id": "55555555-5555-4555-8555-555555555555",
+              "post_id": "22222222-2222-4222-8222-222222222222",
+              "number": 1,
+              "status": "draft",
+              "version": 1,
+              "title": "Possible motion near Barnard Star",
+              "body": "Could this change in position be motion or an image artifact?",
+              "hashtag_ids": [
+                "66666666-6666-4666-8666-666666666666"
+              ],
+              "links": [
+                {
+                  "label": "The Eyes",
+                  "url": "https://example.org/the-eyes?ra=269.4521&dec=4.6934"
+                }
+              ],
+              "sky_context": {
+                "ra": 269.4521,
+                "dec": 4.6934,
+                "size": 0.1,
+                "detector": 6,
+                "target_key": "barnard"
+              },
+              "created_at": "2026-11-14T10:00:00Z",
+              "updated_at": "2026-11-14T10:00:00Z",
+              "submitted_at": null,
+              "reviewed_at": null,
+              "reviewed_by": null,
+              "rejection_reason": null,
+              "withdrawn_at": null
+            },
+            "hashtags": [
+              {
+                "id": "66666666-6666-4666-8666-666666666666",
+                "slug": "spherex",
+                "display_name": "SPHEREx",
+                "active": true,
+                "version": 1
+              }
+            ]
+          }
+        ],
+        "next_cursor": null
+      }
+    },
+    "forumGetWorkspace": {
+      "method": "GET",
+      "path": "/api/forum/posts/{post_id}/workspace",
+      "response_status": 200,
+      "response": {
+        "api_version": "0.1",
+        "workspace": {
+          "post": {
+            "id": "22222222-2222-4222-8222-222222222222",
+            "author": {
+              "id": "11111111-1111-4111-8111-111111111111",
+              "display_name": "Sky observer"
+            },
+            "visibility": "unpublished",
+            "version": 1,
+            "published_revision_id": null,
+            "working_revision_id": "55555555-5555-4555-8555-555555555555",
+            "published_at": null,
+            "edited_at": null,
+            "created_at": "2026-11-14T10:00:00Z",
+            "updated_at": "2026-11-14T10:00:00Z",
+            "visibility_reason": null
+          },
+          "published_revision": null,
+          "working_revision": {
+            "id": "55555555-5555-4555-8555-555555555555",
+            "post_id": "22222222-2222-4222-8222-222222222222",
+            "number": 1,
+            "status": "draft",
+            "version": 1,
+            "title": "Possible motion near Barnard Star",
+            "body": "Could this change in position be motion or an image artifact?",
+            "hashtag_ids": [
+              "66666666-6666-4666-8666-666666666666"
+            ],
+            "links": [
+              {
+                "label": "The Eyes",
+                "url": "https://example.org/the-eyes?ra=269.4521&dec=4.6934"
+              }
+            ],
+            "sky_context": {
+              "ra": 269.4521,
+              "dec": 4.6934,
+              "size": 0.1,
+              "detector": 6,
+              "target_key": "barnard"
+            },
+            "created_at": "2026-11-14T10:00:00Z",
+            "updated_at": "2026-11-14T10:00:00Z",
+            "submitted_at": null,
+            "reviewed_at": null,
+            "reviewed_by": null,
+            "rejection_reason": null,
+            "withdrawn_at": null
+          },
+          "hashtags": [
+            {
+              "id": "66666666-6666-4666-8666-666666666666",
+              "slug": "spherex",
+              "display_name": "SPHEREx",
+              "active": true,
+              "version": 1
+            }
+          ]
+        }
+      }
+    },
+    "forumListRevisions": {
+      "method": "GET",
+      "path": "/api/forum/posts/{post_id}/revisions",
+      "response_status": 200,
+      "response": {
+        "api_version": "0.1",
+        "revisions": [
+          {
+            "id": "55555555-5555-4555-8555-555555555555",
+            "post_id": "22222222-2222-4222-8222-222222222222",
+            "number": 1,
+            "status": "draft",
+            "version": 1,
+            "title": "Possible motion near Barnard Star",
+            "body": "Could this change in position be motion or an image artifact?",
+            "hashtag_ids": [
+              "66666666-6666-4666-8666-666666666666"
+            ],
+            "links": [
+              {
+                "label": "The Eyes",
+                "url": "https://example.org/the-eyes?ra=269.4521&dec=4.6934"
+              }
+            ],
+            "sky_context": {
+              "ra": 269.4521,
+              "dec": 4.6934,
+              "size": 0.1,
+              "detector": 6,
+              "target_key": "barnard"
+            },
+            "created_at": "2026-11-14T10:00:00Z",
+            "updated_at": "2026-11-14T10:00:00Z",
+            "submitted_at": null,
+            "reviewed_at": null,
+            "reviewed_by": null,
+            "rejection_reason": null,
+            "withdrawn_at": null
+          }
+        ],
+        "next_cursor": null
+      }
+    },
+    "forumCreateRevision": {
+      "method": "POST",
+      "path": "/api/forum/posts/{post_id}/revisions",
+      "response_status": 201,
+      "headers": {
+        "Idempotency-Key": "77777777-7777-4777-8777-777777777777"
+      },
+      "request": {
+        "base_revision_id": "55555555-5555-4555-8555-555555555555",
+        "expected_post_version": 3
+      },
+      "response": {
+        "api_version": "0.1",
+        "workspace": {
+          "post": {
+            "id": "22222222-2222-4222-8222-222222222222",
+            "author": {
+              "id": "11111111-1111-4111-8111-111111111111",
+              "display_name": "Sky observer"
+            },
+            "visibility": "published",
+            "version": 4,
+            "published_revision_id": "55555555-5555-4555-8555-555555555555",
+            "working_revision_id": "77777777-7777-4777-8777-777777777777",
+            "published_at": "2026-11-14T10:00:00Z",
+            "edited_at": null,
+            "created_at": "2026-11-14T10:00:00Z",
+            "updated_at": "2026-11-14T10:00:00Z",
+            "visibility_reason": null
+          },
+          "published_revision": {
+            "id": "55555555-5555-4555-8555-555555555555",
+            "post_id": "22222222-2222-4222-8222-222222222222",
+            "number": 1,
+            "status": "approved",
+            "version": 3,
+            "title": "Possible motion near Barnard Star",
+            "body": "Could this change in position be motion or an image artifact?",
+            "hashtag_ids": [
+              "66666666-6666-4666-8666-666666666666"
+            ],
+            "links": [
+              {
+                "label": "The Eyes",
+                "url": "https://example.org/the-eyes?ra=269.4521&dec=4.6934"
+              }
+            ],
+            "sky_context": {
+              "ra": 269.4521,
+              "dec": 4.6934,
+              "size": 0.1,
+              "detector": 6,
+              "target_key": "barnard"
+            },
+            "created_at": "2026-11-14T10:00:00Z",
+            "updated_at": "2026-11-14T10:00:00Z",
+            "submitted_at": "2026-11-14T10:00:00Z",
+            "reviewed_at": "2026-11-14T10:00:00Z",
+            "reviewed_by": "44444444-4444-4444-8444-444444444444",
+            "rejection_reason": null,
+            "withdrawn_at": null
+          },
+          "working_revision": {
+            "id": "77777777-7777-4777-8777-777777777777",
+            "post_id": "22222222-2222-4222-8222-222222222222",
+            "number": 2,
+            "status": "draft",
+            "version": 1,
+            "title": "Possible motion near Barnard Star",
+            "body": "Could this change in position be motion or an image artifact?",
+            "hashtag_ids": [
+              "66666666-6666-4666-8666-666666666666"
+            ],
+            "links": [
+              {
+                "label": "The Eyes",
+                "url": "https://example.org/the-eyes?ra=269.4521&dec=4.6934"
+              }
+            ],
+            "sky_context": {
+              "ra": 269.4521,
+              "dec": 4.6934,
+              "size": 0.1,
+              "detector": 6,
+              "target_key": "barnard"
+            },
+            "created_at": "2026-11-14T10:00:00Z",
+            "updated_at": "2026-11-14T10:00:00Z",
+            "submitted_at": null,
+            "reviewed_at": null,
+            "reviewed_by": null,
+            "rejection_reason": null,
+            "withdrawn_at": null
+          },
+          "hashtags": [
+            {
+              "id": "66666666-6666-4666-8666-666666666666",
+              "slug": "spherex",
+              "display_name": "SPHEREx",
+              "active": true,
+              "version": 1
+            }
+          ]
+        }
+      }
+    },
+    "forumGetRevision": {
+      "method": "GET",
+      "path": "/api/forum/posts/{post_id}/revisions/{revision_id}",
+      "response_status": 200,
+      "response": {
+        "api_version": "0.1",
+        "revision": {
+          "id": "55555555-5555-4555-8555-555555555555",
+          "post_id": "22222222-2222-4222-8222-222222222222",
+          "number": 1,
+          "status": "draft",
+          "version": 1,
+          "title": "Possible motion near Barnard Star",
+          "body": "Could this change in position be motion or an image artifact?",
+          "hashtag_ids": [
+            "66666666-6666-4666-8666-666666666666"
+          ],
+          "links": [
+            {
+              "label": "The Eyes",
+              "url": "https://example.org/the-eyes?ra=269.4521&dec=4.6934"
+            }
+          ],
+          "sky_context": {
+            "ra": 269.4521,
+            "dec": 4.6934,
+            "size": 0.1,
+            "detector": 6,
+            "target_key": "barnard"
+          },
+          "created_at": "2026-11-14T10:00:00Z",
+          "updated_at": "2026-11-14T10:00:00Z",
+          "submitted_at": null,
+          "reviewed_at": null,
+          "reviewed_by": null,
+          "rejection_reason": null,
+          "withdrawn_at": null
+        }
+      }
+    },
+    "forumUpdateDraft": {
+      "method": "PATCH",
+      "path": "/api/forum/posts/{post_id}/revisions/{revision_id}",
+      "response_status": 200,
+      "request": {
+        "expected_version": 1,
+        "body": "Additional observation context for the reviewer."
+      },
+      "response": {
+        "api_version": "0.1",
+        "workspace": {
+          "post": {
+            "id": "22222222-2222-4222-8222-222222222222",
+            "author": {
+              "id": "11111111-1111-4111-8111-111111111111",
+              "display_name": "Sky observer"
+            },
+            "visibility": "unpublished",
+            "version": 2,
+            "published_revision_id": null,
+            "working_revision_id": "55555555-5555-4555-8555-555555555555",
+            "published_at": null,
+            "edited_at": null,
+            "created_at": "2026-11-14T10:00:00Z",
+            "updated_at": "2026-11-14T10:00:00Z",
+            "visibility_reason": null
+          },
+          "published_revision": null,
+          "working_revision": {
+            "id": "55555555-5555-4555-8555-555555555555",
+            "post_id": "22222222-2222-4222-8222-222222222222",
+            "number": 1,
+            "status": "draft",
+            "version": 2,
+            "title": "Possible motion near Barnard Star",
+            "body": "Additional observation context for the reviewer.",
+            "hashtag_ids": [
+              "66666666-6666-4666-8666-666666666666"
+            ],
+            "links": [
+              {
+                "label": "The Eyes",
+                "url": "https://example.org/the-eyes?ra=269.4521&dec=4.6934"
+              }
+            ],
+            "sky_context": {
+              "ra": 269.4521,
+              "dec": 4.6934,
+              "size": 0.1,
+              "detector": 6,
+              "target_key": "barnard"
+            },
+            "created_at": "2026-11-14T10:00:00Z",
+            "updated_at": "2026-11-14T10:00:00Z",
+            "submitted_at": null,
+            "reviewed_at": null,
+            "reviewed_by": null,
+            "rejection_reason": null,
+            "withdrawn_at": null
+          },
+          "hashtags": [
+            {
+              "id": "66666666-6666-4666-8666-666666666666",
+              "slug": "spherex",
+              "display_name": "SPHEREx",
+              "active": true,
+              "version": 1
+            }
+          ]
+        }
+      }
+    },
+    "forumSubmitRevision": {
+      "method": "POST",
+      "path": "/api/forum/posts/{post_id}/revisions/{revision_id}/submission",
+      "response_status": 200,
+      "headers": {
+        "Idempotency-Key": "77777777-7777-4777-8777-777777777777"
+      },
+      "request": {
+        "expected_revision_version": 1,
+        "expected_post_version": 1
+      },
+      "response": {
+        "api_version": "0.1",
+        "workspace": {
+          "post": {
+            "id": "22222222-2222-4222-8222-222222222222",
+            "author": {
+              "id": "11111111-1111-4111-8111-111111111111",
+              "display_name": "Sky observer"
+            },
+            "visibility": "unpublished",
+            "version": 2,
+            "published_revision_id": null,
+            "working_revision_id": "55555555-5555-4555-8555-555555555555",
+            "published_at": null,
+            "edited_at": null,
+            "created_at": "2026-11-14T10:00:00Z",
+            "updated_at": "2026-11-14T10:00:00Z",
+            "visibility_reason": null
+          },
+          "published_revision": null,
+          "working_revision": {
+            "id": "55555555-5555-4555-8555-555555555555",
+            "post_id": "22222222-2222-4222-8222-222222222222",
+            "number": 1,
+            "status": "pending",
+            "version": 2,
+            "title": "Possible motion near Barnard Star",
+            "body": "Could this change in position be motion or an image artifact?",
+            "hashtag_ids": [
+              "66666666-6666-4666-8666-666666666666"
+            ],
+            "links": [
+              {
+                "label": "The Eyes",
+                "url": "https://example.org/the-eyes?ra=269.4521&dec=4.6934"
+              }
+            ],
+            "sky_context": {
+              "ra": 269.4521,
+              "dec": 4.6934,
+              "size": 0.1,
+              "detector": 6,
+              "target_key": "barnard"
+            },
+            "created_at": "2026-11-14T10:00:00Z",
+            "updated_at": "2026-11-14T10:00:00Z",
+            "submitted_at": "2026-11-14T10:00:00Z",
+            "reviewed_at": null,
+            "reviewed_by": null,
+            "rejection_reason": null,
+            "withdrawn_at": null
+          },
+          "hashtags": [
+            {
+              "id": "66666666-6666-4666-8666-666666666666",
+              "slug": "spherex",
+              "display_name": "SPHEREx",
+              "active": true,
+              "version": 1
+            }
+          ]
+        }
+      }
+    },
+    "forumWithdrawRevision": {
+      "method": "POST",
+      "path": "/api/forum/posts/{post_id}/revisions/{revision_id}/withdrawal",
+      "response_status": 200,
+      "headers": {
+        "Idempotency-Key": "77777777-7777-4777-8777-777777777777"
+      },
+      "request": {
+        "expected_revision_version": 2,
+        "expected_post_version": 2
+      },
+      "response": {
+        "api_version": "0.1",
+        "workspace": {
+          "post": {
+            "id": "22222222-2222-4222-8222-222222222222",
+            "author": {
+              "id": "11111111-1111-4111-8111-111111111111",
+              "display_name": "Sky observer"
+            },
+            "visibility": "unpublished",
+            "version": 3,
+            "published_revision_id": null,
+            "working_revision_id": null,
+            "published_at": null,
+            "edited_at": null,
+            "created_at": "2026-11-14T10:00:00Z",
+            "updated_at": "2026-11-14T10:00:00Z",
+            "visibility_reason": null
+          },
+          "published_revision": null,
+          "working_revision": null,
+          "hashtags": [
+            {
+              "id": "66666666-6666-4666-8666-666666666666",
+              "slug": "spherex",
+              "display_name": "SPHEREx",
+              "active": true,
+              "version": 1
+            }
+          ]
+        }
+      }
+    },
+    "forumListReviews": {
+      "method": "GET",
+      "path": "/api/forum/admin/reviews",
+      "response_status": 200,
+      "response": {
+        "api_version": "0.1",
+        "items": [
+          {
+            "post": {
+              "id": "22222222-2222-4222-8222-222222222222",
+              "author": {
+                "id": "11111111-1111-4111-8111-111111111111",
+                "display_name": "Sky observer"
+              },
+              "visibility": "unpublished",
+              "version": 2,
+              "published_revision_id": null,
+              "working_revision_id": "55555555-5555-4555-8555-555555555555",
+              "published_at": null,
+              "edited_at": null,
+              "created_at": "2026-11-14T10:00:00Z",
+              "updated_at": "2026-11-14T10:00:00Z",
+              "visibility_reason": null
+            },
+            "submitted_revision": {
+              "id": "55555555-5555-4555-8555-555555555555",
+              "post_id": "22222222-2222-4222-8222-222222222222",
+              "number": 1,
+              "status": "pending",
+              "version": 2,
+              "title": "Possible motion near Barnard Star",
+              "body": "Could this change in position be motion or an image artifact?",
+              "hashtag_ids": [
+                "66666666-6666-4666-8666-666666666666"
+              ],
+              "links": [
+                {
+                  "label": "The Eyes",
+                  "url": "https://example.org/the-eyes?ra=269.4521&dec=4.6934"
+                }
+              ],
+              "sky_context": {
+                "ra": 269.4521,
+                "dec": 4.6934,
+                "size": 0.1,
+                "detector": 6,
+                "target_key": "barnard"
+              },
+              "created_at": "2026-11-14T10:00:00Z",
+              "updated_at": "2026-11-14T10:00:00Z",
+              "submitted_at": "2026-11-14T10:00:00Z",
+              "reviewed_at": null,
+              "reviewed_by": null,
+              "rejection_reason": null,
+              "withdrawn_at": null
+            },
+            "published_revision": null,
+            "hashtags": [
+              {
+                "id": "66666666-6666-4666-8666-666666666666",
+                "slug": "spherex",
+                "display_name": "SPHEREx",
+                "active": true,
+                "version": 1
+              }
+            ]
+          }
+        ],
+        "next_cursor": null
+      }
+    },
+    "forumReviewRevision": {
+      "method": "POST",
+      "path": "/api/forum/admin/posts/{post_id}/revisions/{revision_id}/decision",
+      "response_status": 200,
+      "headers": {
+        "Idempotency-Key": "77777777-7777-4777-8777-777777777777"
+      },
+      "request": {
+        "decision": "approve",
+        "expected_revision_version": 2,
+        "expected_post_version": 2
+      },
+      "response": {
+        "api_version": "0.1",
+        "workspace": {
+          "post": {
+            "id": "22222222-2222-4222-8222-222222222222",
+            "author": {
+              "id": "11111111-1111-4111-8111-111111111111",
+              "display_name": "Sky observer"
+            },
+            "visibility": "published",
+            "version": 3,
+            "published_revision_id": "55555555-5555-4555-8555-555555555555",
+            "working_revision_id": null,
+            "published_at": "2026-11-14T10:00:00Z",
+            "edited_at": null,
+            "created_at": "2026-11-14T10:00:00Z",
+            "updated_at": "2026-11-14T10:00:00Z",
+            "visibility_reason": null
+          },
+          "published_revision": {
+            "id": "55555555-5555-4555-8555-555555555555",
+            "post_id": "22222222-2222-4222-8222-222222222222",
+            "number": 1,
+            "status": "approved",
+            "version": 3,
+            "title": "Possible motion near Barnard Star",
+            "body": "Could this change in position be motion or an image artifact?",
+            "hashtag_ids": [
+              "66666666-6666-4666-8666-666666666666"
+            ],
+            "links": [
+              {
+                "label": "The Eyes",
+                "url": "https://example.org/the-eyes?ra=269.4521&dec=4.6934"
+              }
+            ],
+            "sky_context": {
+              "ra": 269.4521,
+              "dec": 4.6934,
+              "size": 0.1,
+              "detector": 6,
+              "target_key": "barnard"
+            },
+            "created_at": "2026-11-14T10:00:00Z",
+            "updated_at": "2026-11-14T10:00:00Z",
+            "submitted_at": "2026-11-14T10:00:00Z",
+            "reviewed_at": "2026-11-14T10:00:00Z",
+            "reviewed_by": "44444444-4444-4444-8444-444444444444",
+            "rejection_reason": null,
+            "withdrawn_at": null
+          },
+          "working_revision": null,
+          "hashtags": [
+            {
+              "id": "66666666-6666-4666-8666-666666666666",
+              "slug": "spherex",
+              "display_name": "SPHEREx",
+              "active": true,
+              "version": 1
+            }
+          ]
+        }
+      }
+    },
+    "forumChangePostVisibility": {
+      "method": "POST",
+      "path": "/api/forum/admin/posts/{post_id}/visibility",
+      "response_status": 200,
+      "headers": {
+        "Idempotency-Key": "77777777-7777-4777-8777-777777777777"
+      },
+      "request": {
+        "action": "hide",
+        "expected_version": 3,
+        "reason": "Needs additional context."
+      },
+      "response": {
+        "api_version": "0.1",
+        "workspace": {
+          "post": {
+            "id": "22222222-2222-4222-8222-222222222222",
+            "author": {
+              "id": "11111111-1111-4111-8111-111111111111",
+              "display_name": "Sky observer"
+            },
+            "visibility": "hidden",
+            "version": 4,
+            "published_revision_id": "55555555-5555-4555-8555-555555555555",
+            "working_revision_id": null,
+            "published_at": "2026-11-14T10:00:00Z",
+            "edited_at": null,
+            "created_at": "2026-11-14T10:00:00Z",
+            "updated_at": "2026-11-14T10:00:00Z",
+            "visibility_reason": {
+              "action": "hide",
+              "reason": "Needs additional context.",
+              "actor_id": "44444444-4444-4444-8444-444444444444",
+              "at": "2026-11-14T10:00:00Z"
+            }
+          },
+          "published_revision": {
+            "id": "55555555-5555-4555-8555-555555555555",
+            "post_id": "22222222-2222-4222-8222-222222222222",
+            "number": 1,
+            "status": "approved",
+            "version": 3,
+            "title": "Possible motion near Barnard Star",
+            "body": "Could this change in position be motion or an image artifact?",
+            "hashtag_ids": [
+              "66666666-6666-4666-8666-666666666666"
+            ],
+            "links": [
+              {
+                "label": "The Eyes",
+                "url": "https://example.org/the-eyes?ra=269.4521&dec=4.6934"
+              }
+            ],
+            "sky_context": {
+              "ra": 269.4521,
+              "dec": 4.6934,
+              "size": 0.1,
+              "detector": 6,
+              "target_key": "barnard"
+            },
+            "created_at": "2026-11-14T10:00:00Z",
+            "updated_at": "2026-11-14T10:00:00Z",
+            "submitted_at": "2026-11-14T10:00:00Z",
+            "reviewed_at": "2026-11-14T10:00:00Z",
+            "reviewed_by": "44444444-4444-4444-8444-444444444444",
+            "rejection_reason": null,
+            "withdrawn_at": null
+          },
+          "working_revision": null,
+          "hashtags": [
+            {
+              "id": "66666666-6666-4666-8666-666666666666",
+              "slug": "spherex",
+              "display_name": "SPHEREx",
+              "active": true,
+              "version": 1
+            }
+          ]
+        }
+      }
+    },
+    "forumListComments": {
+      "method": "GET",
+      "path": "/api/forum/posts/{post_id}/comments",
+      "response_status": 200,
+      "response": {
+        "api_version": "0.1",
+        "comments": [
+          {
+            "id": "33333333-3333-4333-8333-333333333333",
+            "post_id": "22222222-2222-4222-8222-222222222222",
+            "observed_revision_id": "55555555-5555-4555-8555-555555555555",
+            "author": {
+              "id": "11111111-1111-4111-8111-111111111111",
+              "display_name": "Sky observer"
+            },
+            "body": "Please compare observation times and detectors.",
+            "version": 1,
+            "created_at": "2026-11-14T10:00:00Z",
+            "updated_at": "2026-11-14T10:00:00Z"
+          }
+        ],
+        "next_cursor": null
+      }
+    },
+    "forumCreateComment": {
+      "method": "POST",
+      "path": "/api/forum/posts/{post_id}/comments",
+      "response_status": 201,
+      "headers": {
+        "Idempotency-Key": "77777777-7777-4777-8777-777777777777"
+      },
+      "request": {
+        "body": "Please compare observation times and detectors.",
+        "observed_revision_id": "55555555-5555-4555-8555-555555555555"
+      },
+      "response": {
+        "api_version": "0.1",
+        "comment": {
+          "id": "33333333-3333-4333-8333-333333333333",
+          "post_id": "22222222-2222-4222-8222-222222222222",
+          "observed_revision_id": "55555555-5555-4555-8555-555555555555",
+          "author": {
+            "id": "11111111-1111-4111-8111-111111111111",
+            "display_name": "Sky observer"
+          },
+          "body": "Please compare observation times and detectors.",
+          "version": 1,
+          "created_at": "2026-11-14T10:00:00Z",
+          "updated_at": "2026-11-14T10:00:00Z"
+        }
+      }
+    },
+    "forumUpdateComment": {
+      "method": "PATCH",
+      "path": "/api/forum/comments/{comment_id}",
+      "response_status": 200,
+      "request": {
+        "expected_version": 1,
+        "body": "Please compare detector coverage as well."
+      },
+      "response": {
+        "api_version": "0.1",
+        "comment": {
+          "id": "33333333-3333-4333-8333-333333333333",
+          "post_id": "22222222-2222-4222-8222-222222222222",
+          "observed_revision_id": "55555555-5555-4555-8555-555555555555",
+          "author": {
+            "id": "11111111-1111-4111-8111-111111111111",
+            "display_name": "Sky observer"
+          },
+          "body": "Please compare detector coverage as well.",
+          "version": 2,
+          "created_at": "2026-11-14T10:00:00Z",
+          "updated_at": "2026-11-14T10:00:00Z"
+        }
+      }
+    },
+    "forumDeleteComment": {
+      "method": "DELETE",
+      "path": "/api/forum/comments/{comment_id}",
+      "response_status": 204
+    },
+    "forumInspectComment": {
+      "method": "GET",
+      "path": "/api/forum/comments/{comment_id}/workspace",
+      "response_status": 200,
+      "response": {
+        "api_version": "0.1",
+        "item": {
+          "comment": {
+            "id": "33333333-3333-4333-8333-333333333333",
+            "post_id": "22222222-2222-4222-8222-222222222222",
+            "observed_revision_id": "55555555-5555-4555-8555-555555555555",
+            "author": {
+              "id": "11111111-1111-4111-8111-111111111111",
+              "display_name": "Sky observer"
+            },
+            "body": "Please compare observation times and detectors.",
+            "version": 1,
+            "created_at": "2026-11-14T10:00:00Z",
+            "updated_at": "2026-11-14T10:00:00Z"
+          },
+          "visibility": "visible",
+          "visibility_reason": null
+        }
+      }
+    },
+    "forumChangeCommentVisibility": {
+      "method": "POST",
+      "path": "/api/forum/admin/comments/{comment_id}/visibility",
+      "response_status": 200,
+      "headers": {
+        "Idempotency-Key": "77777777-7777-4777-8777-777777777777"
+      },
+      "request": {
+        "action": "hide",
+        "expected_version": 1,
+        "reason": "Off-topic comment."
+      },
+      "response": {
+        "api_version": "0.1",
+        "item": {
+          "comment": {
+            "id": "33333333-3333-4333-8333-333333333333",
+            "post_id": "22222222-2222-4222-8222-222222222222",
+            "observed_revision_id": "55555555-5555-4555-8555-555555555555",
+            "author": {
+              "id": "11111111-1111-4111-8111-111111111111",
+              "display_name": "Sky observer"
+            },
+            "body": "Please compare observation times and detectors.",
+            "version": 2,
+            "created_at": "2026-11-14T10:00:00Z",
+            "updated_at": "2026-11-14T10:00:00Z"
+          },
+          "visibility": "hidden",
+          "visibility_reason": {
+            "action": "hide",
+            "reason": "Off-topic comment.",
+            "actor_id": "44444444-4444-4444-8444-444444444444",
+            "at": "2026-11-14T10:00:00Z"
+          }
+        }
+      }
+    },
+    "forumCreateReport": {
+      "method": "POST",
+      "path": "/api/forum/reports",
+      "response_status": 201,
+      "headers": {
+        "Idempotency-Key": "77777777-7777-4777-8777-777777777777"
+      },
+      "request": {
+        "target_type": "post",
+        "target_id": "22222222-2222-4222-8222-222222222222",
+        "reason_code": "off_topic",
+        "description": "Please review the context."
+      },
+      "response": {
+        "api_version": "0.1",
+        "report": {
+          "id": "88888888-8888-4888-8888-888888888888",
+          "target_type": "post",
+          "target_id": "22222222-2222-4222-8222-222222222222",
+          "reason_code": "off_topic",
+          "description": "Please review the context.",
+          "status": "open",
+          "version": 1,
+          "created_at": "2026-11-14T10:00:00Z",
+          "updated_at": "2026-11-14T10:00:00Z"
+        }
+      }
+    },
+    "forumListReports": {
+      "method": "GET",
+      "path": "/api/forum/admin/reports",
+      "response_status": 200,
+      "response": {
+        "api_version": "0.1",
+        "items": [
+          {
+            "report": {
+              "id": "88888888-8888-4888-8888-888888888888",
+              "target_type": "post",
+              "target_id": "22222222-2222-4222-8222-222222222222",
+              "reason_code": "off_topic",
+              "description": "Please review the context.",
+              "status": "open",
+              "version": 1,
+              "created_at": "2026-11-14T10:00:00Z",
+              "updated_at": "2026-11-14T10:00:00Z"
+            },
+            "reporter_id": "11111111-1111-4111-8111-111111111111",
+            "resolution_reason": null,
+            "resolved_by": null,
+            "resolved_at": null
+          }
+        ],
+        "next_cursor": null
+      }
+    },
+    "forumResolveReport": {
+      "method": "POST",
+      "path": "/api/forum/admin/reports/{report_id}/decision",
+      "response_status": 200,
+      "headers": {
+        "Idempotency-Key": "77777777-7777-4777-8777-777777777777"
+      },
+      "request": {
+        "decision": "resolved",
+        "expected_version": 1,
+        "reason": "Reviewed and handled."
+      },
+      "response": {
+        "api_version": "0.1",
+        "item": {
+          "report": {
+            "id": "88888888-8888-4888-8888-888888888888",
+            "target_type": "post",
+            "target_id": "22222222-2222-4222-8222-222222222222",
+            "reason_code": "off_topic",
+            "description": "Please review the context.",
+            "status": "resolved",
+            "version": 2,
+            "created_at": "2026-11-14T10:00:00Z",
+            "updated_at": "2026-11-14T10:00:00Z"
+          },
+          "reporter_id": "11111111-1111-4111-8111-111111111111",
+          "resolution_reason": "Reviewed and handled.",
+          "resolved_by": "44444444-4444-4444-8444-444444444444",
+          "resolved_at": "2026-11-14T10:00:00Z"
+        }
+      }
+    },
+    "forumListNotifications": {
+      "method": "GET",
+      "path": "/api/forum/me/notifications",
+      "response_status": 200,
+      "response": {
+        "api_version": "0.1",
+        "notifications": [
+          {
+            "id": "99999999-9999-4999-8999-999999999999",
+            "type": "submission_received",
+            "post_id": "22222222-2222-4222-8222-222222222222",
+            "revision_id": "55555555-5555-4555-8555-555555555555",
+            "comment_id": null,
+            "created_at": "2026-11-14T10:00:00Z",
+            "read_at": null
+          }
+        ],
+        "next_cursor": null
+      }
+    },
+    "forumReadNotification": {
+      "method": "PATCH",
+      "path": "/api/forum/me/notifications/{notification_id}",
+      "response_status": 200,
+      "request": {
+        "read": true
+      },
+      "response": {
+        "api_version": "0.1",
+        "notification": {
+          "id": "99999999-9999-4999-8999-999999999999",
+          "type": "submission_received",
+          "post_id": "22222222-2222-4222-8222-222222222222",
+          "revision_id": "55555555-5555-4555-8555-555555555555",
+          "comment_id": null,
+          "created_at": "2026-11-14T10:00:00Z",
+          "read_at": "2026-11-14T10:00:00Z"
+        }
+      }
+    },
+    "forumListAudit": {
+      "method": "GET",
+      "path": "/api/forum/admin/audit-events",
+      "response_status": 200,
+      "response": {
+        "api_version": "0.1",
+        "events": [
+          {
+            "id": "99999999-9999-4999-8999-999999999999",
+            "actor_id": "44444444-4444-4444-8444-444444444444",
+            "action": "revision_approved",
+            "post_id": "22222222-2222-4222-8222-222222222222",
+            "revision_id": "55555555-5555-4555-8555-555555555555",
+            "comment_id": null,
+            "report_id": null,
+            "hashtag_id": null,
+            "reason": null,
+            "from_state": "pending",
+            "to_state": "approved",
+            "created_at": "2026-11-14T10:00:00Z"
+          }
+        ],
+        "next_cursor": null
+      }
+    }
+  }
+}

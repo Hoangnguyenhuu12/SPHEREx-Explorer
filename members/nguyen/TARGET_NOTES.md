@@ -1,5 +1,7 @@
 # Five target notes for the team (English)
 
+> Historical notes from an earlier dataset; revalidate all stated test results against the current DR1 data before using them in the application.
+
 These are catalogue-based expectations, not SPHEREx detections from our pipeline.
 
 ## Barnard's Star
