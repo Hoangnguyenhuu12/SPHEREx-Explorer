@@ -45,6 +45,12 @@ const SURVEY_MIRRORS = [
 
 export const GAIA_RADIUS_DEG = 0.1
 
+/**
+ * Closest map zoom: the SPHEREx DR1 HiPS is only ~12.9″ per pixel, so zooming further shows big
+ * blocks. Readout 1/tan(fov/2) = 300 → about 30,000%, half of the previous ~60,000% maximum.
+ */
+const MIN_FOV_DEG = (2 * Math.atan(1 / 300) * 180) / Math.PI
+
 /** VizieR mirrors for Gaia DR3 (I/355/gaiadr3). */
 const VIZIER_MIRRORS = ['https://vizier.cds.unistra.fr', 'https://vizier.cfa.harvard.edu', 'https://vizier.iucaa.in']
 
@@ -153,8 +159,18 @@ export const AladinMap = forwardRef<SkyMapHandle, Props>(function AladinMap(
           showFov: false,
         })
         aladinRef.current = aladin
+        let clamping = false
         const reportFov = (fovDeg: number) => {
-          if (!disposed && Number.isFinite(fovDeg) && fovDeg > 0 && fovDeg < 180) onFovChanged(fovDeg)
+          if (disposed || !Number.isFinite(fovDeg) || fovDeg <= 0 || fovDeg >= 180) return
+          if (fovDeg < MIN_FOV_DEG && !clamping) {
+            // Wheel, pinch or buttons went past the limit: snap back to it.
+            clamping = true
+            aladin.setFoV(MIN_FOV_DEG)
+            clamping = false
+            onFovChanged(MIN_FOV_DEG)
+            return
+          }
+          onFovChanged(fovDeg)
         }
         aladin.on('zoomChanged', reportFov)
         reportFov(aladin.getFov()[0])
@@ -248,7 +264,7 @@ export const AladinMap = forwardRef<SkyMapHandle, Props>(function AladinMap(
       focus(ra, dec, fovDeg) {
         const a = aladinRef.current
         if (!a) return
-        if (fovDeg) a.setFoV(fovDeg)
+        if (fovDeg) a.setFoV(Math.max(MIN_FOV_DEG, fovDeg))
         if (typeof a.animateToRaDec === 'function') a.animateToRaDec(ra, dec, 0.8)
         else a.gotoRaDec(ra, dec)
       },
@@ -308,7 +324,11 @@ export const AladinMap = forwardRef<SkyMapHandle, Props>(function AladinMap(
         })
       },
       zoomIn() {
-        aladinRef.current?.increaseZoom()
+        const a = aladinRef.current
+        if (!a) return
+        a.increaseZoom()
+        const f = a.getFov?.()
+        if (Array.isArray(f) && f[0] < MIN_FOV_DEG) a.setFoV(MIN_FOV_DEG)
       },
       zoomOut() {
         aladinRef.current?.decreaseZoom()

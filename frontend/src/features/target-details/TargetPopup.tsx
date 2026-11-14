@@ -172,9 +172,6 @@ export function TargetPopup(p: Props) {
               gaia={p.gaia}
               setGaia={p.setGaia}
               gaiaStatus={p.gaiaStatus}
-              pick={p.toggles.pick}
-              setPick={(v) => p.setToggles({ pick: v })}
-              picked={picked}
               shareUrl={p.shareUrl}
               embedUrl={p.embedUrl}
             />
