@@ -9,7 +9,7 @@ Implements the official build_frames() pipeline:
   - Applies a shared AsinhStretch normalization across all frames of the detector.
   - Computes predicted_px for each frame with flipped vertical axis (PNG top-left origin):
       x_png = x_fits,  y_png = (height - 1) - y_fits
-  - Generates standard frame PNGs, difference PNGs (with RdBu_r colormap and #703090 missing mask).
+  - Generates standard frame PNGs, difference PNGs (with RdBu_r colormap and #000000 missing mask).
   - Produces verification PNGs with crosshairs overlaid at predicted_px to verify target motion.
 """
 
@@ -37,7 +37,7 @@ from reproject import reproject_interp
 from tan_pipeline import ROOT, load_cutout, tan_grid
 
 # Missing/masked data color convention across the project
-COLOR_MISSING = "#703090"  # Purple
+COLOR_MISSING = "#000000"  # Black
 
 
 def compute_predicted_pixel(

@@ -269,7 +269,7 @@ def saturation_evidence(info):
     lo, hi = np.percentile(raw[np.isfinite(raw)], [2, 99.5])
     norm = ImageNormalize(vmin=lo, vmax=hi, stretch=AsinhStretch())
     fig, axes = plt.subplots(1, 3, figsize=(14, 5), constrained_layout=True)
-    cmap = plt.get_cmap("gray").with_extremes(bad="#703090")
+    cmap = plt.get_cmap("gray").with_extremes(bad="#000000")
     for ax, data, title in zip(
         axes,
         (raw, affected, masked),

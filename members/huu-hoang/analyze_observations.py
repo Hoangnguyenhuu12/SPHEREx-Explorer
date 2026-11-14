@@ -104,7 +104,7 @@ def find_image_changes():
         ax.imshow(
             data,
             origin="lower",
-            cmap=plt.get_cmap("RdBu_r").with_extremes(bad="#703090"),
+            cmap=plt.get_cmap("RdBu_r").with_extremes(bad="#000000"),
             vmin=-limit,
             vmax=limit,
         )
@@ -121,8 +121,8 @@ def find_image_changes():
         (axes[0], "RdBu_r", "Before: missing pixels transparent/white"),
         (
             axes[1],
-            plt.get_cmap("RdBu_r").with_extremes(bad="#703090"),
-            "After: missing pixels purple",
+            plt.get_cmap("RdBu_r").with_extremes(bad="#000000"),
+            "After: missing pixels black",
         ),
     ):
         ax.imshow(data, origin="lower", cmap=cmap, vmin=-limit, vmax=limit)
@@ -291,7 +291,7 @@ def extract_spectrum_samples(download=False, wide_background=False):
     axes[0].imshow(
         native,
         origin="lower",
-        cmap=plt.get_cmap("gray").with_extremes(bad="#703090"),
+        cmap=plt.get_cmap("gray").with_extremes(bad="#000000"),
         vmin=low,
         vmax=high,
     )
