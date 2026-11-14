@@ -111,8 +111,9 @@ export const httpApi: ObservationApi = {
     return res.json()
   },
 
-  async spectrum() {
-    throw new ApiError('NOT_AVAILABLE', 'Spectrum endpoint is not part of API 0.1')
+  async spectrum(q: { ra: number; dec: number }, signal) {
+    const res = await request('api/spectrum', { ra: q.ra, dec: q.dec }, signal, 70_000)
+    return res.json()
   },
 
   async flags() {

@@ -16,6 +16,7 @@ from ..api_models import (
     Target,
 )
 from .catalog import resolve_name, targets
+from . import database_provider
 from .frame_rendering import NoCoverage
 from .live_cutouts import cached_result, harvest_mode, load_cutouts, workspace
 from .observed_frames import matching_cutouts, render_cached
@@ -49,7 +50,7 @@ def fail(status, code, message, details=None):
 
 
 def require_fixture_mode():
-    if os.getenv("DATA_MODE", "fixture") not in {"fixture", "real", "harvest"}:
+    if os.getenv("DATA_MODE", "fixture") not in {"fixture", "real", "harvest", "database"}:
         fail(500, "INTERNAL", "Unsupported data mode.")
 
 
@@ -88,7 +89,13 @@ def target(query):
 
 
 def health():
-    if harvest_mode():
+    if database_provider.enabled():
+        try:
+            database_provider.health()
+            result = {"api_version": "0.1", "status": "ok", "mode": "database", "fixture_targets": [], "irsa_reachable": False}
+        except database_provider.DatabaseError:
+            result = {"api_version": "0.1", "status": "degraded", "mode": "database", "fixture_targets": [], "irsa_reachable": False}
+    elif harvest_mode():
         result = {"api_version": "0.1", "status": "ok", "mode": "harvest", "fixture_targets": [], "irsa_reachable": False}
     elif real_mode():
         result = {"api_version": "0.1", "status": "ok", "mode": "local", "fixture_targets": [], "irsa_reachable": None}
@@ -101,6 +108,18 @@ def health():
 
 
 def resolve(query: ResolveQuery):
+    if database_provider.enabled():
+        row = database_provider.find_target(query.name)
+        if row is None:
+            fail(404, "UNKNOWN_TARGET", "Name absent from Supabase targets table.", {"name": query.name})
+        return {
+            "api_version": "0.1", "query": query.name, "target_key": row.get("target_key"),
+            "name": row.get("name", query.name), "ra": row.get("ra_deg", row.get("ra")),
+            "dec": row.get("dec_deg", row.get("dec")), "epoch": row.get("epoch", "J2000.0"),
+            "pmra": row.get("pmra"), "pmdec": row.get("pmdec"),
+            "parallax_mas": row.get("parallax_mas"), "kind": row.get("kind", "other"),
+            "source": "targets_table",
+        }
     result = resolve_name(query.name)
     if result is None:
         fail(404, "UNKNOWN_TARGET", "Name absent from fixture resolver.", {"name": query.name})
@@ -290,3 +309,75 @@ def astrometry(query: ScienceQuery):
         result["points"] = []
         result["fit"] = None
     return result
+
+
+def spectrum(query: ScienceQuery):
+    """Read the selected sky position from each local harvest FITS."""
+    if not harvest_mode():
+        fail(404, "NO_SPECTRUM", "Spectrum-at-point requires DATA_MODE=harvest.")
+    from astropy.coordinates import SkyCoord
+    from astropy.io import fits
+    from astropy.wcs import WCS
+    root = ROOT / "data" / "harvest" / str(query.target_key) / "spherex"
+    if not root.is_dir():
+        fail(404, "NO_SPECTRUM", "No local harvest data for this target.")
+    points = []
+    sky = SkyCoord(query.ra, query.dec, unit="deg")
+    for path in sorted(root.glob("*.fits")):
+        if query.detector is not None and f"_D{query.detector}_" not in path.name:
+            continue
+        try:
+            with fits.open(path, memmap=False) as hdus:
+                image = hdus["IMAGE"].data
+                variance = hdus["VARIANCE"].data
+                flags = hdus["FLAGS"].data
+                wcs = WCS(hdus["IMAGE"].header, fobj=hdus).celestial
+                x, y = wcs.world_to_pixel(sky)
+                approximate = not (0 <= x < image.shape[1] and 0 <= y < image.shape[0])
+                ix = max(0, min(image.shape[1] - 1, round(x)))
+                iy = max(0, min(image.shape[0] - 1, round(y)))
+                value = float(image[iy, ix])
+                var = float(variance[iy, ix])
+                flagged = bool(flags[iy, ix]) or not (value == value and var > 0)
+                wave = None
+                if "WCS-WAVE" in hdus:
+                    table = hdus["WCS-WAVE"].data
+                    xs = table["X"][0].astype(float)
+                    ys = table["Y"][0].astype(float)
+                    image_header = hdus["IMAGE"].header
+                    x = 1 + x - float(image_header.get("CRPIX1A", 1))
+                    y = 1 + y - float(image_header.get("CRPIX2A", 1))
+                    values = table["VALUES"][0]
+                    ix0 = max(0, min(len(xs) - 2, int(__import__("numpy").searchsorted(xs, x) - 1)))
+                    iy0 = max(0, min(len(ys) - 2, int(__import__("numpy").searchsorted(ys, y) - 1)))
+                    tx = (x - xs[ix0]) / (xs[ix0 + 1] - xs[ix0])
+                    ty = (y - ys[iy0]) / (ys[iy0 + 1] - ys[iy0])
+                    wave = float((1 - tx) * (1 - ty) * values[0, iy0, ix0] + tx * (1 - ty) * values[0, iy0, ix0 + 1] + (1 - tx) * ty * values[0, iy0 + 1, ix0] + tx * ty * values[0, iy0 + 1, ix0 + 1])
+                if wave is None or not (wave > 0):
+                    wave = {1: 0.92, 2: 1.38, 3: 2.03, 4: 3.12, 5: 4.12, 6: 4.71}[int(path.name.split("_D", 1)[1].split("_", 1)[0])]
+                detector = int(path.name.split("_D", 1)[1].split("_", 1)[0])
+                points.append({"wavelength_um": wave, "flux_mjy": None if flagged else value * 1e3, "err_mjy": None if flagged else (var ** 0.5) * 1e3, "flagged": flagged, "detector": detector, "warnings": ["GRID_TO_NATIVE_APPROXIMATION"] if approximate else []})
+        except (OSError, KeyError, ValueError, TypeError):
+            continue
+    if not points:
+        # A cutout can carry a native WCS whose alternate spectral table is not
+        # directly invertible after reprojection. Keep the tool usable by
+        # returning the central detector pixel with an explicit quality warning.
+        central = {1: 0.92, 2: 1.38, 3: 2.03, 4: 3.12, 5: 4.12, 6: 4.71}
+        for path in sorted(root.glob("*.fits")):
+            if query.detector is not None and f"_D{query.detector}_" not in path.name:
+                continue
+            try:
+                with fits.open(path, memmap=False) as hdus:
+                    image = hdus["IMAGE"].data
+                    variance = hdus["VARIANCE"].data
+                    flags = hdus["FLAGS"].data
+                    iy, ix = image.shape[0] // 2, image.shape[1] // 2
+                    detector = int(path.name.split("_D", 1)[1].split("_", 1)[0])
+                    flagged = bool(flags[iy, ix]) or not (float(variance[iy, ix]) > 0)
+                    points.append({"wavelength_um": central[detector], "flux_mjy": None if flagged else float(image[iy, ix]) * 1e3, "err_mjy": None if flagged else float(variance[iy, ix]) ** 0.5 * 1e3, "flagged": flagged, "detector": detector, "warnings": ["GRID_TO_NATIVE_APPROXIMATION", "CENTRAL_PIXEL_FALLBACK"]})
+            except (OSError, KeyError, ValueError, TypeError):
+                continue
+        if not points:
+            fail(404, "NO_SPECTRUM", "No valid spectral pixels cover this position.")
+    return {"api_version": "0.1", "mode": "harvest", "flux_unit": "mJy", "points": sorted(points, key=lambda p: p["wavelength_um"])}

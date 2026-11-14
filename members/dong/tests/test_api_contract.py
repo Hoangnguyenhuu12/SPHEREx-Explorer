@@ -122,7 +122,7 @@ def test_openapi_and_sample_schema(client):
     from app.api_models import Frames
 
     schema = client.get("/openapi.json").json()
-    assert len(schema["paths"]) == 7
+    assert len(schema["paths"]) == 8
     assert all("get" in route for route in schema["paths"].values())
     root = Path(__file__).resolve().parents[3]
     Frames.model_validate_json((root / "api_samples/frames_barnard_d6.json").read_text())
