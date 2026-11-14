@@ -108,7 +108,7 @@ export default function GlobePage() {
     setView((previous) => rotateView(previous, ...change));
   }
 
-  const framesUrl = `/?${new URLSearchParams({ q: target.name, det: "D6" })}`;
+  const framesUrl = `/the-eyes?${new URLSearchParams({ q: target.key, det: "6" })}`;
   return (
     <main className="globe-page">
       <header className="globe-header">

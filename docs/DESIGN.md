@@ -56,7 +56,7 @@ Không dùng chữ in hoa giãn chữ hàng loạt. Chỉ `caption` của nhãn 
 
 ## 4. Control, focus, hình khối
 
-- Radius: `4` (ảnh khoa học, input), `8` (nút, popup, modal). Không bo tròn lớn kiểu bubble; pill chỉ cho chip preset.
+- Radius: `4` (ảnh khoa học, input), `8` (nút, popup, modal). Không bo tròn lớn kiểu bubble; pill chỉ cho chip preset và chip chủ đề (hashtag) của Forum (duyệt 14/11, M2).
 - Nút: chiều cao **40 px** (desktop), vùng chạm tối thiểu 40×40, nhãn `label`.
   - Primary: nền `--primary`, chữ `--bg`; hover sáng hơn 6%, press dịch 1 px.
   - Secondary: viền `--line-strong`, chữ `--fg`; hover nền `--surface-2`.
@@ -72,13 +72,14 @@ Không dùng chữ in hoa giãn chữ hàng loạt. Chỉ `caption` của nhãn 
 - Một hệ animation: thư viện `motion` cho popup, drawer, transition route; CSS cho hover.
 - Thời lượng: hover 120 ms, popup/drawer 220 ms (ease-out), transition Earth → The Eyes **800 ms**.
 - Hero Landing vào một lần khi tải. Không fade-in theo scroll, không parallax chữ.
+- Ngoại lệ đã duyệt (14/11): SPHEREx của hero **đi theo cuộn** xuống góc trái các section Landing và lơ lửng ở đó (xem 7.2). Chỉ là hình trang trí, không bao giờ đè chữ; không dùng hiệu ứng chiếu sáng; với reduced motion thì mỗi section hiện một tàu đứng yên.
 - Vòng lặp trang trí > 5 s phải có nút Pause (Earth, preview Landing).
 - `prefers-reduced-motion`: tắt xoay Earth tự động, thay transition bằng fade 200 ms, không tự phát preview. Phát chuỗi ảnh khoa học luôn do người dùng bấm.
 
 ## 6. Artwork
 
 - Phong cách từ slide tham khảo: dải màu gradient hạt (grain) hồng → vàng → xanh, ngôi sao cánh nhọn, chấm hành tinh tròn. Vẽ lại bằng **SVG** (gradient + `feTurbulence` noise), không nhúng ảnh slide.
-- Chỉ dùng ở Landing (hero, CTA), Story (đầu trang, mốc chương), Where are you (nền rất nhẹ). **Không** dùng trong The Eyes.
+- Chỉ dùng ở Landing (hero, CTA, và tàu SPHEREx nhỏ ở góc trái mỗi section), Story (đầu trang, mốc chương), Where are you (nền rất nhẹ). **Không** dùng trong The Eyes.
 - Texture không đè lên chữ, input, ảnh SPHEREx, biểu đồ hay ô bản đồ Aladin. Đặt artwork ở cột riêng hoặc sau vùng chữ có nền đặc.
 
 ## 7. Layout từng trang
@@ -116,6 +117,8 @@ Không dùng chữ in hoa giãn chữ hàng loạt. Chỉ `caption` của nhãn 
 
 CTA chính tới `/where-are-you`. Không có hàng card lặp; bốn bước là một danh sách có số.
 
+**SPHEREx đi theo (14/11):** một tàu duy nhất (`features/artwork/CraftGuide.tsx`, lộ trình thuần trong `craftTimeline.ts`). Ở đầu trang nó nằm đúng chỗ tàu hero. Khi section kế tiếp lộ ở đáy màn hình, tàu bay theo đường cong, thu nhỏ và đậu khi điểm đậu lên tới 30% màn hình. Điểm đậu nằm trong phần đệm trên của How it works, About us và Start from Earth, thẳng mép trái nội dung, phía trên tiêu đề; cỡ 96 px (64 px dưới 720 px). Tàu lơ lửng nhẹ ở đó. Chùm sáng đi vào kính chỉ hiện ở hero. Chỉ animate `transform`.
+
 ### 7.3 Story `/story` — 6 phần
 
 Bố cục bài viết: mục lục dính bên trái (240 px) liệt kê 6 phần; cột chữ 68 ch. Mỗi phần: số thứ tự lớn bằng Averia, tiêu đề `h2`, đoạn văn, tuỳ chọn một hình minh hoạ hoặc bảng (ví dụ bảng detector D1–D6 ở "NASA data"). Phần nào chưa có nội dung thật hiển thị khối "Content pending from the team" rõ ràng, không bịa. Phân biệt "Planned" và "Verified" bằng nhãn chữ.
@@ -127,11 +130,11 @@ Bố cục bài viết: mục lục dính bên trái (240 px) liệt kê 6 phầ
  64  header
      ┌────────────────────────────────────────────────────────────┐
      │                    Where are you        (h1, kem)          │
-     │                                              ● Mars        │
+     │                                                            │
      │   Click to explore ──────►  ◯◯◯◯◯◯◯◯                        │
      │                            ◯ EARTH  ◯   (Ø 420 px, tâm     │
      │                             ◯◯◯◯◯◯◯◯     cố định, xoay Y)  │
-     │   ● Moon                                                   │
+     │                                                            │
      │        Illustrative scene — sizes and distances not to scale│
      │                                      [⏸ Pause rotation]    │
      └────────────────────────────────────────────────────────────┘
@@ -139,7 +142,8 @@ Bố cục bài viết: mục lục dính bên trái (240 px) liệt kê 6 phầ
 ```
 
 - Earth: cầu three.js/R3F, texture NASA Blue Marble, đèn mặt trời lệch trái, viền khí quyển mỏng xanh. Xoay `mesh.rotation.y` khoảng **48 s/vòng**, trục không lắc.
-- Moon, Mars: cầu nhỏ đơn sắc trong cùng scene, đặt lệch mép. Không số liệu quỹ đạo.
+- Chỉ còn Mặt Trời (nguồn sáng, tạo đường ngày–đêm) và SPHEREx bay quanh Trái Đất theo quỹ đạo đồng bộ Mặt Trời, nghiêng 97,95°, dọc đường ngày–đêm (`docs/ui-design/WHERE_SPHEREX_ORBIT_PLAN.md`). Đã bỏ Sao Thủy, Sao Kim, Mặt Trăng, Sao Hỏa (14/11).
+- Bấm Mặt Trời (hoặc nút "View from the Sun"): chuyển cảnh 1,6 s, Mặt Trời vào trung tâm, Trái Đất (thu nhỏ còn 0,42) quay quanh Mặt Trời trên vòng nét đứt `--heading`, 40 s một vòng; SPHEREx vẫn quay quanh Trái Đất và mặt phẳng quỹ đạo xoay theo hướng Mặt Trời (đồng bộ Mặt Trời). Bấm Trái Đất hoặc "Back to Earth" để quay lại; "Click to explore" ẩn trong góc nhìn này. Reduced motion: chuyển ngay, không chuyển động. Toán ở `features/earth-scene/solarView.ts`.
 - "Click to explore" là phần tử DOM; mũi tên mảnh chỉ vào Earth. Earth bấm được và có nút "Explore the sky" (DOM, bàn phím) cùng hành động.
 - Fallback không WebGL: ảnh Earth tĩnh tròn + nút Explore; không ghi là đang xoay.
 - Kích hoạt: khoá bấm lặp → camera tiến về Earth + blur → overlay đen → route `/the-eyes`. Reduced motion: fade.
@@ -173,6 +177,18 @@ Bố cục bài viết: mục lục dính bên trái (240 px) liệt kê 6 phầ
 - Thanh công cụ map dọc mép phải; attribution của Aladin luôn thấy được ở góc dưới phải.
 - Nguồn survey nền và nguồn ảnh SPHEREx tách riêng: survey ghi ở footer gọn và góc map; ngày quan sát chỉ ở popup.
 - Chi tiết tab: Overview (mô tả, What to look for, toạ độ + copy, khoảng quan sát), Motion (đường đi đo/dự đoán, sai số), Brightness (đường cong ánh sáng), Data (detector, bước sóng, release, khoảng thời gian, cảnh báo, flags), More tools (Gaia overlay, click spectrum, false-color RGB, share/embed).
+
+### 7.6 Forum `/forum`, `/forum/posts/:id`, `/forum/new`, `/forum/my-posts`, `/admin/forum`
+
+Chi tiết: `docs/ui-design/` (phương án B + editor/diff của A). Tóm tắt quy ước:
+
+- Vùng đọc và nhập liệu: **không artwork, không glow**. Danh sách bài là các dòng phân cách `--line`, không phải lưới card.
+- Feed: cột chủ đề dính 240 px bên trái (mẫu `.story-toc`), danh sách tối đa 760 px. Dưới 1000 px cột chủ đề thành chip pill xuống dòng.
+- Chi tiết bài: cột chữ 72 ch + cột phụ 280 px chứa thẻ quan sát. Dưới 1000 px thẻ quan sát chuyển vào cột chữ.
+- Điểm nhấn duy nhất: **thẻ quan sát** (link The Eyes) có viền trái 3 px `--blue`.
+- Trạng thái luôn có chữ + icon + màu (`StatusBadge`): Draft `--muted`, Pending `--warn`, Published `--olive`, Rejected/Hidden `--danger`.
+- Kiểm duyệt: danh sách 340 px + panel duyệt (mẫu popup The Eyes); dưới 1000 px chuyển thành danh sách → trang xem.
+- Dialog dùng chung `shared/ui/Dialog.tsx`: focus trap, Esc, trả focus, không cuộn nền.
 
 ## 8. Tiêu chí review quan sát được
 

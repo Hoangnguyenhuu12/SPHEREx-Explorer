@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # Python 3.12 (numpy, scipy and photutils no longer support 3.11)
 # Install:  pip install -r requirements.txt
 # Versions are pinned so all 6 machines get the same stack (verified 3/11 on Windows 11).

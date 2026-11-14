@@ -22,6 +22,8 @@ import { Horizon } from '../features/sky-map/Horizon'
 import './eyes/eyes.css'
 
 const DEFAULT_TOGGLES: ViewerToggles = { mode: 'original', crosshair: true, flags: false, trail: false, pick: false }
+const DEFAULT_MAP_FOV_DEG = 90
+const zoomFormat = new Intl.NumberFormat('en', { style: 'percent', maximumFractionDigits: 0 })
 
 function isTyping(el: EventTarget | null): boolean {
   const t = el as HTMLElement | null
@@ -39,8 +41,9 @@ export default function TheEyesPage() {
   const mapRef = useRef<SkyMapHandle>(null)
   const stageRef = useRef<HTMLDivElement>(null)
   const [mapStatus, setMapStatus] = useState<{ s: 'loading' | 'ready' | 'error'; msg?: string }>({ s: 'loading' })
+  const [mapFovDeg, setMapFovDeg] = useState<number | null>(null)
   const [grid, setGrid] = useState(false)
-  const [ground, setGround] = useState(true)
+  const [ground, setGround] = useState(false)
   const [skyMotion, setSkyMotion] = useState(false)
   const [gaia, setGaia] = useState(false)
   const [gaiaStatus, setGaiaStatus] = useState<{ status: 'idle' | 'loading' | 'ready' | 'error'; count?: number }>({ status: 'idle' })
@@ -225,6 +228,10 @@ export default function TheEyesPage() {
   const shareUrl = typeof window !== 'undefined' ? `${window.location.origin}${PATHS.explorer}${serializeSelection(sel)}` : ''
   const embedUrl = `${shareUrl}${shareUrl.includes('?') ? '&' : '?'}embed=1`
   const dataLabel = config.useMock ? 'Observation data: Illustrative demo (generated, not SPHEREx)' : 'Observation data: NASA/IPAC IRSA, SPHEREx'
+  // In the TAN projection, scale is proportional to the inverse tangent of half the field of view.
+  const zoomLabel = mapFovDeg === null ? '—' : zoomFormat.format(
+    Math.tan(DEFAULT_MAP_FOV_DEG * Math.PI / 360) / Math.tan(mapFovDeg * Math.PI / 360),
+  )
 
   return (
     <div className={`eyes${embed ? ' eyes--embed' : ''}`}>
@@ -256,9 +263,10 @@ export default function TheEyesPage() {
       <main id="sky" className="eyes__stage" ref={stageRef}>
         <AladinMap
           ref={mapRef}
-          initial={coords ? { ra: coords.ra, dec: coords.dec, fovDeg: 0.6 } : { ra: 266.4, dec: -12, fovDeg: 110 }}
+          initial={coords ? { ra: coords.ra, dec: coords.dec, fovDeg: 0.6 } : { ra: 266.4, dec: -12, fovDeg: DEFAULT_MAP_FOV_DEG }}
           selectedKey={target?.key ?? null}
           onTargetSelected={selectTarget}
+          onFovChanged={setMapFovDeg}
           onStatus={(s, msg) => setMapStatus({ s, msg })}
           onGaiaStatus={(status, count) => setGaiaStatus({ status, count })}
           onSourceSelected={(s) => {
@@ -384,6 +392,9 @@ export default function TheEyesPage() {
           <button type="button" className="dock__icon" aria-label="Zoom out map" title="Zoom out map" onClick={() => mapRef.current?.zoomOut()}>
             <Minus aria-hidden />
           </button>
+          <span className="dock__zoom" aria-label={`Map zoom ${mapFovDeg === null ? 'unavailable' : zoomLabel}`} title="Zoom relative to the default sky view">
+            {zoomLabel}
+          </span>
           <button type="button" className="dock__icon" aria-label="Zoom in map" title="Zoom in map" onClick={() => mapRef.current?.zoomIn()}>
             <Plus aria-hidden />
           </button>

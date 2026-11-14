@@ -13,6 +13,7 @@ import requests
 from diskcache import Cache
 
 from shared.pipeline import irsa
+from . import database_provider
 
 from .catalog import position_at
 from .observed_frames import Cutout
@@ -29,6 +30,10 @@ def collections_for_live():
 
 def harvest_mode():
     return os.getenv("DATA_MODE", "fixture") == "harvest"
+
+
+def database_mode():
+    return os.getenv("DATA_MODE", "fixture") == "database"
 
 
 def cached_result(operation, query, build):
@@ -53,6 +58,8 @@ def cached_result(operation, query, build):
 def load_cutouts(query, directory):
     if harvest_mode():
         return load_harvest_cutouts(query)
+    if database_mode():
+        return load_database_cutouts(query)
     size = getattr(query, "size", 0.1)
     predicted = position_at(query.target_key, 61100)
     ra, dec = (predicted.ra.deg, predicted.dec.deg) if predicted is not None else (query.ra, query.dec)
@@ -164,6 +171,26 @@ def load_harvest_cutouts(query):
         indices = [round(i * (len(result) - 1) / (max_frames - 1)) for i in range(max_frames)] if max_frames > 1 else [0]
         result = [result[index] for index in indices]
     return tuple(result)
+
+
+def load_database_cutouts(query):
+    result = []
+    for product in database_provider.products_for_target(query.target_key):
+        match = re.search(r"D([1-6])", str(product.get("band") or ""), re.IGNORECASE)
+        if match is None or int(match.group(1)) != query.detector:
+            continue
+        metadata = product.get("metadata") or {}
+        relative = metadata.get("relative_path") or metadata.get("fits_path")
+        if not relative:
+            continue
+        path = Path(relative)
+        if not path.is_absolute():
+            path = Path(os.getenv("DATA_DIR", "data")) / path
+        if not path.is_file():
+            continue
+        result.append(Cutout(path.resolve(), str(product.get("obs_id", path.stem)), query.detector, float(product.get("mjd_start")), str(product.get("collection", "")).removeprefix("spherex_"), "", path.stat().st_size, path.stat().st_mtime_ns))
+    result.sort(key=lambda item: item.mjd)
+    return tuple(result[:getattr(query, "max_frames", 60)])
 
 
 def workspace():

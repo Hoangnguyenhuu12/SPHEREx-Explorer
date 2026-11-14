@@ -23,6 +23,7 @@ interface Props {
   initial: { ra: number; dec: number; fovDeg: number }
   selectedKey: TargetKey | null
   onTargetSelected: (key: TargetKey) => void
+  onFovChanged: (fovDeg: number) => void
   onStatus?: (status: 'loading' | 'ready' | 'error', message?: string) => void
   onGaiaStatus?: (status: 'loading' | 'ready' | 'error', count?: number) => void
   onSourceSelected?: (s: { ra: number; dec: number; sourceId: string | null; gmag: number | null }) => void
@@ -90,7 +91,7 @@ async function pickSurveyUrl(): Promise<string> {
 type AladinInstance = any
 
 export const AladinMap = forwardRef<SkyMapHandle, Props>(function AladinMap(
-  { initial, selectedKey, onTargetSelected, onStatus, onGaiaStatus, onSourceSelected },
+  { initial, selectedKey, onTargetSelected, onFovChanged, onStatus, onGaiaStatus, onSourceSelected },
   ref,
 ) {
   const hostRef = useRef<HTMLDivElement>(null)
@@ -116,6 +117,7 @@ export const AladinMap = forwardRef<SkyMapHandle, Props>(function AladinMap(
         if (disposed || !host) return
         const aladin = A.aladin(host, {
           survey: surveyUrl,
+          projection: 'TAN',
           fov: initial.fovDeg,
           target: `${initial.ra} ${initial.dec}`,
           cooFrame: 'ICRS',
@@ -137,6 +139,11 @@ export const AladinMap = forwardRef<SkyMapHandle, Props>(function AladinMap(
           showFov: false,
         })
         aladinRef.current = aladin
+        const reportFov = (fovDeg: number) => {
+          if (!disposed && Number.isFinite(fovDeg) && fovDeg > 0 && fovDeg < 180) onFovChanged(fovDeg)
+        }
+        aladin.on('zoomChanged', reportFov)
+        reportFov(aladin.getFov()[0])
 
         const cat = A.catalog({
           name: 'SPHEREx targets',
@@ -272,7 +279,7 @@ export const AladinMap = forwardRef<SkyMapHandle, Props>(function AladinMap(
   )
 
   return (
-    <div className="sky-map-wrap" role="application" aria-label="Sky map (Aladin Lite). Drag to pan, scroll to zoom.">
+    <div className="sky-map-wrap" role="application" aria-label="Sky as seen from the center of the celestial sphere. Drag to look around, scroll to zoom.">
       <div ref={hostRef} className="sky-map" />
     </div>
   )
