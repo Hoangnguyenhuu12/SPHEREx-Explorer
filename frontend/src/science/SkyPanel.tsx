@@ -1,7 +1,6 @@
 // Sky panel: the shared Aladin Lite map centred on the target, with a Gaia DR3 layer.
 import { useState } from "react";
 import { SkyMap } from "../../../shared/skymap/SkyMap.jsx";
-import { useMock } from "../config";
 import "./science.css";
 
 export interface SkyPanelProps {
@@ -15,12 +14,11 @@ type GaiaSource = "vizier" | "mock" | "off";
 
 const GAIA_OPTIONS: { value: GaiaSource; label: string }[] = [
   { value: "vizier", label: "Gaia DR3 (VizieR)" },
-  { value: "mock", label: "Synthetic stars (offline)" },
   { value: "off", label: "Off" },
 ];
 
 export function SkyPanel({ ra, dec, fovDeg }: SkyPanelProps) {
-  const [gaia, setGaia] = useState<GaiaSource>(useMock ? "mock" : "off");
+  const [gaia, setGaia] = useState<GaiaSource>("vizier");
 
   return (
     <section className="panel" aria-labelledby="sky-heading">
@@ -34,7 +32,7 @@ export function SkyPanel({ ra, dec, fovDeg }: SkyPanelProps) {
             value={gaia}
             onChange={(e) => setGaia(e.target.value as GaiaSource)}
           >
-            {GAIA_OPTIONS.filter((option) => useMock || option.value !== "mock").map((option) => (
+            {GAIA_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
               </option>
@@ -47,7 +45,7 @@ export function SkyPanel({ ra, dec, fovDeg }: SkyPanelProps) {
         decDeg={dec}
         fovDeg={fovDeg}
         gaia={gaia}
-        onSwitchGaia={useMock ? setGaia : undefined}
+        onSwitchGaia={setGaia}
       />
       <p className="panel-note">
         Gaia positions are for epoch 2016.0, so a fast-moving star such as

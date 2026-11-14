@@ -8,15 +8,14 @@ and manifest.json generation conforming to SRS-MVP Section 6.
 
 from __future__ import annotations
 
-import csv
 import hashlib
 import io
 import json
 import logging
 import math
+import os
 import re
 import time
-import urllib.parse
 from pathlib import Path
 from typing import Any
 
@@ -36,6 +35,15 @@ class UpstreamTimeout(UpstreamError):
     """Raised when IRSA times out repeatedly."""
 
 
+def _remaining_timeout(timeout_s: float, deadline: float | None) -> float:
+    if deadline is None:
+        return timeout_s
+    remaining = deadline - time.monotonic()
+    if remaining <= 0:
+        raise UpstreamTimeout("IRSA request deadline exceeded")
+    return min(timeout_s, remaining)
+
+
 def _normalize_detector(det: str | int | None) -> str | None:
     if det is None:
         return None
@@ -52,21 +60,23 @@ def _request_with_retry(
     *,
     timeout_s: int = 120,
     retries: int = 3,
+    deadline: float | None = None,
 ) -> requests.Response:
     last_err: Exception | None = None
     for attempt in range(retries):
+        timeout = _remaining_timeout(timeout_s, deadline)
         try:
-            resp = requests.get(url, params=params, timeout=timeout_s)
+            resp = requests.get(url, params=params, timeout=timeout)
             if resp.status_code == 502 or resp.status_code >= 500:
                 raise UpstreamError(f"HTTP {resp.status_code} server error from {url}")
             resp.raise_for_status()
             return resp
         except requests.Timeout as exc:
             last_err = UpstreamTimeout(f"Timeout after {timeout_s}s connecting to {url}: {exc}")
-        except Exception as exc:
+        except (requests.RequestException, UpstreamError) as exc:
             last_err = UpstreamError(f"Request failed: {exc}")
         if attempt < retries - 1:
-            time.sleep(2**attempt)
+            time.sleep(_remaining_timeout(2**attempt, deadline))
     raise last_err or UpstreamError("Request failed after retries")
 
 
@@ -111,6 +121,7 @@ def _query_tap_fallback(
     t_min: float | None = None,
     t_max: float | None = None,
     timeout_s: int = 120,
+    deadline: float | None = None,
 ) -> list[dict[str, Any]]:
     """Fallback query via IRSA TAP ADQL service."""
     adql_parts = [
@@ -147,14 +158,16 @@ def _query_tap_fallback(
         "FORMAT": "votable",
         "QUERY": adql,
     }
-    resp = _request_with_retry(IRSA_TAP_URL, params=params, timeout_s=timeout_s, retries=2)
+    resp = _request_with_retry(
+        IRSA_TAP_URL, params=params, timeout_s=timeout_s, retries=2, deadline=deadline
+    )
     return _parse_votable_xml(resp.content)
 
 
 def find_images(
     ra_deg: float,
     dec_deg: float,
-    collection: str = "spherex_qr2",
+    collection: str | None = None,
     detector: str | None = None,
     t_min: float | None = None,
     t_max: float | None = None,
@@ -162,6 +175,8 @@ def find_images(
     search_radius_deg: float = 0.05,
     timeout_s: int = 120,
     retries: int = 3,
+    deadline: float | None = None,
+    tap_fallback: bool = True,
 ) -> list[dict[str, Any]]:
     """Query IRSA for SPHEREx images covering (ra_deg, dec_deg).
 
@@ -172,6 +187,7 @@ def find_images(
         obs_id, obs_publisher_did, obs_collection, energy_bandpassname,
         s_ra, s_dec, t_min, t_max, access_url, access_format.
     """
+    collection = collection or os.getenv("SPHEREX_COLLECTION", "spherex_dr1")
     norm_det = _normalize_detector(detector)
     sia_params: dict[str, Any] = {
         "COLLECTION": collection,
@@ -185,10 +201,14 @@ def find_images(
     raw_entries: list[dict[str, Any]] = []
     # Step 1: Attempt SIA2
     try:
-        resp = _request_with_retry(IRSA_SIA_URL, params=sia_params, timeout_s=timeout_s, retries=retries)
+        resp = _request_with_retry(
+            IRSA_SIA_URL, params=sia_params, timeout_s=timeout_s, retries=retries, deadline=deadline
+        )
         raw_entries = _parse_votable_xml(resp.content)
-    except Exception as exc:
-        logger.warning("SIA2 query failed (%s). Triggering TAP fallback...", exc)
+    except UpstreamError as exc:
+        if not tap_fallback:
+            raise
+        logger.warning("SIA2 query failed (%s). Trying TAP fallback.", type(exc).__name__)
         # Step 2: Fallback to TAP
         try:
             raw_entries = _query_tap_fallback(
@@ -199,9 +219,14 @@ def find_images(
                 t_min=t_min,
                 t_max=t_max,
                 timeout_s=timeout_s,
+                deadline=deadline,
             )
-        except Exception as tap_exc:
-            raise UpstreamError(f"Both SIA2 and TAP queries failed. TAP error: {tap_exc}") from tap_exc
+        except UpstreamTimeout:
+            raise
+        except UpstreamError as tap_exc:
+            raise UpstreamError(
+                f"Both SIA2 and TAP queries failed. TAP error: {tap_exc}"
+            ) from tap_exc
 
     # Deduplicate and filter by detector and collection
     seen_did: set[str] = set()
@@ -237,7 +262,9 @@ def make_cutout_url(access_url: str, ra_deg: float, dec_deg: float, size_deg: fl
     return f"{clean_url}{sep}center={ra_deg:.8f},{dec_deg:.8f}d&size={size_deg:.6f}"
 
 
-def group_images_into_visits(images: list[dict[str, Any]], gap_days: float = 30.0) -> list[list[dict[str, Any]]]:
+def group_images_into_visits(
+    images: list[dict[str, Any]], gap_days: float = 30.0
+) -> list[list[dict[str, Any]]]:
     """Group observations into separate visits when separated by more than gap_days."""
     if not images:
         return []
@@ -263,6 +290,7 @@ def fetch_cutouts(
     max_per_visit: int = 6,
     timeout_s: int = 120,
     retries: int = 3,
+    deadline: float | None = None,
 ) -> Path:
     """Downloads SPHEREx FITS cutouts from IRSA and writes manifest.json.
 
@@ -310,39 +338,61 @@ def fetch_cutouts(
 
         download_ok = False
         last_error = ""
+        failure_kind = "upstream"
         for attempt in range(retries):
+            timeout = _remaining_timeout(timeout_s, deadline)
             try:
-                resp = requests.get(cutout_url, timeout=timeout_s)
+                resp = requests.get(cutout_url, timeout=timeout)
                 resp.raise_for_status()
                 content = resp.content
                 # Quick verification that it is a valid FITS file (starts with SIMPLE =)
                 if not content.startswith(b"SIMPLE  ="):
-                    raise ValueError("Downloaded content does not begin with standard FITS 'SIMPLE  =' header")
+                    raise ValueError(
+                        "Downloaded content does not begin with standard FITS 'SIMPLE  =' header"
+                    )
                 dest_file.write_bytes(content)
                 sha256 = hashlib.sha256(content).hexdigest()
-                entries.append({
-                    "obs_id": obs_id,
-                    "obs_publisher_did": did,
-                    "detector": det_short,
-                    "mjd": mjd,
-                    "t_max": t_max,
-                    "path": str(dest_file.relative_to(out_path.parent if out_path.parent != out_path else out_path)),
-                    "file_size": len(content),
-                    "sha256": sha256,
-                    "cutout_url": cutout_url,
-                })
+                entries.append(
+                    {
+                        "obs_id": obs_id,
+                        "obs_publisher_did": did,
+                        "detector": det_short,
+                        "mjd": mjd,
+                        "t_max": t_max,
+                        "path": str(
+                            dest_file.relative_to(
+                                out_path.parent if out_path.parent != out_path else out_path
+                            )
+                        ),
+                        "file_size": len(content),
+                        "sha256": sha256,
+                        "cutout_url": cutout_url,
+                    }
+                )
                 download_ok = True
                 break
-            except Exception as exc:
+            except (requests.RequestException, OSError, ValueError) as exc:
                 last_error = str(exc)
+                failure_kind = "timeout" if isinstance(exc, requests.Timeout) else "upstream"
                 if dest_file.exists():
                     dest_file.unlink(missing_ok=True)
-                time.sleep(2**attempt)
+                if attempt < retries - 1:
+                    time.sleep(_remaining_timeout(2**attempt, deadline))
 
         if not download_ok:
-            failed.append({"obs_id": obs_id, "reason": last_error or "Download failed"})
+            failed.append(
+                {
+                    "obs_id": obs_id,
+                    "reason": last_error or "Download failed",
+                    "kind": failure_kind,
+                }
+            )
 
-    coll = images[0].get("obs_collection", "spherex_qr2") if images else "spherex_qr2"
+    coll = (
+        images[0].get("obs_collection", os.getenv("SPHEREX_COLLECTION", "spherex_dr1"))
+        if images
+        else os.getenv("SPHEREX_COLLECTION", "spherex_dr1")
+    )
     manifest_data = {
         "query": {
             "ra_deg": ra_deg,
@@ -398,7 +448,9 @@ def download_cutout(
             resp.raise_for_status()
             content = resp.content
             if not content.startswith(b"SIMPLE  ="):
-                raise ValueError("Response content does not begin with standard FITS 'SIMPLE  =' header")
+                raise ValueError(
+                    "Response content does not begin with standard FITS 'SIMPLE  =' header"
+                )
             if expected_obs_id:
                 try:
                     from astropy.io import fits
@@ -414,7 +466,7 @@ def download_cutout(
                     pass
             dest.write_bytes(content)
             return dest
-        except Exception as exc:
+        except (requests.RequestException, OSError, ValueError) as exc:
             last_error = exc
             if dest.exists():
                 dest.unlink(missing_ok=True)
@@ -454,7 +506,7 @@ def find_frames(
     ra_deg: float | None = None,
     dec_deg: float | None = None,
     detector: str | int | None = None,
-    collection: str = "spherex_qr2",
+    collection: str | None = None,
     cutout_size_deg: float = 0.0833,
     data_dir: Path | str | None = None,
     mode: str = "fixture",
@@ -479,7 +531,12 @@ def find_frames(
     dec = dec_deg if dec_deg is not None else q.get("dec") or q.get("dec_deg") or q.get("s_dec")
     det = detector if detector is not None else q.get("detector") or q.get("energy_bandpassname")
     norm_det = _normalize_detector(det)
-    coll = q.get("collection") or q.get("obs_collection") or collection
+    coll = (
+        q.get("collection")
+        or q.get("obs_collection")
+        or collection
+        or os.getenv("SPHEREX_COLLECTION", "spherex_dr1")
+    )
     size_deg = q.get("cutout_size_deg") or cutout_size_deg
     active_mode = q.get("data_mode") or q.get("mode") or mode
     max_f = max_frames or q.get("max_frames")
@@ -497,12 +554,14 @@ def find_frames(
         ]
         manifest_path = next((p for p in manifest_candidates if p.exists()), None)
         if not manifest_path:
-            logger.warning("No fixture manifest found in candidate locations: %s", manifest_candidates)
+            logger.warning(
+                "No fixture manifest found in candidate locations: %s", manifest_candidates
+            )
             return []
 
         try:
             manifest_data = json.loads(manifest_path.read_text(encoding="utf-8"))
-        except Exception as exc:
+        except (OSError, ValueError) as exc:
             logger.error("Failed to read manifest %s: %s", manifest_path, exc)
             return []
 
@@ -559,27 +618,33 @@ def find_frames(
     if ra is None or dec is None:
         raise ValueError("Live mode requires coordinates ra_deg and dec_deg")
 
-    imgs = find_images(float(ra), float(dec), collection=coll, detector=norm_det, search_radius_deg=size_deg)
+    imgs = find_images(
+        float(ra), float(dec), collection=coll, detector=norm_det, search_radius_deg=size_deg
+    )
     out_cache = d_dir / "cache" / f"live_{float(ra):.4f}_{float(dec):.4f}"
     m_path = fetch_cutouts(imgs, float(ra), float(dec), float(size_deg), out_cache)
     m_data = json.loads(m_path.read_text(encoding="utf-8"))
     live_results = []
     for en in m_data.get("entries", []):
-        live_results.append({
-            "obs_id": en["obs_id"],
-            "obs_publisher_did": en["obs_publisher_did"],
-            "target_key": t_key,
-            "detector": en["detector"],
-            "energy_bandpassname": f"SPHEREx-{en['detector']}" if not en['detector'].startswith("SPHEREx-") else en['detector'],
-            "mjd": en["mjd"],
-            "t_min": en["mjd"],
-            "t_max": en["t_max"],
-            "ra": float(ra),
-            "dec": float(dec),
-            "fits_path": str(out_cache / en["path"]),
-            "sha256": en["sha256"],
-            "file_size": en.get("file_size", 0),
-        })
+        live_results.append(
+            {
+                "obs_id": en["obs_id"],
+                "obs_publisher_did": en["obs_publisher_did"],
+                "target_key": t_key,
+                "detector": en["detector"],
+                "energy_bandpassname": f"SPHEREx-{en['detector']}"
+                if not en["detector"].startswith("SPHEREx-")
+                else en["detector"],
+                "mjd": en["mjd"],
+                "t_min": en["mjd"],
+                "t_max": en["t_max"],
+                "ra": float(ra),
+                "dec": float(dec),
+                "fits_path": str(out_cache / en["path"]),
+                "sha256": en["sha256"],
+                "file_size": en.get("file_size", 0),
+            }
+        )
     if max_f is not None and max_f > 0:
         live_results = live_results[:max_f]
     return live_results
