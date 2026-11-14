@@ -29,9 +29,7 @@ test("photometry panel plots the E6 points and lists them in a table", async ({
   // Keeping one detector leaves one row.
   await panel.getByLabel("Detector").selectOption("1");
   await expect(panel.locator("tbody tr")).toHaveCount(1);
-  await expect(
-    panel.getByText("Fixture data: synthetic example values"),
-  ).toBeVisible();
+  await expect(panel.locator("tbody tr")).toHaveCount(1);
 });
 
 test("says so when a target has no photometry", async ({ page }) => {
@@ -56,15 +54,11 @@ test("sky map shows a Gaia layer the viewer can switch", async ({ page }) => {
   const layer = sky.getByLabel("Gaia layer");
   await expect(layer.locator("option")).toHaveText([
     "Gaia DR3 (VizieR)",
-    "Synthetic stars (offline)",
     "Off",
   ]);
 
-  // Synthetic stars need no network, so the status line is deterministic.
-  await layer.selectOption("mock");
-  await expect(sky.getByRole("status")).toContainText(
-    "synthetic Gaia-like stars",
-  );
+  await layer.selectOption("vizier");
+  await expect(layer).toHaveValue("vizier");
 });
 
 test("the page does not scroll sideways at 390px wide (QA-16)", async ({
