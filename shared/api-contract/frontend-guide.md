@@ -1,11 +1,12 @@
 # Frontend integration for Issue 14
 
-The normal launcher uses app.main and the seven-endpoint API 0.1 wiki contract.
-Historical training examples use app.legacy_main.
+The normal launcher uses app.main and the API 0.1 contract. Historical examples
+below may describe fixtures; the real-data setup and current limitations are
+documented in `../../README_DATA.md`.
 
 ## Setup
 
-Set DATA_MODE=fixture in the root .env and restart with npm run dev:be.
+Set DATA_MODE=real and VITE_USE_MOCK=false in the application .env and restart with npm run dev:be.
 API_HOST and API_PORT still determine the backend origin. Set the frontend
 VITE_API_BASE_URL to that origin and restart Vite. CORS_ALLOW_ORIGINS contains
 the actual frontend origins separated by commas. Credentials are omitted.

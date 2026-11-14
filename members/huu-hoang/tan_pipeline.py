@@ -46,6 +46,24 @@ def tan_grid(ra, dec, fov, scale=SCALE):
     return w, (n, n)
 
 
+def flag_planes(header):
+    """Map flag names to bit numbers for older MP_ and current IRSA MSKN headers."""
+    planes = {}
+    for key in header:
+        if key.startswith("MP_"):
+            planes[key] = int(header[key])
+        elif key.startswith("MSKN"):
+            name = str(header[key]).strip().upper()
+            mask_key = "MSKM" + key[4:]
+            if mask_key not in header:
+                raise ValueError(f"Missing flag mask {mask_key}")
+            mask = int(header[mask_key])
+            if mask <= 0 or mask & (mask - 1):
+                raise ValueError(f"Invalid flag mask {mask_key}")
+            planes[f"MP_{name}"] = mask.bit_length() - 1
+    return planes
+
+
 def load_cutout(path, ra=RA, dec=DEC):
     with fits.open(path) as h:
         header = h["IMAGE"].header
@@ -53,11 +71,10 @@ def load_cutout(path, ra=RA, dec=DEC):
         wcs = WCS(header, fobj=h).celestial
         flags = h["FLAGS"].data
         fh = h["FLAGS"].header
-        rejected = {
-            k: int(fh[k])
-            for k in fh
-            if k.startswith("MP_") and k not in {"MP_SOURCE", "MP_FULLSAMPLE"}
-        }
+        planes = flag_planes(fh)
+        if not planes and np.any(flags):
+            raise ValueError("FLAGS contains values but has no readable flag definitions")
+        rejected = {k: bit for k, bit in planes.items() if k not in {"MP_SOURCE", "MP_FULLSAMPLE"}}
         bits = sum(1 << bit for bit in set(rejected.values()))
         flagged = (flags & bits) != 0
         good = np.isfinite(raw) & ~flagged
@@ -78,7 +95,7 @@ def load_cutout(path, ra=RA, dec=DEC):
             "valid_pixels": int(good.sum()),
             "bad_pixel_frac": float(flagged.mean()),
             "flag_counts": {
-                k: int(((flags & (1 << int(fh[k]))) != 0).sum()) for k in fh if k.startswith("MP_")
+                k: int(((flags & (1 << bit)) != 0).sum()) for k, bit in planes.items()
             },
         }
         return np.where(good, raw, np.nan), wcs, info

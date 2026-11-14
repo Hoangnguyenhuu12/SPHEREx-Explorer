@@ -16,7 +16,7 @@ from .catalog import position_at, targets
 from .frame_rendering import PIXEL_SCALE, build_frames
 
 ROOT = Path(__file__).resolve().parents[4]
-RENDER_VERSION = "api-0.1-tan-median-v3"
+RENDER_VERSION = "api-0.1-tan-median-v4-flags"
 FIVE_TARGETS_FOLDERS = {
     "barnard": "barnard",
     "wise0855": "wise-0855",
@@ -197,6 +197,8 @@ def five_targets_entries(data_dir, query):
 
 
 def matching_cutouts(query):
+    if os.getenv("DATA_MODE", "fixture") == "real":
+        return real_cutouts(query)
     data_dir = (ROOT / os.getenv("DATA_DIR", "data")).resolve()
     sync_five_targets_manifest(data_dir)
     manifest = data_dir / "fixtures" / "manifest.json"
@@ -246,6 +248,39 @@ def matching_cutouts(query):
             )
         )
     return tuple(sorted(set(cutouts), key=lambda row: (row.mjd, row.obs_id, str(row.path))))
+
+
+def real_cutouts(query):
+    """Read provenance-tracked local cutouts from one selected release."""
+    folders = {"barnard": "barnard", "wise0855": "wise0855", "epsindib": "epsilon_indi_b", "rwaur": "rw_aurigae", "rdra": "r_draconis"}
+    name = folders.get(query.target_key)
+    if name is None:
+        return ()
+    data_dir = (ROOT / os.getenv("DATA_DIR", "data")).resolve()
+    release = os.getenv("DATA_RELEASE", "dr1").lower()
+    if release not in {"dr1", "qr3"}:
+        raise ValueError("DATA_RELEASE must be dr1 or qr3")
+    dataset = (data_dir / "spherex" / name if release == "dr1" else
+               data_dir / "fusion_repairs" / "qr3" / name).resolve()
+    manifest = dataset / "manifest.json"
+    if not manifest.is_file():
+        return ()
+    data = json.loads(manifest.read_text(encoding="utf-8"))
+    result = []
+    for entry in data.get("downloads", []):
+        if entry.get("release") != release or entry.get("detector") != query.detector:
+            continue
+        if not entry.get("validation", {}).get("valid") or not entry.get("sha256"):
+            continue
+        if entry.get("validation", {}).get("target_in_cutout") is False:
+            continue
+        path = (ROOT / entry["file"]).resolve()
+        if not path.is_relative_to((dataset / "cutouts").resolve()) or not path.is_file():
+            raise ValueError("Cutout path is missing or outside the target dataset")
+        stat = path.stat()
+        result.append(Cutout(path, entry["obs_id"], int(entry["detector"]), float(entry["mjd"]),
+                             release, entry["sha256"], stat.st_size, stat.st_mtime_ns))
+    return tuple(sorted(set(result), key=lambda row: (row.mjd, row.obs_id, str(row.path))))
 
 
 @lru_cache(maxsize=16)

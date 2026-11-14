@@ -44,7 +44,7 @@ def fail(status, code, message, details=None):
 
 
 def require_fixture_mode():
-    if os.getenv("DATA_MODE", "fixture") != "fixture":
+    if os.getenv("DATA_MODE", "fixture") not in {"fixture", "real"}:
         fail(500, "INTERNAL", "Live API 0.1 adapters await team integration.")
 
 
@@ -65,6 +65,8 @@ def target(query):
 
 
 def health():
+    if os.getenv("DATA_MODE", "fixture") == "real":
+        return {"api_version": "0.1", "status": "ok", "mode": "local", "fixture_targets": [], "irsa_reachable": None, "git_sha": os.getenv("GIT_SHA", "unknown")}
     result = sample("health.json")
     result["git_sha"] = os.getenv("GIT_SHA", "unknown")
     return result
@@ -85,6 +87,8 @@ def frames(query: FramesQuery):
     require_fixture_mode()
     requested_target = Target.model_validate(target(query))
     cutouts = matching_cutouts(query)
+    if os.getenv("DATA_MODE", "fixture") == "real" and not cutouts:
+        fail(404, "NO_FRAMES", "No validated local cutouts for this target, detector and selected release.", {"target_key": query.target_key, "detector": query.detector, "release": os.getenv("DATA_RELEASE", "dr1")})
     if cutouts is None:
         result, published = sample_frames(query, requested_target)
     else:
@@ -170,6 +174,8 @@ def image(frame_id, difference):
 
 
 def photometry(query: PhotometryQuery):
+    if os.getenv("DATA_MODE", "fixture") == "real":
+        fail(503, "INTERNAL", "Photometry is not yet validated for the selected local dataset.")
     from .observed_frames import observed_photometry
 
     observed = observed_photometry(query, target(query))
@@ -186,6 +192,8 @@ def photometry(query: PhotometryQuery):
 
 
 def astrometry(query: ScienceQuery):
+    if os.getenv("DATA_MODE", "fixture") == "real":
+        fail(503, "INTERNAL", "Astrometry is not yet validated for the selected local dataset.")
     result = sample("astrometry_barnard.json")
     if query.target_key != result["target"]["target_key"]:
         entry = targets().get(query.target_key)

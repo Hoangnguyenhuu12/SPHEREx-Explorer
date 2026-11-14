@@ -277,7 +277,7 @@ export interface components {
              * Mode
              * @enum {string}
              */
-            mode: "fixture" | "live";
+            mode: "fixture" | "live" | "local";
             /** Fixture Targets */
             fixture_targets: string[];
             /** Irsa Reachable */

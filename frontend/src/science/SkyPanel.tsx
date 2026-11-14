@@ -1,6 +1,7 @@
 // Sky panel: the shared Aladin Lite map centred on the target, with a Gaia DR3 layer.
 import { useState } from "react";
 import { SkyMap } from "../../../shared/skymap/SkyMap.jsx";
+import { useMock } from "../config";
 import "./science.css";
 
 export interface SkyPanelProps {
@@ -19,7 +20,7 @@ const GAIA_OPTIONS: { value: GaiaSource; label: string }[] = [
 ];
 
 export function SkyPanel({ ra, dec, fovDeg }: SkyPanelProps) {
-  const [gaia, setGaia] = useState<GaiaSource>("mock");
+  const [gaia, setGaia] = useState<GaiaSource>(useMock ? "mock" : "off");
 
   return (
     <section className="panel" aria-labelledby="sky-heading">
@@ -33,7 +34,7 @@ export function SkyPanel({ ra, dec, fovDeg }: SkyPanelProps) {
             value={gaia}
             onChange={(e) => setGaia(e.target.value as GaiaSource)}
           >
-            {GAIA_OPTIONS.map((option) => (
+            {GAIA_OPTIONS.filter((option) => useMock || option.value !== "mock").map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
               </option>
@@ -46,7 +47,7 @@ export function SkyPanel({ ra, dec, fovDeg }: SkyPanelProps) {
         decDeg={dec}
         fovDeg={fovDeg}
         gaia={gaia}
-        onSwitchGaia={setGaia}
+        onSwitchGaia={useMock ? setGaia : undefined}
       />
       <p className="panel-note">
         Gaia positions are for epoch 2016.0, so a fast-moving star such as
