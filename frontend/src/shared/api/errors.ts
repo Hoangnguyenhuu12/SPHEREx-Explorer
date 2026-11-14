@@ -38,6 +38,8 @@ export function describeError(error: unknown): ErrorCopy {
       }
     case 'FRAME_NOT_FOUND':
       return { title: 'Images expired', body: 'The image service restarted. Reload the observations.', retry: true }
+    case 'TIMELINE_UNAVAILABLE':
+      return { title: 'WISE 0855 images unavailable', body: 'The preprocessed images could not be loaded. Try again or choose SPHEREx only.', retry: true }
     case 'UPSTREAM_ERROR':
       return { title: 'Archive unavailable', body: 'The NASA archive did not answer correctly. Try again in a moment.', retry: true }
     case 'UPSTREAM_TIMEOUT':

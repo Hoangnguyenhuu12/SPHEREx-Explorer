@@ -24,6 +24,13 @@ export interface TrailPoint {
   active: boolean
 }
 
+export interface GaiaOverlayMarker {
+  px: [number, number]
+  sourceId: string
+  propagated: boolean
+  gMag?: number | null
+}
+
 interface Props {
   bitmap: ImageBitmap | null
   gridW: number
@@ -33,6 +40,7 @@ interface Props {
   showCrosshair: boolean
   flagsOverlay?: HTMLImageElement | null
   trail?: TrailPoint[]
+  gaiaMarkers?: GaiaOverlayMarker[]
   clickMode?: boolean
   picked?: [number, number] | null
   initialFovArcmin?: number | null
@@ -42,7 +50,7 @@ interface Props {
 }
 
 export const BlinkCanvas = forwardRef<BlinkCanvasHandle, Props>(function BlinkCanvas(
-  { bitmap, gridW, gridH, pixArcsec, crosshair, showCrosshair, flagsOverlay, trail, clickMode, picked, initialFovArcmin, label, onFovChange, onPixelClick },
+  { bitmap, gridW, gridH, pixArcsec, crosshair, showCrosshair, flagsOverlay, trail, gaiaMarkers, clickMode, picked, initialFovArcmin, label, onFovChange, onPixelClick },
   ref,
 ) {
   const boxRef = useRef<HTMLDivElement>(null)
@@ -97,6 +105,21 @@ export const BlinkCanvas = forwardRef<BlinkCanvasHandle, Props>(function BlinkCa
       }
     }
 
+    if (gaiaMarkers && gaiaMarkers.length) {
+      const r = Math.max(4, Math.min(7, v.scale * 1.3))
+      for (const m of gaiaMarkers) {
+        const s = pixelCentreToScreen(v, m.px)
+        ctx.save()
+        ctx.strokeStyle = m.propagated ? '#2F9DD0' : '#9CA3AF'
+        ctx.lineWidth = 1.25
+        if (!m.propagated) ctx.setLineDash([2, 2])
+        ctx.beginPath()
+        ctx.arc(s.x, s.y, r, 0, Math.PI * 2)
+        ctx.stroke()
+        ctx.restore()
+      }
+    }
+
     if (showCrosshair && crosshair) {
       const s = pixelCentreToScreen(v, crosshair)
       const gap = Math.max(6, v.scale * 1.5)
@@ -127,7 +150,7 @@ export const BlinkCanvas = forwardRef<BlinkCanvasHandle, Props>(function BlinkCa
       ctx.stroke()
       ctx.restore()
     }
-  }, [bitmap, gridW, gridH, flagsOverlay, trail, showCrosshair, crosshair, picked])
+  }, [bitmap, gridW, gridH, flagsOverlay, trail, gaiaMarkers, showCrosshair, crosshair, picked])
 
   const drawRef = useRef(draw)
   drawRef.current = draw

@@ -1,12 +1,14 @@
 import { useQueries } from '@tanstack/react-query'
-import { Check, Copy, Loader2 } from 'lucide-react'
+import { AlertTriangle, Check, Copy, Loader2 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { config } from '../../app/config'
 import { api } from '../../shared/api'
 import { describeError } from '../../shared/api/errors'
 import type { FramesResponse } from '../../shared/api/types'
+import { DR1_MAP_MJD } from '../../shared/config/epoch'
 import type { TargetInfo } from '../../shared/config/targets'
 import { framesQueryKey } from '../blink/useFrameSession'
+import type { GaiaStatusInfo, SurveyInfo } from '../sky-map/AladinMap'
 import { DemoTag } from './SciencePanels'
 import { formatUtcDate } from './format'
 
@@ -17,7 +19,8 @@ interface Props {
   activeIndex: number
   gaia: boolean
   setGaia: (v: boolean) => void
-  gaiaStatus: { status: 'idle' | 'loading' | 'ready' | 'error'; count?: number }
+  gaiaStatus: GaiaStatusInfo
+  survey: SurveyInfo
   shareUrl: string
   embedUrl: string
 }
@@ -145,23 +148,54 @@ function RgbView({ target, coords, data, activeIndex }: Pick<Props, 'target' | '
 
 export function MoreTools(p: Props) {
   const [rgbOn, setRgbOn] = useState(false)
+  const isDssFallback = p.survey.key === 'dss2' || p.survey.id === 'CDS/P/DSS2/color'
+  const sourceName = p.gaiaStatus.source === 'sky_archive' ? 'Supabase sky_archive (ESA Gaia DR3)' : 'ESA/Gaia DR3 via VizieR'
+  const targetEpochText = p.survey.cube
+    ? `DR1_MAP_MJD (${DR1_MAP_MJD}, Nov 2025)`
+    : (p.survey.epochLabel ?? 'active map epoch')
+
+  const gaiaCaption = (() => {
+    if (p.gaiaStatus.status === 'loading') {
+      return 'Loading Gaia DR3 catalog (sky_archive / VizieR)…'
+    }
+    if (p.gaiaStatus.status === 'error') {
+      return 'Gaia DR3 could not be loaded from sky_archive or VizieR.'
+    }
+    if (p.gaiaStatus.status === 'ready') {
+      const total = p.gaiaStatus.count ?? 0
+      const propagated = p.gaiaStatus.propagatedCount ?? 0
+      const staticCount = p.gaiaStatus.staticCount ?? 0
+      if (isDssFallback) {
+        return `${total} Gaia DR3 sources loaded from ${sourceName}. Kept at Gaia reference epoch J2016.0 (not shifted to the mixed 1950s–1990s DSS2 plate epochs).`
+      }
+      if (staticCount > 0) {
+        return `${total} Gaia DR3 sources (${sourceName}): ${propagated} propagated via pmRA/pmDE (angular_proper_motion_only) from J2016.0 to ${targetEpochText}; ${staticCount} kept at J2016.0 because pmRA/pmDE are absent.`
+      }
+      return `${total} Gaia DR3 sources (${sourceName}): propagated via pmRA/pmDE (angular_proper_motion_only) from J2016.0 to ${targetEpochText}.`
+    }
+    if (isDssFallback) {
+      return 'Real catalog data from ESA/Gaia DR3 (epoch J2016.0). Note: the current background is DSS2 optical plates from the 1950s–1990s.'
+    }
+    return `Real catalog data from ESA/Gaia DR3 (sky_archive for standard targets, VizieR otherwise), propagated with pmRA/pmDE from J2016.0 to ${targetEpochText} (or kept at J2016.0 when pmRA/pmDE are absent).`
+  })()
+
   return (
     <div className="panel">
       <section className="tool">
         <h4>Gaia DR3 stars on the map</h4>
+        {isDssFallback && (
+          <div className="notice notice--warn" role="status">
+            <AlertTriangle aria-hidden />
+            <span>
+              <strong>Epoch mismatch (DSS2 fallback):</strong> The sky map fell back to DSS2 optical plates (1950s–1990s). Target markers (DR1 epoch MJD {DR1_MAP_MJD}) and Gaia DR3 crosses (J2016.0) are not instantaneous positions on the DSS2 plates.
+            </span>
+          </div>
+        )}
         <label className="check">
           <input type="checkbox" checked={p.gaia} onChange={(e) => p.setGaia(e.target.checked)} />
           Show Gaia DR3 catalog stars around this target (blue crosses)
         </label>
-        <p className="caption">
-          {p.gaiaStatus.status === 'loading'
-            ? 'Loading Gaia DR3 from VizieR…'
-            : p.gaiaStatus.status === 'error'
-              ? 'Gaia DR3 could not be loaded from VizieR.'
-              : p.gaiaStatus.status === 'ready'
-                ? `${p.gaiaStatus.count ?? 'Some'} Gaia DR3 sources brighter than G = 18 within 6′ (ESA/Gaia via VizieR). Positions are at the Gaia epoch J2016.`
-                : 'Real catalog data from ESA/Gaia via VizieR, drawn on the sky map.'}
-        </p>
+        <p className="caption">{gaiaCaption}</p>
       </section>
 
       <section className="tool">

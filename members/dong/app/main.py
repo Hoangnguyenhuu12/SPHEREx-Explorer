@@ -16,6 +16,7 @@ from .fixture_api import router
 from .forum import ForumError
 from .forum import router as forum_router
 from .services.fixtures import FixtureError
+from .sky_archive_api import router as sky_archive_router
 
 app = FastAPI(title="Human Binoculars API", version="0.1")
 
@@ -47,6 +48,7 @@ app.add_middleware(
 )
 app.include_router(router)
 app.include_router(forum_router)
+app.include_router(sky_archive_router)
 FORUM_PREFIX = "/api/forum"
 logger = logging.getLogger("uvicorn.error")
 

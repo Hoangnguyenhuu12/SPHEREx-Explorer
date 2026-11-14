@@ -333,6 +333,7 @@ def render_cached(query_json, target_json, cutouts):
     frames = Frames.model_validate(
         {
             **result,
+                "api_version": "0.1",
             "target": Target.model_validate_json(target_json),
             "detector": query.detector,
         }

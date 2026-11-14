@@ -1,8 +1,8 @@
-import { AlertTriangle, Crosshair, Expand, Loader2, Maximize, Minus, Pause, Play, Plus, RotateCw, SkipBack, SkipForward, X } from 'lucide-react'
+import { AlertTriangle, Crosshair, Expand, Loader2, Maximize, Minus, Pause, Play, Plus, RotateCw, SkipBack, SkipForward, Sparkles, X } from 'lucide-react'
 import { useEffect, useRef, useState, type Dispatch } from 'react'
 import { describeError } from '../../shared/api/errors'
 import { DETECTORS } from '../../shared/config/targets'
-import { BlinkCanvas, type BlinkCanvasHandle, type TrailPoint } from '../blink/BlinkCanvas'
+import { BlinkCanvas, type BlinkCanvasHandle, type GaiaOverlayMarker, type TrailPoint } from '../blink/BlinkCanvas'
 import { SPEEDS, type PlayerAction, type PlayerState } from '../blink/player'
 import type { FrameSession } from '../blink/useFrameSession'
 import { formatShortDate, formatUtcDate } from './format'
@@ -15,6 +15,16 @@ export interface ViewerToggles {
   flags: boolean
   trail: boolean
   pick: boolean
+  gaiaOverlays: boolean
+}
+
+export interface GaiaOverlayMeta {
+  model: string
+  annualParallaxIncluded: boolean
+  propagatedCount: number
+  staticCount: number
+  loading?: boolean
+  error?: boolean
 }
 
 interface Props {
@@ -26,10 +36,13 @@ interface Props {
   targetName: string
   flagsOverlay: HTMLImageElement | null
   trail: TrailPoint[]
+  gaiaMarkers?: GaiaOverlayMarker[]
+  gaiaOverlayMeta?: GaiaOverlayMeta | null
   picked: [number, number] | null
   onPixelClick: (x: number, y: number) => void
   detector: number
   onDetector: (d: number) => void
+  timelineControl?: { combined: boolean; setCombined: (value: boolean) => void }
   fovArcmin: number | null
   onFovChange: (arcmin: number, byUser: boolean) => void
 }
@@ -53,11 +66,14 @@ export function ObservationViewer(props: Props) {
   const data = session.data
   const frame = data?.frames[player.index] ?? null
   const elapsed = useElapsed(session.startedAt, session.status === 'fetching')
-  const isDiff = toggles.mode === 'difference'
+  const combined = props.timelineControl?.combined ?? false
+  const isDiff = !combined && toggles.mode === 'difference'
   const bitmap = isDiff ? (session.diffs[player.index] ?? null) : (session.originals[player.index] ?? null)
+  const demo = data?.mode === 'mock' || frame?.data_mode === 'fixture'
+  const mission = frame?.mission ?? 'SPHEREx'
   const failedHere = session.failed.includes(player.index)
   const ready = session.status === 'ready'
-  const canPlay = ready && session.total >= 2
+  const canPlay = ready && session.originals.filter(Boolean).length >= 2
 
   useEffect(() => {
     if (isDiff) session.ensureDiffs()
@@ -80,10 +96,11 @@ export function ObservationViewer(props: Props) {
         showCrosshair={toggles.crosshair}
         flagsOverlay={toggles.flags ? props.flagsOverlay : null}
         trail={toggles.trail ? props.trail : undefined}
+        gaiaMarkers={combined && toggles.gaiaOverlays ? props.gaiaMarkers : undefined}
         clickMode={toggles.pick}
         picked={props.picked}
         initialFovArcmin={big ? null : props.fovArcmin}
-        label={`${isDiff ? 'Difference' : 'Original'} SPHEREx image of ${targetName}, observation ${player.index + 1} of ${session.total}${frame ? `, ${formatUtcDate(frame.iso)}` : ''}.`}
+        label={`${demo ? 'Illustrative demo' : mission} ${isDiff ? 'difference' : 'original'} image of ${targetName}, observation ${player.index + 1} of ${session.total}${frame ? `, ${formatUtcDate(frame.iso)}` : ''}.`}
         onFovChange={big ? undefined : onFov}
         onPixelClick={props.onPixelClick}
       />
@@ -103,7 +120,7 @@ export function ObservationViewer(props: Props) {
           </button>
         </div>
       )
-    if (session.status === 'decoding')
+    if (session.status === 'decoding' && !bitmap && !failedHere)
       return (
         <div className="viewer-state" role="status">
           <Loader2 className="spin" aria-hidden />
@@ -136,7 +153,7 @@ export function ObservationViewer(props: Props) {
           <p className="caption">Try another detector from the list below.</p>
         </div>
       )
-    if (ready && failedHere)
+    if (failedHere)
       return (
         <div className="viewer-state" role="alert">
           <AlertTriangle className="is-warn" aria-hidden />
@@ -166,9 +183,10 @@ export function ObservationViewer(props: Props) {
               Observation {player.index + 1} / {session.total}
             </span>
             <span className="num">
-              D{data!.detector}
+              {mission} {frame.band_or_detector ?? `D${data!.detector}`}
               {frame.wavelength_um != null ? ` · ${frame.wavelength_um.toFixed(2)} µm` : ''}
             </span>
+            {frame.quality_label && <span className="caption">{frame.quality_label}</span>}
           </>
         ) : (
           <span className="caption">No observation selected</span>
@@ -199,7 +217,7 @@ export function ObservationViewer(props: Props) {
             max={Math.max(0, session.total - 1)}
             step={1}
             value={player.index}
-            disabled={!ready || session.total < 2}
+            disabled={!canPlay}
             aria-label="Observation date"
             aria-valuetext={frame ? `${formatUtcDate(frame.iso)}, observation ${player.index + 1} of ${session.total}` : undefined}
             onChange={(e) => dispatch({ type: 'seek', index: Number(e.target.value) })}
@@ -235,8 +253,8 @@ export function ObservationViewer(props: Props) {
           <button
             type="button"
             aria-pressed={isDiff}
-            disabled={!ready || session.total < 2}
-            title={session.total < 2 ? 'Difference needs at least two observations' : 'Each image minus the first observation'}
+            disabled={combined || !ready || session.total < 2}
+            title={combined ? 'Difference images are available in SPHEREx-only mode' : session.total < 2 ? 'Difference needs at least two observations' : 'Each image minus the first observation'}
             onClick={() => setToggles({ mode: 'difference' })}
           >
             Difference
@@ -252,6 +270,18 @@ export function ObservationViewer(props: Props) {
         >
           <Crosshair aria-hidden />
         </button>
+        {combined && (
+          <button
+            type="button"
+            className="icon-btn"
+            aria-pressed={toggles.gaiaOverlays}
+            aria-label="Show Gaia DR3 epoch overlays"
+            title="Gaia DR3 epoch overlays (angular proper motion only)"
+            onClick={() => setToggles({ gaiaOverlays: !toggles.gaiaOverlays })}
+          >
+            <Sparkles aria-hidden />
+          </button>
+        )}
         <label className="viewer-det">
           <span className="sr-only">Detector</span>
           <select className="select" value={props.detector} onChange={(e) => props.onDetector(Number(e.target.value))} title="Infrared detector">
@@ -268,17 +298,35 @@ export function ObservationViewer(props: Props) {
           Difference: each observation minus the first. Mid-grey means no change; a bright and dark pair marks a star that moved.
         </p>
       )}
+      {combined && toggles.gaiaOverlays && props.gaiaOverlayMeta && (
+        <p className="caption viewer-legend">
+          {props.gaiaOverlayMeta.loading
+            ? 'Loading frame-by-frame Gaia DR3 overlays…'
+            : props.gaiaOverlayMeta.error
+              ? 'Gaia DR3 frame overlays from sky_archive are unavailable.'
+              : `Gaia DR3 frame overlays (${props.gaiaMarkers?.length ?? 0} in frame · ${props.gaiaOverlayMeta.propagatedCount} propagated, ${props.gaiaOverlayMeta.staticCount} static without pmRA/pmDE). Model: ${props.gaiaOverlayMeta.model}; annual parallax not included.`}
+        </p>
+      )}
     </>
   )
 
   return (
-    <section className="viewer" aria-label="SPHEREx observation sequence">
+    <section className="viewer" aria-label="Observation sequence">
+      {props.timelineControl && (
+        <label>
+          <span className="sr-only">Observation sources</span>
+          <select className="select" value={combined ? 'combined' : 'spherex'} onChange={(e) => props.timelineControl?.setCombined(e.target.value === 'combined')}>
+            <option value="combined">unWISE W2 + SPHEREx D6</option>
+            <option value="spherex">SPHEREx only</option>
+          </select>
+        </label>
+      )}
       <div className="viewer-frame">
         {canvas(canvasRef)}
         {stateLayer}
         {data && (
-          <span className="viewer-mode-tag" aria-hidden>
-            {isDiff ? 'Difference' : 'Original'}
+          <span className="viewer-mode-tag">
+            {demo ? 'Illustrative demo' : isDiff ? 'Difference' : 'Original'}
           </span>
         )}
         {data && (
@@ -323,6 +371,7 @@ export function ObservationViewer(props: Props) {
             <div className="modal__image">
               {canvas(expandedRef, true)}
               {stateLayer}
+              {demo && <span className="viewer-mode-tag">Illustrative demo</span>}
               {data && (
                 <div className="viewer-zoom" role="group" aria-label="Image zoom">
         <button type="button" className="icon-btn" aria-label="Zoom out image" onClick={() => expandedRef.current?.zoomOut()} disabled={!data}>

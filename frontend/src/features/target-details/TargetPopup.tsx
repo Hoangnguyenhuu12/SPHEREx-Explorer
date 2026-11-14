@@ -2,14 +2,15 @@ import { motion, useReducedMotion } from 'motion/react'
 import { AlertTriangle, LocateFixed, X } from 'lucide-react'
 import { useMemo, useState, type Dispatch } from 'react'
 import type { TargetInfo } from '../../shared/config/targets'
-import type { TrailPoint } from '../blink/BlinkCanvas'
+import type { GaiaOverlayMarker, TrailPoint } from '../blink/BlinkCanvas'
 import type { PlayerAction, PlayerState } from '../blink/player'
 import type { FrameSession } from '../blink/useFrameSession'
 import { pixelToSky, skyToPixel } from '../blink/wcs'
+import type { GaiaStatusInfo, SurveyInfo } from '../sky-map/AladinMap'
 import { warningText } from './format'
 import { MoreTools } from './MoreTools'
-import { ObservationViewer, type ViewerToggles } from './ObservationViewer'
-import { BrightnessPanel, DataPanel, DemoTag, MotionPanel, OverviewPanel, useFlagsOverlay } from './SciencePanels'
+import { ObservationViewer, type GaiaOverlayMeta, type ViewerToggles } from './ObservationViewer'
+import { BrightnessPanel, DataPanel, MotionPanel, OverviewPanel, useFlagsOverlay } from './SciencePanels'
 import { useQuery } from '@tanstack/react-query'
 import { config } from '../../app/config'
 import { api } from '../../shared/api'
@@ -24,6 +25,7 @@ interface Props {
   coords: { ra: number; dec: number }
   detector: number
   onDetector: (d: number) => void
+  timelineControl?: { combined: boolean; setCombined: (value: boolean) => void }
   session: FrameSession
   player: PlayerState
   dispatch: Dispatch<PlayerAction>
@@ -35,7 +37,8 @@ interface Props {
   onCenter: () => void
   gaia: boolean
   setGaia: (v: boolean) => void
-  gaiaStatus: { status: 'idle' | 'loading' | 'ready' | 'error'; count?: number }
+  gaiaStatus: GaiaStatusInfo
+  survey: SurveyInfo
   shareUrl: string
   embedUrl: string
 }
@@ -54,6 +57,69 @@ export function TargetPopup(p: Props) {
     staleTime: Infinity,
     enabled: p.toggles.trail,
   })
+
+  const combinedActive = Boolean(p.timelineControl?.combined && p.target?.key === 'wise0855')
+  const overlaysQ = useQuery({
+    queryKey: ['combined-gaia-overlays', config.useMock, 'wise0855:unwise_w2_to_spherex_d6'],
+    queryFn: ({ signal }) => api.combinedGaiaOverlays('wise0855:unwise_w2_to_spherex_d6', signal),
+    staleTime: Infinity,
+    enabled: combinedActive,
+  })
+
+  const { gaiaMarkers, gaiaOverlayMeta } = useMemo<{
+    gaiaMarkers: GaiaOverlayMarker[]
+    gaiaOverlayMeta: GaiaOverlayMeta | null
+  }>(() => {
+    if (!combinedActive) return { gaiaMarkers: [], gaiaOverlayMeta: null }
+    if (overlaysQ.isPending) {
+      return {
+        gaiaMarkers: [],
+        gaiaOverlayMeta: {
+          model: 'angular_proper_motion_only',
+          annualParallaxIncluded: false,
+          propagatedCount: 0,
+          staticCount: 0,
+          loading: true,
+        },
+      }
+    }
+    if (overlaysQ.isError || !overlaysQ.data) {
+      return {
+        gaiaMarkers: [],
+        gaiaOverlayMeta: {
+          model: 'angular_proper_motion_only',
+          annualParallaxIncluded: false,
+          propagatedCount: 0,
+          staticCount: 0,
+          error: true,
+        },
+      }
+    }
+    const activeFrameIndex = p.player.index + 1
+    const inFrame = overlaysQ.data.overlays.filter((o) => o.frame_index === activeFrameIndex && o.in_frame)
+    let propagatedCount = 0
+    let staticCount = 0
+    const markers: GaiaOverlayMarker[] = inFrame.map((o) => {
+      const propagated = o.motion_status === 'propagated_pm'
+      if (propagated) propagatedCount++
+      else staticCount++
+      return {
+        px: [o.pixel_x, o.pixel_y_png],
+        sourceId: o.source_id,
+        propagated,
+        gMag: o.g_mag,
+      }
+    })
+    return {
+      gaiaMarkers: markers,
+      gaiaOverlayMeta: {
+        model: overlaysQ.data.gaia_propagation_model || 'angular_proper_motion_only',
+        annualParallaxIncluded: Boolean(overlaysQ.data.annual_parallax_included),
+        propagatedCount,
+        staticCount,
+      },
+    }
+  }, [combinedActive, overlaysQ.isPending, overlaysQ.isError, overlaysQ.data, p.player.index])
 
   const trail: TrailPoint[] = useMemo(() => {
     if (!data || !astro.data) return []
@@ -104,8 +170,8 @@ export function TargetPopup(p: Props) {
       </header>
 
       <div className="popup__body">
-        <DemoTag mode={data?.mode} />
         <ObservationViewer
+          timelineControl={p.timelineControl}
           session={p.session}
           player={p.player}
           dispatch={p.dispatch}
@@ -114,6 +180,8 @@ export function TargetPopup(p: Props) {
           targetName={p.title}
           flagsOverlay={flagsOverlay}
           trail={trail}
+          gaiaMarkers={gaiaMarkers}
+          gaiaOverlayMeta={gaiaOverlayMeta}
           picked={picked ? [picked.x, picked.y] : null}
           onPixelClick={onPixelClick}
           detector={p.detector}
@@ -172,6 +240,7 @@ export function TargetPopup(p: Props) {
               gaia={p.gaia}
               setGaia={p.setGaia}
               gaiaStatus={p.gaiaStatus}
+              survey={p.survey}
               shareUrl={p.shareUrl}
               embedUrl={p.embedUrl}
             />
