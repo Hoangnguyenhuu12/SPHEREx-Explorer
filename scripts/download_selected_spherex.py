@@ -97,6 +97,13 @@ def main():
                     save_json(report_path, report)
                     print(f'{key}: HTTP 503 deferred; moving on', flush=True)
                     break
+                if args.defer_503 and (isinstance(exc, subprocess.TimeoutExpired) or 'curl: (28)' in error):
+                    # Timeouts are skipped immediately like 503 and kept for a later retry.
+                    any_failure = True
+                    report['files'][key] = {'status': 'deferred_timeout', 'attempts': attempts, 'error': error, 'selection_url': url}
+                    save_json(report_path, report)
+                    print(f'{key}: timeout deferred; moving on', flush=True)
+                    break
                 if isinstance(exc, ValueError):
                     any_failure = True
                     report['files'][key] = {'status': 'failed', 'attempts': attempts, 'error': error}
