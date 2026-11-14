@@ -1,0 +1,107 @@
+.where {
+  position: relative;
+  min-height: calc(100vh - var(--header-h));
+  display: grid;
+  overflow: hidden;
+  background:
+    radial-gradient(1200px 600px at 50% 55%, rgb(47 157 208 / 0.08), transparent 70%),
+    var(--bg);
+}
+.where__scene {
+  position: relative;
+  display: grid;
+  grid-template-rows: auto 1fr auto auto;
+  justify-items: center;
+  padding-block: var(--space-5) var(--space-4);
+  min-height: calc(100vh - var(--header-h));
+}
+.where__title {
+  font-size: 52px;
+  line-height: 60px;
+  color: var(--fg);
+  z-index: 2;
+}
+.where__earth {
+  position: relative;
+  width: min(1100px, 100%);
+  height: clamp(340px, calc(100vh - var(--header-h) - 250px), 540px);
+  align-self: center;
+  transition: filter 520ms cubic-bezier(0.6, 0, 0.9, 0.4);
+}
+.where__earth.is-hover {
+  cursor: pointer;
+}
+.is-launching .where__earth {
+  filter: blur(8px);
+}
+.earth-canvas {
+  position: absolute !important;
+  inset: 0;
+}
+.where__static {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 392px;
+  height: 392px;
+  transform: translate(-50%, -50%);
+}
+.where__static-btn {
+  position: absolute;
+  inset: 0;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+.where__hint {
+  position: absolute;
+  top: 44%;
+  right: calc(50% + 225px);
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-2);
+  color: var(--heading);
+  font-family: var(--font-display);
+  font-size: 22px;
+  line-height: 28px;
+  pointer-events: none;
+}
+.where__arrow {
+  color: var(--heading);
+  margin-bottom: 6px;
+}
+.where__label {
+  position: absolute;
+  left: 0;
+  top: 0;
+  font-size: 13px;
+  line-height: 16px;
+  color: var(--muted);
+  pointer-events: none;
+  will-change: transform;
+}
+.where__actions {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  z-index: 2;
+}
+.where__caption {
+  margin-top: var(--space-4);
+}
+
+@media (max-width: 1100px) {
+  .where__hint {
+    left: var(--gutter);
+    top: 20%;
+  }
+}
+
+.where__stars {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}

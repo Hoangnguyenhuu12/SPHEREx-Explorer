@@ -1,0 +1,18 @@
+.sky-map-wrap {
+  position: absolute;
+  inset: 0;
+  background: #000;
+}
+.sky-map-wrap .sky-map {
+  width: 100%;
+  height: 100%;
+}
+/* Keep Aladin's own logo/attribution visible; only restyle typography. */
+.sky-map .aladin-container,
+.sky-map {
+  font-family: var(--font-body);
+}
+/* Aladin's logo/attribution must stay above our decorative horizon. */
+.sky-map .aladin-logo-container {
+  z-index: 20;
+}

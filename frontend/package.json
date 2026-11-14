@@ -1,52 +1,42 @@
 {
-  "name": "spherex-frontend",
+  "name": "spherex-explorer-frontend",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.0.0",
   "type": "module",
-  "description": "SPHEREx Sky Viewer frontend (Vite + React + TypeScript, MSW mocks from api_samples/)",
-  "engines": {
-    "node": "^22.12.0 || >=24.0.0"
-  },
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "lint": "oxlint",
     "preview": "vite preview",
-    "lint": "eslint .",
-    "typecheck": "tsc -b",
     "test": "vitest run",
-    "gen:types": "openapi-typescript ../shared/api-contract/openapi.yaml -o src/api/schema.d.ts",
-    "build:mock": "tsc -b && vite build --mode mock",
-    "e2e": "playwright test"
-  },
-  "msw": {
-    "workerDirectory": [
-      "public"
-    ]
+    "typecheck": "tsc -b"
   },
   "dependencies": {
-    "aladin-lite": "3.8.2",
-    "plotly.js-basic-dist-min": "^4.2.0",
+    "@fontsource/andika": "^5.3.0",
+    "@fontsource/averia-serif-libre": "^5.3.0",
+    "@react-three/fiber": "^9.8.2",
+    "@tanstack/react-query": "^5.107.1",
+    "aladin-lite": "^3.8.2",
+    "lucide-react": "^1.72.0",
+    "motion": "^12.43.0",
     "react": "^19.3.1",
-    "react-dom": "^19.3.1"
+    "react-dom": "^19.3.1",
+    "react-router": "^7.18.5",
+    "three": "^0.187.0"
   },
   "devDependencies": {
-    "@eslint/js": "^10.0.1",
-    "@playwright/test": "^1.65.0",
-    "@types/node": "^26.6.6",
+    "@types/node": "^24.19.2",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
-    "@vitejs/plugin-react": "^6.3.0",
-    "ajv": "^8.20.0",
-    "eslint": "^10.14.0",
-    "eslint-plugin-react-hooks": "^7.1.1",
-    "eslint-plugin-react-refresh": "^0.5.7",
-    "globals": "^17.14.0",
-    "msw": "^3.0.4",
-    "openapi-typescript": "^7.13.0",
-    "typescript": "~5.9.3",
-    "typescript-eslint": "^8.72.2",
-    "vite": "^8.3.7",
-    "vitest": "^5.1.0",
-    "yaml": "^2.9.1"
+    "@types/three": "^0.187.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "jsdom": "^31.0.1",
+    "oxlint": "^1.90.0",
+    "typescript": "~7.0.2",
+    "vite": "^8.3.6",
+    "vitest": "^4.1.12"
+  },
+  "engines": {
+    "node": ">=22"
   }
 }
