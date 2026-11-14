@@ -16,6 +16,7 @@ from ..api_models import (
     Target,
 )
 from .catalog import resolve_name, targets
+from . import database_provider
 from .frame_rendering import NoCoverage
 from .live_cutouts import cached_result, harvest_mode, load_cutouts, workspace
 from .observed_frames import matching_cutouts, render_cached
@@ -49,7 +50,7 @@ def fail(status, code, message, details=None):
 
 
 def require_fixture_mode():
-    if os.getenv("DATA_MODE", "fixture") not in {"fixture", "real", "harvest"}:
+    if os.getenv("DATA_MODE", "fixture") not in {"fixture", "real", "harvest", "database"}:
         fail(500, "INTERNAL", "Unsupported data mode.")
 
 
@@ -88,7 +89,13 @@ def target(query):
 
 
 def health():
-    if harvest_mode():
+    if database_provider.enabled():
+        try:
+            database_provider.health()
+            result = {"api_version": "0.1", "status": "ok", "mode": "database", "fixture_targets": [], "irsa_reachable": False}
+        except database_provider.DatabaseError:
+            result = {"api_version": "0.1", "status": "degraded", "mode": "database", "fixture_targets": [], "irsa_reachable": False}
+    elif harvest_mode():
         result = {"api_version": "0.1", "status": "ok", "mode": "harvest", "fixture_targets": [], "irsa_reachable": False}
     elif real_mode():
         result = {"api_version": "0.1", "status": "ok", "mode": "local", "fixture_targets": [], "irsa_reachable": None}
@@ -101,6 +108,18 @@ def health():
 
 
 def resolve(query: ResolveQuery):
+    if database_provider.enabled():
+        row = database_provider.find_target(query.name)
+        if row is None:
+            fail(404, "UNKNOWN_TARGET", "Name absent from Supabase targets table.", {"name": query.name})
+        return {
+            "api_version": "0.1", "query": query.name, "target_key": row.get("target_key"),
+            "name": row.get("name", query.name), "ra": row.get("ra_deg", row.get("ra")),
+            "dec": row.get("dec_deg", row.get("dec")), "epoch": row.get("epoch", "J2000.0"),
+            "pmra": row.get("pmra"), "pmdec": row.get("pmdec"),
+            "parallax_mas": row.get("parallax_mas"), "kind": row.get("kind", "other"),
+            "source": "targets_table",
+        }
     result = resolve_name(query.name)
     if result is None:
         fail(404, "UNKNOWN_TARGET", "Name absent from fixture resolver.", {"name": query.name})
