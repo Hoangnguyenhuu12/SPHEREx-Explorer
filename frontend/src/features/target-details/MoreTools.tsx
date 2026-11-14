@@ -1,4 +1,4 @@
-import { useQueries } from '@tanstack/react-query'
+import { useQueries, useQuery } from '@tanstack/react-query'
 import { AlertTriangle, Check, Copy, Loader2 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { config } from '../../app/config'
@@ -7,6 +7,7 @@ import { describeError } from '../../shared/api/errors'
 import type { FramesResponse } from '../../shared/api/types'
 import { DR1_MAP_MJD } from '../../shared/config/epoch'
 import type { TargetInfo } from '../../shared/config/targets'
+import wiseReferenceConfig from '../../shared/config/wise-reference.json'
 import { framesQueryKey } from '../blink/useFrameSession'
 import type { GaiaStatusInfo, SurveyInfo } from '../sky-map/AladinMap'
 import { DemoTag } from './SciencePanels'
@@ -55,6 +56,105 @@ function CopyField({ label, value, multiline }: { label: string; value: string; 
 }
 
 const RGB_DETECTORS = { r: 6, g: 4, b: 2 } as const
+
+interface WiseImage {
+  target: string
+  band: string
+  wavelength_um: number
+  start: string
+  end: string
+  image_url: string
+  coverage: { inside: boolean }[]
+}
+
+interface UnwiseFrame {
+  epoch: number
+  date: string
+  image_url: string
+}
+
+function UnwiseBlink({ target }: { target: TargetInfo }) {
+  const sources = (wiseReferenceConfig.blinkManifests as Record<string, Partial<Record<'W1' | 'W2', string>>>)[target.key] ?? {}
+  const [playing, setPlaying] = useState(false)
+  const [index, setIndex] = useState(0)
+  const [band, setBand] = useState<'W1' | 'W2'>(sources.W2 ? 'W2' : 'W1')
+  const manifestUrl = sources[band]
+  const query = useQuery({
+    queryKey: ['unwise-blink', target.key, band],
+    queryFn: async ({ signal }) => {
+      if (!manifestUrl) throw new Error('unWISE sequence unavailable')
+      const response = await fetch(manifestUrl, { signal })
+      if (!response.ok) throw new Error('unWISE sequence unavailable')
+      return response.json() as Promise<{ frames: UnwiseFrame[] }>
+    },
+    staleTime: 300_000,
+    retry: false,
+    enabled: Boolean(manifestUrl),
+  })
+  const frames = query.data?.frames ?? []
+  useEffect(() => {
+    if (!playing || frames.length < 2) return
+    const timer = window.setInterval(() => setIndex((i) => (i + 1) % frames.length), 700)
+    return () => window.clearInterval(timer)
+  }, [playing, frames.length])
+  if (!manifestUrl) return <p className="caption">No unWISE sequence is available for this band.</p>
+  if (query.isPending) return <p className="caption" role="status">Loading unWISE sequence…</p>
+  if (query.isError || frames.length < 2) return <p className="caption" role="status">unWISE sequence is temporarily unavailable.</p>
+  const frame = frames[index % frames.length]
+  return (
+    <div className="wise-reference">
+      <h4>{target.name} · unWISE blink</h4>
+      <div className="wise-blink__controls" aria-label="Select WISE band">
+        {(['W1', 'W2'] as const).filter((choice) => sources[choice]).map((choice) => (
+          <button key={choice} className="btn btn-secondary" type="button" aria-pressed={band === choice} onClick={() => { setPlaying(false); setIndex(0); setBand(choice) }}>{choice}</button>
+        ))}
+      </div>
+      <p className="caption">Time-resolved {band} coadds · same sky grid · {frames.length} epochs · visual comparison only.</p>
+      <img className="wise-blink__image" src={frame.image_url} alt={`unWISE ${band} field at epoch ${frame.epoch}`} />
+      <p className="caption" aria-live={playing ? 'off' : 'polite'}>Epoch {frame.epoch} · {frame.date.slice(0, 10)} UTC · {index + 1}/{frames.length}</p>
+      <div className="wise-blink__controls">
+        <button className="btn btn-secondary" type="button" onClick={() => { setPlaying(false); setIndex((index + frames.length - 1) % frames.length) }}>Previous</button>
+        <button className="btn btn-secondary" type="button" onClick={() => setPlaying(!playing)}>{playing ? 'Pause' : 'Play'}</button>
+        <button className="btn btn-secondary" type="button" onClick={() => { setPlaying(false); setIndex((index + 1) % frames.length) }}>Next</button>
+      </div>
+      <p className="caption">Each frame has its background removed and shares the same display stretch. Bright sources may saturate. Apparent movement is not a confirmed measurement.</p>
+    </div>
+  )
+}
+
+function WiseReference({ target }: { target: TargetInfo }) {
+  const query = useQuery({
+    queryKey: ['allwise-reference'],
+    queryFn: async ({ signal }) => {
+      const response = await fetch(wiseReferenceConfig.manifestUrl, { signal })
+      if (!response.ok) throw new Error('AllWISE reference unavailable')
+      return response.json() as Promise<{ images: WiseImage[] }>
+    },
+    staleTime: 300_000,
+    retry: false,
+  })
+  const images = query.data?.images.filter((image) => image.target === target.key) ?? []
+  if (query.isPending) return <p className="caption" role="status">Loading AllWISE references…</p>
+  if (query.isError) return <p className="caption" role="status">AllWISE references are temporarily unavailable.</p>
+  if (!images.length) return <p className="caption">No AllWISE reference available for this target.</p>
+  return (
+    <div className="wise-reference">
+      <p className="caption">AllWISE coadds · WISE/IPAC · {images[0].start.slice(0, 10)} to {images[0].end.slice(0, 10)} UTC. Independently stretched; brightness is not directly comparable with SPHEREx.</p>
+      {images.some((image) => image.coverage.length !== 2 || image.coverage.some((point) => !point.inside)) && (
+        <p className="notice notice--warn">The predicted target position falls outside at least one image at an observation date. These images show the surrounding field only.</p>
+      )}
+      <div className="wise-reference__images">
+        {images.map((image) => (
+          <figure key={image.band}>
+            <img src={image.image_url} alt={`AllWISE ${image.band} reference field for ${target.name}`} loading="lazy" />
+            <figcaption className="caption">{image.band} · {image.wavelength_um} µm</figcaption>
+          </figure>
+        ))}
+      </div>
+      <p className="caption">Reference images, not SPHEREx blink frames. Coverage uses approximate proper motion; source detection is not confirmed.</p>
+    </div>
+  )
+}
 
 function RgbView({ target, coords, data, activeIndex }: Pick<Props, 'target' | 'coords' | 'data' | 'activeIndex'>) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -179,8 +279,16 @@ export function MoreTools(p: Props) {
     return `Real catalog data from ESA/Gaia DR3 (sky_archive for standard targets, VizieR otherwise), propagated with pmRA/pmDE from J2016.0 to ${targetEpochText} (or kept at J2016.0 when pmRA/pmDE are absent).`
   })()
 
+  const wiseViewUrl = `http://byw.tools/wiseview#ra=${p.coords.ra.toFixed(6)}&dec=${p.coords.dec.toFixed(6)}`
   return (
     <div className="panel">
+      <section className="tool">
+        <h4>WISE infrared reference</h4>
+        <p className="caption">Explore WISE and NEOWISE observations in WiseView. The selected sky position may differ from the target's location at older epochs.</p>
+        <a className="btn btn-secondary" href={wiseViewUrl} target="_blank" rel="noopener noreferrer">Open this position in WiseView ↗</a>
+        {p.target && <WiseReference target={p.target} />}
+        {p.target && p.target.key in wiseReferenceConfig.blinkManifests && <UnwiseBlink key={p.target.key} target={p.target} />}
+      </section>
       <section className="tool">
         <h4>Gaia DR3 stars on the map</h4>
         {isDssFallback && (

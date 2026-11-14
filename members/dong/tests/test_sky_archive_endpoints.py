@@ -1,5 +1,6 @@
 """Contract and resilience tests for sky_archive FastAPI routes."""
 
+import json
 import socket
 
 import pytest
@@ -131,8 +132,38 @@ def test_gaia_error_states(offline_client, monkeypatch):
     assert res_err.json()["error"]["code"] == "DATABASE_UNAVAILABLE"
 
 
-def test_combined_timeline_uses_db_in_database_mode_and_falls_back(offline_client, monkeypatch):
+def test_combined_timeline_uses_db_in_database_mode_and_falls_back(offline_client, monkeypatch, tmp_path):
     monkeypatch.setenv("DATA_MODE", "database")
+    monkeypatch.setenv("WISE0855_SEQUENCE_DIR", str(tmp_path))
+    player = tmp_path / "player"
+    player.mkdir()
+    # The real timeline lives under gitignored data/. Keep this offline test
+    # self-contained on a fresh CI checkout as well as on a developer's machine.
+    (player / "frame_001_unwise.png").write_bytes(b"test image")
+    local_rows = [
+        {
+            "frame_index": i,
+            "mission": "unWISE" if i < 24 else "SPHEREx",
+            "release": "unWISE W2" if i < 24 else "DR1",
+            "source_product_id": f"fixture-{i}",
+            "band_or_detector": "W2" if i < 24 else "D6",
+            "quality_label": "fixture",
+            "observed_mjd": 55320.0 + i,
+            "observed_utc": "2010-05-04T00:00:00Z",
+            "wavelength_um": 4.6,
+            "predicted_x_px": 124.5,
+            "predicted_y_png_px": 124.5,
+            "png": f"frame_{i:03d}_{'unwise' if i < 24 else 'spherex'}.png",
+        }
+        for i in range(1, 28)
+    ]
+    (tmp_path / "sequence_manifest.json").write_text(json.dumps({
+        "sequence_id": combined_timeline.SEQUENCE_ID,
+        "target_key": "wise0855",
+        "grid_wcs": {"width": 250, "height": 250, "pixel_scale_arcsec": 2.75,
+                     "CRVAL1": 133.81890825, "CRVAL2": -7.247048},
+        "frames": local_rows,
+    }), encoding="utf-8")
     monkeypatch.setattr(
         database_provider,
         "combined_timeline_sequence",

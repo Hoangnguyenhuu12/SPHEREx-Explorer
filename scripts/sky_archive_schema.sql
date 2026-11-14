@@ -19,6 +19,9 @@ CREATE TABLE IF NOT EXISTS sky_archive.products (
     metadata jsonb NOT NULL
 );
 
+ALTER TABLE sky_archive.products ADD COLUMN IF NOT EXISTS release text;
+ALTER TABLE sky_archive.products ADD COLUMN IF NOT EXISTS detector text;
+
 CREATE TABLE IF NOT EXISTS sky_archive.target_products (
     target_key text NOT NULL REFERENCES sky_archive.targets,
     product_id text NOT NULL REFERENCES sky_archive.products,

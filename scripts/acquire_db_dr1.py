@@ -59,6 +59,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--targets', nargs='+', choices=list(TARGETS), default=list(TARGETS))
     parser.add_argument('--chunk', type=int, default=25, help='Files per downloader call before rescreening')
+    parser.add_argument('--download-only', action='store_true',
+                        help='Only download; skip screening/pair processing (shared report files) for a parallel run')
     args = parser.parse_args()
     load_dotenv(ROOT / '.env')
     with psycopg.connect(connect_timeout=20) as conn:
@@ -82,6 +84,8 @@ def main():
                 continue
             urls.append('https://irsa.ipac.caltech.edu/ibe/cutout?' + urlencode(
                 {'ra': str(pos.ra.deg), 'dec': str(pos.dec.deg), 'size': '0.1', 'path': path}, safe='/'))
+        # Re-read just before writing so a concurrent run on other targets is not overwritten.
+        coverage = json.loads(COVERAGE.read_text(encoding='utf8')) if COVERAGE.exists() else {}
         coverage[local] = {'not_covered': sorted(set(not_covered) | set(coverage.get(local, {}).get('not_covered', [])))}
         save_json(COVERAGE, coverage)
         print(f'{local}: {len(urls)} DB DR1 products to download, {len(not_covered)} not covering the predicted position', flush=True)
@@ -91,10 +95,11 @@ def main():
             chunk.write_text('\n'.join(urls[start:start + args.chunk]) + '\n', encoding='utf8')
             subprocess.run([sys.executable, str(ROOT / 'scripts/download_selected_spherex.py'), '--target', local,
                             '--url-list', str(chunk), '--limit', str(args.chunk), '--retry-seconds', '180', '--defer-503'], cwd=ROOT)
-        if urls:
+        if urls and not args.download_only:
             subprocess.run([sys.executable, str(ROOT / 'scripts/screen_comparison_candidates.py')], cwd=ROOT, check=True)
             process_new_pairs(local)
-    subprocess.run([sys.executable, str(ROOT / 'scripts/check_comparison_readiness.py')], cwd=ROOT)
+    if not args.download_only:
+        subprocess.run([sys.executable, str(ROOT / 'scripts/check_comparison_readiness.py')], cwd=ROOT)
 
 
 if __name__ == '__main__':

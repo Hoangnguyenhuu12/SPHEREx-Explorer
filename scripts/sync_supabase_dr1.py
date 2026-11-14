@@ -7,6 +7,7 @@ pairs are stored with upload_status='not_configured' and can be uploaded by reru
 Database connection uses the libpq PG* variables in .env.
 """
 import argparse
+from collections import Counter
 import json
 import os
 import re
@@ -209,6 +210,59 @@ PAIR_COLS = ['pair_id', 'target_key', 'detector', 'frame_early_id', 'frame_late_
              'common_valid_pixels', 'grid_width', 'grid_height', 'pixel_scale_arcsec', 'norm', 'is_primary', 'status',
              'assets', 'upload_status', 'warnings', 'report', 'pair_kind']
 
+SEQ_COLS = ['sequence_id', 'target_key', 'detector', 'kind', 'is_primary', 'frame_ids', 'frame_count', 'epoch_mjds',
+            'wavelengths_um', 'span_days', 'common_coverage_fraction', 'common_valid_pixels', 'grid_width', 'grid_height',
+            'pixel_scale_arcsec', 'norm', 'assets', 'upload_status', 'status', 'warnings', 'report']
+CTYPES = {'.png': 'image/png', '.gif': 'image/gif', '.fits': 'application/fits'}
+
+
+def collect_sequences(frames, storage, uploaded=None):
+    """Same-wavelength sequences from data/processed_sequences/ (one primary per target+detector)."""
+    uploaded = uploaded or {}
+    rows = []
+    for rep_path in sorted((ROOT / 'data/processed_sequences').glob('*/report.json')):
+        report = load(rep_path)
+        if report.get('release') != 'dr1' or report.get('target') not in TARGETS:
+            continue
+        folder, tkey, det = rep_path.parent, TARGETS[report['target']], int(report['detector'])
+        inputs = report['inputs']
+        ids = [frame_id(tkey, i['obs_id'], det) for i in inputs]
+        if any((tkey, i['obs_id'], det) not in frames for i in inputs):
+            print('skip sequence, frame not screened:', folder)
+            continue
+        sid = f"{tkey}:D{det}:{inputs[0]['obs_id']}__{inputs[-1]['obs_id']}:n{len(inputs)}"
+        prefix = f"sequences/{tkey}/d{det}/{inputs[0]['obs_id']}__{inputs[-1]['obs_id']}_n{len(inputs)}"
+        n = len(inputs)
+        assets = {'frames': [f'{prefix}/frame_{k:02d}.png' for k in range(1, n + 1)],
+                  'diffs': [f'{prefix}/diff_{k:02d}_minus_01.png' for k in range(1, n + 1)],
+                  'blink_gif': f'{prefix}/blink.gif', 'filmstrip_png': f'{prefix}/filmstrip.png',
+                  'aligned_fits': f'{prefix}/aligned_sequence.fits'}
+        names = report['outputs']
+        newest = max((folder / f).stat().st_mtime for f in names + ['report.json'])
+        status = 'not_configured'
+        if storage and sid in uploaded and newest < uploaded[sid]:
+            status = 'uploaded'
+        elif storage:
+            session, base, key = storage
+            try:
+                for name in names:
+                    upload(session, base, key, f'{prefix}/{name}', (folder / name).read_bytes(), CTYPES[Path(name).suffix])
+                status = 'uploaded'
+            except Exception as exc:  # record and continue
+                print('upload failed:', sid, exc)
+                status = 'failed'
+        shape = report.get('grid_shape_yx') or [None, None]
+        rows.append({'sequence_id': sid, 'target_key': tkey, 'detector': det, 'kind': report['kind'], 'is_primary': True,
+                     'frame_ids': ids, 'frame_count': n, 'epoch_mjds': [i['mjd'] for i in inputs],
+                     'wavelengths_um': [i['wavelength_um'] for i in inputs], 'span_days': inputs[-1]['mjd'] - inputs[0]['mjd'],
+                     'common_coverage_fraction': report.get('common_coverage_fraction'),
+                     'common_valid_pixels': report.get('common_valid_pixels'), 'grid_width': shape[1], 'grid_height': shape[0],
+                     'pixel_scale_arcsec': report.get('pixel_scale_arcsec'), 'norm': report.get('norm', {}), 'assets': assets,
+                     'upload_status': status, 'status': report['status'], 'warnings': report.get('warnings', []),
+                     'report': {**report, 'local_folder': str(folder.relative_to(ROOT)).replace(chr(92), '/')}})
+    return rows
+
+
 db_ids = set()
 
 
@@ -234,9 +288,16 @@ def main():
             db_products[(tkey, obs, int(band[-1]))] = mjd
             db_ids.add(pid)
         frames = collect_frames(db_products)
-        cur.execute("select pair_id, extract(epoch from updated_at) from sky_archive.dr1_pairs where upload_status = 'uploaded'")
-        uploaded = {pid: float(ts) for pid, ts in cur.fetchall()}
-        pairs = collect_pairs(frames, storage, uploaded)
+        # dr1_pairs may be retired by the team (sequences supersede it); never recreate it here.
+        cur.execute("select to_regclass('sky_archive.dr1_pairs') is not null")
+        has_pairs = cur.fetchone()[0]
+        if not has_pairs:
+            print('sky_archive.dr1_pairs not present: skipping pairs, syncing frames and sequences only')
+        uploaded = {}
+        if has_pairs:
+            cur.execute("select pair_id, extract(epoch from updated_at) from sky_archive.dr1_pairs where upload_status = 'uploaded'")
+            uploaded = {pid: float(ts) for pid, ts in cur.fetchall()}
+        pairs = collect_pairs(frames, storage, uploaded) if has_pairs else []
         # Only one primary per target+detector (the *_comparison folder); guard against duplicates.
         # Screened primaries win over display-only ones for the same target+detector.
         pairs.sort(key=lambda p: p['pair_kind'] != 'screened')
@@ -251,10 +312,18 @@ def main():
         if args.dry_run:
             return
         upsert(cur, 'dr1_frames', 'frame_id', list(frames.values()), FRAME_COLS)
-        cur.execute('update sky_archive.dr1_pairs set is_primary = false where pair_id <> all(%s)', [[p['pair_id'] for p in pairs if p['is_primary']]])
-        upsert(cur, 'dr1_pairs', 'pair_id', pairs, PAIR_COLS)
+        if has_pairs:
+            cur.execute('update sky_archive.dr1_pairs set is_primary = false where pair_id <> all(%s)', [[p['pair_id'] for p in pairs if p['is_primary']]])
+            upsert(cur, 'dr1_pairs', 'pair_id', pairs, PAIR_COLS)
+        # Sequences (additive; pairs above are unchanged).
+        cur.execute("select sequence_id, extract(epoch from updated_at) from sky_archive.dr1_sequences where upload_status = 'uploaded'")
+        seq_uploaded = {sid: float(ts) for sid, ts in cur.fetchall()}
+        sequences = collect_sequences(frames, storage, seq_uploaded)
+        cur.execute('update sky_archive.dr1_sequences set is_primary = false where sequence_id <> all(%s)', [[s['sequence_id'] for s in sequences]])
+        upsert(cur, 'dr1_sequences', 'sequence_id', sequences, SEQ_COLS)
+        print('sequences', len(sequences), dict(Counter(s['upload_status'] for s in sequences)))
         conn.commit()
-        print('synced to sky_archive.dr1_frames / dr1_pairs')
+        print('synced to sky_archive.dr1_frames' + (' / dr1_pairs' if has_pairs else '') + ' / dr1_sequences')
 
 
 if __name__ == '__main__':
