@@ -21,6 +21,8 @@ Các mẫu QR3 D6 đã truy vấn lại theo vị trí dự đoán tại epoch c
 
 Backend hỗ trợ `DATA_MODE=real`: chỉ đọc các file đã kiểm tra và có SHA-256 trong `data/spherex/<mục tiêu>/manifest.json`. Nếu thiếu mục tiêu hoặc detector thì trả `NO_FRAMES`, không dùng ảnh cũ hay ảnh mẫu. `/api/health` trả `mode: local` để phân biệt dữ liệu DR1 cục bộ với mock và truy vấn IRSA trực tiếp. Chế độ này hiện hỗ trợ ảnh/blink; API photometry và astrometry trả lỗi 503 cho đến khi được kiểm định trên bộ DR1.
 
+Khi một mục tiêu và detector đã có cặp qua sàng lọc và đã xử lý (`data/processed/<mục tiêu>_d<N>_comparison/report.json`), `/api/frames` chỉ trả đúng hai ảnh của cặp đó, khớp theo SHA-256. Có 4 cặp: WISE 0855 D3 và D6, Epsilon Indi B D6, RW Aurigae D1. Trên giao diện, chọn đúng detector đó để blink cặp ảnh cùng bước sóng. Nếu báo cáo cũ hoặc thiếu file đầu vào thì backend bỏ qua và trả mọi ảnh hợp lệ như trước. Mục tiêu chưa có cặp (Barnard, R Draconis) vẫn trả mọi ảnh hợp lệ kèm cảnh báo như `MIXED_WAVELENGTH`. Đặt `REAL_SELECTION=all` để luôn xem mọi ảnh hợp lệ. Cặp ảnh chỉ là minh họa kỹ thuật, không phải bằng chứng chuyển động hay biến quang.
+
 Trên máy này `.env` đã được đặt `DATA_MODE=real`, `VITE_USE_MOCK=false` và `VITE_API_BASE_URL=http://127.0.0.1:8000`. Khởi động lại cả backend và frontend để nhận cấu hình:
 
 ```powershell

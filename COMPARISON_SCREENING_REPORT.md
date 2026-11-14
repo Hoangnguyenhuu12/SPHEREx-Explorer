@@ -1,5 +1,7 @@
 # Sàng lọc và thử xử lý cặp ảnh SPHEREx
 
+> **Snapshot cũ.** Số liệu mới nhất (14/11/2026): 171 FITS DR1, 4 cặp đã xử lý (WISE 0855 D3/D6, Epsilon Indi B D6, RW Aurigae D1) và đã đưa lên `/api/frames` ở chế độ `DATA_MODE=real`. Xem [AGENT_HANDOFF_DATA.md](AGENT_HANDOFF_DATA.md).
+
 > Cập nhật: bảng và tổng số bên dưới là ảnh chụp trước lượt tải bổ sung. Kết quả mới nhất gồm 153 file DR1 và ba bộ ảnh demo được ghi tại `MVP_DR1_ADDITIONAL_ACQUISITION.md` và `IMAGE_DEMO_REPORT.md`.
 
 Ngày thực hiện: 14/11/2026. Đây là **sàng lọc kỹ thuật sơ bộ**, không phải xác nhận phát hiện thiên thể hay phép đo khoa học đã được duyệt.

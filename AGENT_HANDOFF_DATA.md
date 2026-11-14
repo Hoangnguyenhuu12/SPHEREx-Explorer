@@ -1,6 +1,6 @@
 ﻿# Bàn giao: SPHEREx Sky Viewer — dữ liệu thật và xử lý ảnh MVP
 
-Cập nhật 14/11/2026. Thư mục làm việc `D:\code\NASA-space-challenges-PlanetXvsSphereX\new`; Python hiện có `.venv/Scripts/python.exe`. Đọc manifest và report trước khi tiếp tục vì số liệu có thể thay đổi.
+Cập nhật 14/11/2026 (sau khi merge `main` và đưa cặp ảnh lên API). Làm việc tại thư mục gốc repo, cấu trúc giống GitHub, không còn `new/`. Python ở `.venv/Scripts/python.exe`. Đọc manifest và report trước khi tiếp tục vì số liệu có thể thay đổi.
 
 ## Yêu cầu của người dùng
 
@@ -11,21 +11,32 @@ Cập nhật 14/11/2026. Thư mục làm việc `D:\code\NASA-space-challenges-P
 
 ## Trạng thái hiện tại
 
-Tổng **156 FITS DR1, 625.769.280 byte** theo manifest. Ban đầu có 90, sau đó tải thêm để tìm cặp. Sau khi chạy lại `screen_comparison_candidates.py` và `check_comparison_readiness.py`:
+Tổng **171 FITS DR1, 685.756.800 byte** theo manifest. Số liệu sau lần chạy lại gần nhất của `screen_comparison_candidates.py` và `check_comparison_readiness.py`:
 
 | Sao | FITS | Ảnh qua lọc riêng lẻ | Cặp qua bộ lọc sơ bộ |
 | --- | ---: | ---: | --- |
-| Barnard’s Star | 36 | 0 | 0 |
+| Barnard’s Star | 42 | 0 | 0 |
 | WISE 0855−0714 | 18 | 17 | 2: D3, D6 |
 | Epsilon Indi B | 21 | 18 | 1: D6 |
-| RW Aurigae | 45 | 8 | 0 |
-| R Draconis | 36 | 0 | 0 |
+| RW Aurigae | 48 | 10 | 1: D1 |
+| R Draconis | 42 | 0 | 0 |
 
-Ba cặp của hai sao đã được xử lý thành FITS căn lưới, PNG so sánh và GIF trong `data/processed/wise0855_d3_comparison/`, `wise0855_d6_comparison/`, `epsilon_indi_b_d6_comparison/`. Vùng chung hợp lệ tương ứng 84,65%, 83,57%, 83,02%. Đây là **demo kỹ thuật**, chưa phải bằng chứng phát hiện hoặc chuyển động. Chưa xác nhận độc lập đủ chắc về căn ảnh; số cặp nguồn nền ứng viên lần lượt 1, 1, 0. Chưa match PSF, nền, catalog độc lập hay truyền sai số. Dấu cộng là tọa độ dự đoán, vùng tím là mask. Các cặp đã chọn chưa được tự động tích hợp vào giao diện MVP.
+Đã xử lý 4 cặp thành FITS căn lưới, PNG so sánh và GIF, đặt trong `data/processed/`:
 
-Barnard có phần lớn pixel tại tọa độ dự đoán bị cờ overflow/bloom; R Draconis cả 36 có overflow, bloom, SUR_ERROR. Điều này không làm toàn bộ ảnh vô dụng và không chứng minh kho IRSA không có ảnh phù hợp. RW có 8 ảnh đơn lẻ đạt kiểm tra nhưng chưa có cặp đồng detector, cách ít nhất 30 ngày, cùng ngưỡng bước sóng. Các ngưỡng là **heuristic kỹ thuật**, không phải chuẩn khoa học IRSA. Kiểm tra tọa độ/epoch, vùng lân cận, giải pháp cho sao bão hòa và tìm quan sát khác; không nới ngưỡng hoặc xóa cờ chỉ để báo đủ 5 sao. Tọa độ dùng proper motion tuyến tính từ J2000, chưa tính đầy đủ thị sai/quỹ đạo hệ đôi; vị trí dự đoán không phải phát hiện thực.
+| Thư mục | Vùng chung hợp lệ |
+| --- | ---: |
+| `wise0855_d3_comparison/` | 84,65% |
+| `wise0855_d6_comparison/` | 83,57% |
+| `epsilon_indi_b_d6_comparison/` | 83,02% |
+| `rw_aurigae_d1_comparison/` | 59,03% |
 
-Lượt RW Aurigae D1 batch `mvp4` vừa kết thúc thành công, 3 FITS đã lưu; không còn tiến trình tải của lượt đó. Có 503 tạm thời và đã tự phục hồi. `MVP_DR1_ADDITIONAL_ACQUISITION.md` và `IMAGE_DEMO_REPORT.md` mô tả chi tiết nhưng là snapshot trước batch này: số 153 và 6 ảnh RW trong đó đã cũ. Nguồn mới nhất là `data/reports/comparison_candidates.json`, `data/reports/comparison_readiness.json` và từng manifest.
+Đây là **demo kỹ thuật**, chưa phải bằng chứng phát hiện hoặc chuyển động. Căn ảnh chưa được xác nhận độc lập: số cặp nguồn nền ứng viên lần lượt là 1, 1, 0 và 0 (RW). Chưa làm khớp PSF, nền, catalog độc lập và chưa truyền sai số. Dấu cộng là tọa độ dự đoán, vùng tím là mask.
+
+**Tích hợp UI:** với `DATA_MODE=real`, khi đã có `data/processed/<mục tiêu>_d<N>_comparison/report.json`, `/api/frames` chỉ trả hai ảnh của cặp đó (khớp SHA-256, hàm `screened_pair` trong `members/dong/app/services/observed_frames.py`). Giao diện hiện có blink cặp này, không phải sửa frontend; người dùng chọn đúng detector (D3/D6 cho WISE, D6 cho Epsilon, D1 cho RW). Response có `FEW_FRAMES`, không có `MIXED_WAVELENGTH`. Đặt `REAL_SELECTION=all` để xem mọi ảnh hợp lệ. Kiểm thử ở `members/dong/tests/test_screened_pair.py`. Frontend chưa được chạy thử trên máy này vì máy chưa cài Node.js; CI sẽ kiểm tra.
+
+Barnard có phần lớn pixel tại tọa độ dự đoán bị cờ overflow/bloom; R Draconis có overflow, bloom và SUR_ERROR. `scripts/inspect_saturated_neighborhoods.py` ghi `data/reports/saturated_neighborhoods.json`: 13/42 ảnh Barnard có ít nhất một pixel sạch trong bán kính 2,5 pixel, R Draconis 0/42. Đó chỉ là số đếm pixel, không phải đo quang. Có thể thử fit PSF trên pixel sạch nhưng cần xác thực trước khi dùng. Các ngưỡng là **heuristic kỹ thuật**, không phải chuẩn khoa học IRSA. Không nới ngưỡng hoặc xóa cờ chỉ để báo đủ 5 sao. Tọa độ dùng proper motion tuyến tính từ J2000, chưa tính đầy đủ thị sai/quỹ đạo hệ đôi; vị trí dự đoán không phải phát hiện thực.
+
+Lịch sử tải từng lượt (mvp2–mvp5, D1 Barnard/R Draconis) có trong `DR1_CAP_NHAT_RW_BARNARD_RDRA.md`. `MVP_DR1_ADDITIONAL_ACQUISITION.md`, `IMAGE_DEMO_REPORT.md` và `COMPARISON_SCREENING_REPORT.md` là snapshot cũ. Nguồn mới nhất là `data/reports/comparison_candidates.json`, `data/reports/comparison_readiness.json` và từng manifest.
 
 ## Dữ liệu Khôi và QR/DR
 
@@ -50,7 +61,7 @@ Chạy tại thư mục gốc repo:
 .venv/Scripts/python.exe -m pytest -q --basetemp=data/pytest_handoff_tmp scripts/test_comparison_screen.py scripts/test_processed_comparison.py members/dong/tests/test_spherex_flags.py
 ```
 
-Các batch D2–D5 của ba sao và D1 RW `mvp2`–`mvp4` đã thử. Lựa chọn mặc định trải đều thời gian, không đảm bảo nhanh tìm cặp cùng bước sóng; cải thiện dựa trên metadata phù hợp nếu xác minh được. Chỉ dùng URL/record IRSA có thật. Kiểm thử gần nhất trước batch mvp4: 5 passed. Batch mvp4 chỉ bổ sung dữ liệu; chưa chạy lại pytest sau đó.
+Các batch D2–D5 của ba sao, D1 RW `mvp2`–`mvp5`, D6 và D1 của Barnard/R Draconis đã thử. Lựa chọn mặc định trải đều thời gian, không đảm bảo nhanh tìm cặp cùng bước sóng; cải thiện dựa trên metadata phù hợp nếu xác minh được. Chỉ dùng URL/record IRSA có thật. Kiểm thử gần nhất (14/11, sau merge): `pytest members` 156 passed/9 skipped; test script DR1 8 passed; `test_screened_pair.py` 7 passed.
 
 ## Tích hợp và nguồn
 

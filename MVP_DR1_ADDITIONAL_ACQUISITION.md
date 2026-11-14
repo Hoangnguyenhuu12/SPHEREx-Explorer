@@ -1,5 +1,7 @@
 # Bổ sung và sàng lọc ảnh DR1 cho MVP
 
+> **Snapshot cũ.** Số liệu mới nhất (14/11/2026): 171 FITS DR1, 4 cặp đã xử lý (WISE 0855 D3/D6, Epsilon Indi B D6, RW Aurigae D1) và đã đưa lên `/api/frames` ở chế độ `DATA_MODE=real`. Xem [AGENT_HANDOFF_DATA.md](AGENT_HANDOFF_DATA.md).
+
 Các ảnh demo WISE 0855 và Epsilon Indi B được tạo từ chính bộ DR1 trong `data/spherex`, không dùng ảnh giả. Trạng thái “sẵn sàng” trong báo cáo trước chỉ có nghĩa là có cặp để thử xử lý hình ảnh, chưa có nghĩa là đủ xác nhận khoa học. Cả hai mục tiêu này đã được xử lý thành ba bộ demo trong `data/processed`.
 
 Lượt bổ sung dùng danh sách SIA IRSA đã lưu tại workspace, chọn các quan sát DR1 chưa thử có footprint phủ vị trí dự đoán; tải cutout 0,1 độ từ URL IRSA thực. Đây không phải khảo sát toàn bộ archive. Thêm 12 ảnh cho Barnard, 18 cho RW Aurigae và 12 cho R Draconis: 42 file mới, mỗi file được kiểm tra và lưu checkpoint, manifest, SHA-256. HTTP 503 tạm thời đã tự khôi phục trong các lần thử; không còn chỉ mục thất bại trong lượt này.

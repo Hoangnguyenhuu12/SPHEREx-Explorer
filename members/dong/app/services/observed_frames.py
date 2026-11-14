@@ -284,7 +284,31 @@ def real_cutouts(query):
         stat = path.stat()
         result.append(Cutout(path, entry["obs_id"], int(entry["detector"]), float(entry["mjd"]),
                              release, entry["sha256"], stat.st_size, stat.st_mtime_ns))
+    result = screened_pair(data_dir, name, query.detector, release, result)
     return tuple(sorted(set(result), key=lambda row: (row.mjd, row.obs_id, str(row.path))))
+
+
+def screened_pair(data_dir, name, detector, release, cutouts):
+    """Prefer the pair that passed screening and processing for this target and detector.
+
+    scripts/process_candidate_pair.py writes data/processed/<target>_d<N>_comparison/report.json.
+    Only when every input it names (by SHA-256) is among the validated cutouts are those
+    inputs served; a stale or partial report is ignored and all validated cutouts are kept.
+    """
+    if release != "dr1" or os.getenv("REAL_SELECTION", "pair").lower() == "all":
+        return cutouts
+    report = data_dir / "processed" / f"{name}_d{detector}_comparison" / "report.json"
+    if not report.is_file():
+        return cutouts
+    try:
+        data = json.loads(report.read_text(encoding="utf-8"))
+    except ValueError:
+        return cutouts
+    wanted = {row.get("sha256") for row in data.get("inputs", [])}
+    if data.get("release") != release or data.get("detector") != detector or len(wanted) < 2 or None in wanted:
+        return cutouts
+    pair = [row for row in cutouts if row.sha256 in wanted]
+    return pair if {row.sha256 for row in pair} == wanted else cutouts
 
 
 def verify_cutouts(cutouts):

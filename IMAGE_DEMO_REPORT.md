@@ -1,5 +1,7 @@
 # Kết quả xử lý ảnh demo SPHEREx DR1
 
+> **Snapshot cũ.** Số liệu mới nhất (14/11/2026): 171 FITS DR1, 4 cặp đã xử lý (WISE 0855 D3/D6, Epsilon Indi B D6, RW Aurigae D1) và đã đưa lên `/api/frames` ở chế độ `DATA_MODE=real`. Xem [AGENT_HANDOFF_DATA.md](AGENT_HANDOFF_DATA.md).
+
 Ba cặp dưới đây là ảnh quan sát thực, được xử lý để kiểm tra quy trình hiển thị. Mỗi cặp dùng cùng detector và cùng bản phát hành DR1; không trộn D3 với D6 trong một chuỗi.
 
 | Mục tiêu | Detector | Vùng chung hợp lệ | Nguồn nền trùng khớp ứng viên | Kết quả |
