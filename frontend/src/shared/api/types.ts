@@ -62,7 +62,12 @@ export interface Frame {
   /** Top-left origin, integer pixel centres. */
   predicted_px: [number, number] | null
   png: string
-  diff_png: string
+  diff_png: string | null
+  mission?: 'unWISE' | 'SPHEREx'
+  band_or_detector?: string
+  quality_label?: string
+  source_product_id?: string
+  data_mode?: 'fixture'
   // Requested additions (optional until agreed)
   detector?: number
   t_min_mjd?: number
@@ -83,7 +88,7 @@ export interface FramesResponse {
   target: ApiTarget
   detector: number
   grid: Grid
-  norm: Norm
+  norm: Norm | null
   reference_frame_id: string | null
   frames: Frame[]
   warnings: WarningCode[]
@@ -99,6 +104,7 @@ export interface FramesParams {
   size: number
   maxFrames: number
   targetKey?: string
+  timeline?: 'combined'
 }
 
 export interface PhotometryPoint {
@@ -160,6 +166,62 @@ export interface GaiaSource {
   ra: number
   dec: number
   g_mag: number | null
+  pmra_mas_yr: number | null
+  pmdec_mas_yr: number | null
+  ref_epoch_jyear: number
+}
+
+export interface HipsLayerRecord {
+  layer_id: string
+  title: string
+  service_url: string
+  properties_url?: string
+  hips_version?: string | null
+  hips_frame?: string | null
+  hips_order?: number | null
+  hips_tile_width?: number | null
+  spectral_metadata?: Record<string, unknown>
+}
+
+export interface HipsLayersResponse {
+  api_version: string
+  source: string
+  layers: HipsLayerRecord[]
+}
+
+export interface SkyArchiveGaiaResponse {
+  api_version: string
+  target_key: string
+  source: string
+  count: number
+  sources: GaiaSource[]
+}
+
+export interface GaiaFrameOverlay {
+  frame_index: number
+  source_id: string
+  observed_mjd: number
+  catalog_ra_deg: number
+  catalog_dec_deg: number
+  propagated_ra_deg: number
+  propagated_dec_deg: number
+  pixel_x: number
+  pixel_y_png: number
+  in_frame: boolean
+  has_proper_motion: boolean
+  motion_status: 'propagated_pm' | 'catalog_static_no_pm'
+  g_mag: number | null
+}
+
+export interface CombinedGaiaOverlaysResponse {
+  api_version: string
+  sequence_id: string
+  source: string
+  gaia_propagation_model: string
+  annual_parallax_included: boolean
+  observer_ephemeris_included: boolean
+  target_astrometry_source: string | null
+  overlays: GaiaFrameOverlay[]
 }
 
 export interface FlagLegendItem {
@@ -183,6 +245,7 @@ export type ErrorCode =
   | 'UNKNOWN_TARGET'
   | 'NO_FRAMES'
   | 'FRAME_NOT_FOUND'
+  | 'TIMELINE_UNAVAILABLE'
   | 'UPSTREAM_ERROR'
   | 'UPSTREAM_TIMEOUT'
   | 'INTERNAL'

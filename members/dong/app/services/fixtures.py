@@ -16,7 +16,7 @@ from ..api_models import (
     Target,
 )
 from .catalog import resolve_name, targets
-from . import database_provider
+from . import combined_timeline, database_provider
 from .frame_rendering import NoCoverage
 from .live_cutouts import cached_result, harvest_mode, load_cutouts, workspace
 from .observed_frames import matching_cutouts, render_cached
@@ -128,11 +128,18 @@ def resolve(query: ResolveQuery):
 
 def frames(query: FramesQuery, response=None):
     requested_target = Target.model_validate(target(query))
+    if query.timeline == 'combined':
+        if query.target_key != 'wise0855' or query.detector != 6:
+            fail(400, 'BAD_PARAM', 'The combined timeline is available for WISE 0855 and D6.')
+        try:
+            return combined_timeline.frames(query, requested_target)
+        except (OSError, ValueError, KeyError, TypeError):
+            fail(503, 'TIMELINE_UNAVAILABLE', 'The prebuilt WISE 0855 timeline is unavailable.')
     if live_mode():
         def build():
             with workspace() as directory:
                 result, pngs = render(query, requested_target, archive_cutouts(query, directory))
-                return result.model_dump(mode="json"), pngs
+                return result.model_dump(mode="json", exclude_unset=True), pngs
 
         (result, published), status = cached_result("frames", query, build)
         if response is not None:
@@ -190,6 +197,7 @@ def sample_frames(query, requested_target):
     for index, frame in enumerate(result["frames"]):
         frame_id = f"fixture-{identity}-{index}"
         frame["id"] = frame_id
+        frame["data_mode"] = "fixture"
         predicted = (
             TARGET_PREDICTED_PX[query.target_key][index]
             if query.target_key in TARGET_PREDICTED_PX and index < len(TARGET_PREDICTED_PX[query.target_key])

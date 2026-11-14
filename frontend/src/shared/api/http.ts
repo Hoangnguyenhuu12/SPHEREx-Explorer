@@ -76,7 +76,7 @@ export const httpApi: ObservationApi = {
   async frames(p: FramesParams, signal) {
     const res = await request(
       'api/frames',
-      { ra: p.ra, dec: p.dec, detector: p.detector, size: p.size, max_frames: p.maxFrames, target_key: p.targetKey },
+      { ra: p.ra, dec: p.dec, detector: p.detector, size: p.size, max_frames: p.maxFrames, target_key: p.targetKey, timeline: p.timeline },
       signal,
       config.framesTimeoutMs,
     )
@@ -88,8 +88,11 @@ export const httpApi: ObservationApi = {
     const linked = link(signal, 30_000)
     try {
       const res = await fetch(abs, { signal: linked.signal, mode: 'cors', credentials: 'omit' })
-      if (res.status === 404) throw new ApiError('FRAME_NOT_FOUND', 'Frame image expired', 404)
-      if (!res.ok) throw await toApiError(res)
+      if (!res.ok) {
+        const error = await toApiError(res)
+        if (res.status === 404 && error.code === 'NO_FRAMES') throw new ApiError('FRAME_NOT_FOUND', 'Frame image expired', 404)
+        throw error
+      }
       const blob = await res.blob()
       return await createImageBitmap(blob)
     } catch (err) {
@@ -118,5 +121,25 @@ export const httpApi: ObservationApi = {
 
   async flags() {
     throw new ApiError('NOT_AVAILABLE', 'Flags endpoint is not part of API 0.1')
+  },
+
+  async hipsLayers(signal) {
+    const res = await request('api/sky-archive/hips-layers', {}, signal, 5_000)
+    return res.json()
+  },
+
+  async skyArchiveGaia(targetKey, signal) {
+    const res = await request('api/sky-archive/gaia', { target_key: targetKey }, signal, 10_000)
+    return res.json()
+  },
+
+  async combinedGaiaOverlays(sequenceId, signal) {
+    const res = await request(
+      'api/sky-archive/combined-timeline/gaia-overlays',
+      { sequence_id: sequenceId, in_frame_only: 'true' },
+      signal,
+      15_000,
+    )
+    return res.json()
   },
 }

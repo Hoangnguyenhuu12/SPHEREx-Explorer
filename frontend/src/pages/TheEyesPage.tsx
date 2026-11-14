@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { useReducedMotion } from 'motion/react'
-import { Eye, Grid3x3, HelpCircle, LocateFixed, Maximize2, Minimize2, Minus, Mountain, Orbit, Plus, Sparkles, X } from 'lucide-react'
+import { AlertTriangle, Eye, Grid3x3, HelpCircle, Layers, LocateFixed, Maximize2, Minimize2, Minus, Mountain, Orbit, Plus, Sparkles, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useLocation, useSearchParams } from 'react-router'
 import { config, PATHS } from '../app/config'
@@ -12,8 +12,8 @@ import { useOverlay } from '../shared/layout/overlay'
 import { formatDecDms, formatRaHms } from '../features/target-search/coordinates'
 import { usePlayer } from '../features/blink/player'
 import { useFrameSession } from '../features/blink/useFrameSession'
-import { AladinMap, SURVEY, type SkyMapHandle, type SurveyInfo } from '../features/sky-map/AladinMap'
-import { mapPosition } from '../shared/config/epoch'
+import { AladinMap, SURVEY, type GaiaStatusInfo, type SelectedGaiaSource, type SkyMapHandle, type SurveyInfo } from '../features/sky-map/AladinMap'
+import { DR1_MAP_MJD, mapPosition } from '../shared/config/epoch'
 import { TargetPopup } from '../features/target-details/TargetPopup'
 import type { ViewerToggles } from '../features/target-details/ObservationViewer'
 import { TargetSearch } from '../features/target-search/TargetSearch'
@@ -22,7 +22,7 @@ import { HelpDialog, Tutorial } from './eyes/Help'
 import { Horizon } from '../features/sky-map/Horizon'
 import './eyes/eyes.css'
 
-const DEFAULT_TOGGLES: ViewerToggles = { mode: 'original', crosshair: true, flags: false, trail: false, pick: false }
+const DEFAULT_TOGGLES: ViewerToggles = { mode: 'original', crosshair: true, flags: false, trail: false, pick: false, gaiaOverlays: true }
 const DEFAULT_MAP_FOV_DEG = 90
 const zoomFormat = new Intl.NumberFormat('en', { style: 'percent', maximumFractionDigits: 0 })
 
@@ -47,10 +47,12 @@ export default function TheEyesPage() {
   const [ground, setGround] = useState(false)
   const [skyMotion, setSkyMotion] = useState(false)
   const [gaia, setGaia] = useState(false)
-  const [gaiaStatus, setGaiaStatus] = useState<{ status: 'idle' | 'loading' | 'ready' | 'error'; count?: number }>({ status: 'idle' })
+  const [gaiaStatus, setGaiaStatus] = useState<GaiaStatusInfo>({ status: 'idle' })
   const [fullscreen, setFullscreen] = useState(false)
   const [help, setHelp] = useState(false)
-  const [source, setSource] = useState<{ ra: number; dec: number; sourceId: string | null; gmag: number | null } | null>(null)
+  const [source, setSource] = useState<SelectedGaiaSource | null>(null)
+  const [backgroundMode, setBackgroundMode] = useState<'spherex' | 'wise'>('spherex')
+  const [survey, setSurvey] = useState<SurveyInfo>(SURVEY)
   const [toggles, setTogglesState] = useState<ViewerToggles>(DEFAULT_TOGGLES)
   const setToggles = useCallback((patch: Partial<ViewerToggles>) => setTogglesState((t) => ({ ...t, ...patch })), [])
 
@@ -78,20 +80,25 @@ export default function TheEyesPage() {
     return null
   }, [target, rq, resolved.data])
 
-  // The map shows the SPHEREx DR1 sky, so centre it where the target is in that epoch. The frames
-  // request keeps J2000 coordinates: the backend moves the star to each observation date itself.
-  const mapCoords = useMemo(() => (target ? mapPosition(target) : coords), [target, coords])
+  // The map shows the active sky survey epoch (SPHEREx DR1 or AllWISE), so centre it where the target is in that epoch.
+  // The frames request keeps J2000 coordinates: the backend moves the star to each observation date itself.
+  const mapCoords = useMemo(
+    () => (target ? mapPosition(target, survey.epochMjd ?? DR1_MAP_MJD) : coords),
+    [target, coords, survey.epochMjd],
+  )
 
   const title = target?.name ?? (rq.kind === 'name' && resolved.data ? resolved.data.name : coords ? 'Custom position' : '')
   const detector = sel.detector || target?.recommendedDetector || 6
-  const [survey, setSurvey] = useState<SurveyInfo>(SURVEY)
+  const [spherexOnly, setSpherexOnly] = useState(false)
+  const canCombine = !config.useMock && target?.key === 'wise0855' && detector === 6
+  const timeline = canCombine && !spherexOnly ? 'combined' as const : undefined
 
   const framesParams = useMemo(
     () =>
       coords
-        ? { ra: coords.ra, dec: coords.dec, detector, size: config.cutoutSizeDeg, maxFrames: config.maxFrames, targetKey: target?.key }
+        ? { ra: coords.ra, dec: coords.dec, detector, size: config.cutoutSizeDeg, maxFrames: timeline ? config.combinedMaxFrames : config.maxFrames, targetKey: target?.key, timeline }
         : null,
-    [coords, detector, target?.key],
+    [coords, detector, target?.key, timeline],
   )
   const session = useFrameSession(framesParams)
   const { state: player, dispatch, reset } = usePlayer()
@@ -165,9 +172,9 @@ export default function TheEyesPage() {
 
   useEffect(() => {
     if (mapStatus.s !== 'ready') return
-    mapRef.current?.setGaiaVisible(gaia, coords ?? undefined)
+    mapRef.current?.setGaiaVisible(gaia, mapCoords ?? undefined, target?.key ?? null)
     if (!gaia) setGaiaStatus({ status: 'idle' })
-  }, [gaia, coords, mapStatus.s])
+  }, [gaia, mapCoords, target?.key, mapStatus.s])
 
   useEffect(() => {
     const onFs = () => setFullscreen(document.fullscreenElement === stageRef.current)
@@ -218,7 +225,7 @@ export default function TheEyesPage() {
           break
         case 'd':
         case 'D':
-          if (popupOpen && session.total >= 2) setToggles({ mode: toggles.mode === 'original' ? 'difference' : 'original' })
+          if (popupOpen && !timeline && session.total >= 2) setToggles({ mode: toggles.mode === 'original' ? 'difference' : 'original' })
           break
         case 'Escape':
           if (overlay === 'target') close('target')
@@ -230,11 +237,11 @@ export default function TheEyesPage() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [popupOpen, help, dispatch, center, session.total, toggles.mode, setToggles, overlay, close, reduceMotion])
+  }, [popupOpen, help, dispatch, center, session.total, toggles.mode, setToggles, overlay, close, reduceMotion, timeline])
 
   const shareUrl = typeof window !== 'undefined' ? `${window.location.origin}${PATHS.explorer}${serializeSelection(sel)}` : ''
   const embedUrl = `${shareUrl}${shareUrl.includes('?') ? '&' : '?'}embed=1`
-  const dataLabel = config.useMock ? 'Observation data: Illustrative demo (generated, not SPHEREx)' : 'Observation data: NASA/IPAC IRSA, SPHEREx'
+  const dataLabel = config.useMock ? 'Observation data: Illustrative demo (generated)' : timeline ? 'Observation data: unWISE and SPHEREx' : 'Observation data: NASA/IPAC IRSA, SPHEREx'
   // In the TAN projection, scale is proportional to the inverse tangent of half the field of view.
   const zoomLabel = mapFovDeg === null ? '—' : zoomFormat.format(
     Math.tan(DEFAULT_MAP_FOV_DEG * Math.PI / 360) / Math.tan(mapFovDeg * Math.PI / 360),
@@ -275,18 +282,28 @@ export default function TheEyesPage() {
           onTargetSelected={selectTarget}
           onFovChanged={setMapFovDeg}
           onStatus={(s, msg) => setMapStatus({ s, msg })}
-          onGaiaStatus={(status, count) => setGaiaStatus({ status, count })}
+          onGaiaStatus={setGaiaStatus}
           onSourceSelected={(s) => {
             close('navigation')
             setSource(s)
           }}
           detector={detector}
+          backgroundMode={backgroundMode}
           onSurvey={setSurvey}
         />
 
         {mapStatus.s !== 'ready' && (
           <div className={`map-status${mapStatus.s === 'error' ? ' is-error' : ''}`} role={mapStatus.s === 'error' ? 'alert' : 'status'}>
             {mapStatus.s === 'loading' ? 'Loading the sky map…' : `The sky map could not start. ${mapStatus.msg ?? ''} The SPHEREx observations still work from the search.`}
+          </div>
+        )}
+
+        {mapStatus.s === 'ready' && survey.key === 'dss2' && (
+          <div className="map-epoch-warn notice notice--warn" role="status">
+            <AlertTriangle aria-hidden />
+            <span>
+              <strong>DSS2 fallback (1950s–1990s optical plates):</strong> target markers (DR1 MJD {DR1_MAP_MJD}) and Gaia DR3 stars (J2016.0) are not aligned to the DSS2 plate epoch.
+            </span>
           </div>
         )}
 
@@ -331,18 +348,29 @@ export default function TheEyesPage() {
                 </div>
               )}
               <div>
-                <dt>RA / Dec (ICRS, epoch J2016)</dt>
+                <dt>RA / Dec (ICRS, catalog epoch J2016.0)</dt>
                 <dd className="num">
-                  {formatRaHms(source.ra)} {formatDecDms(source.dec)}
+                  {formatRaHms(source.catalogRa)} {formatDecDms(source.catalogDec)}
                 </dd>
               </div>
+              {source.propagated && (
+                <div>
+                  <dt>Map position ({source.epochLabel})</dt>
+                  <dd className="num">
+                    {formatRaHms(source.ra)} {formatDecDms(source.dec)}
+                  </dd>
+                </div>
+              )}
               <div>
                 <dt>Brightness</dt>
                 <dd className="num">{source.gmag != null ? `G = ${source.gmag.toFixed(2)} mag` : 'Not available'}</dd>
               </div>
             </dl>
-            <p className="caption">Source: ESA Gaia DR3 via VizieR. Not a SPHEREx measurement.</p>
-            <button type="button" className="btn btn-secondary" onClick={() => { submitQuery(`${source.ra.toFixed(6)} ${source.dec >= 0 ? '+' : ''}${source.dec.toFixed(6)}`); setSource(null) }}>
+            <p className="caption">
+              Source: ESA Gaia DR3 via {source.catalogSource === 'sky_archive' ? 'Supabase sky_archive' : 'VizieR'}
+              {source.propagated ? ' (propagated with angular_proper_motion_only)' : ' (pmRA/pmDE absent or DSS2 fallback: kept at J2016.0)'}. Not a SPHEREx measurement.
+            </p>
+            <button type="button" className="btn btn-secondary" onClick={() => { submitQuery(`${source.catalogRa.toFixed(6)} ${source.catalogDec >= 0 ? '+' : ''}${source.catalogDec.toFixed(6)}`); setSource(null) }}>
               View SPHEREx observations here
             </button>
           </section>
@@ -352,6 +380,7 @@ export default function TheEyesPage() {
 
         {popupOpen && coords && (
             <TargetPopup
+              timelineControl={canCombine ? { combined: !spherexOnly, setCombined: (value) => setSpherexOnly(!value) } : undefined}
               key={`${coords.ra}:${coords.dec}`}
               target={target}
               title={title}
@@ -370,6 +399,7 @@ export default function TheEyesPage() {
               gaia={gaia}
               setGaia={setGaia}
               gaiaStatus={gaiaStatus}
+              survey={survey}
               shareUrl={shareUrl}
               embedUrl={embedUrl}
             />
@@ -394,6 +424,29 @@ export default function TheEyesPage() {
           <button type="button" className="dock__btn" aria-pressed={gaia} title="Gaia DR3 stars around the target" disabled={!coords} onClick={() => setGaia((g) => !g)}>
             <Sparkles aria-hidden /> <span>Gaia stars</span>
           </button>
+          <span className="dock__sep" aria-hidden />
+          <div className="dock__switch" role="group" aria-label="Sky background survey">
+            <button
+              type="button"
+              className="dock__btn"
+              aria-pressed={backgroundMode === 'spherex'}
+              title="SPHEREx DR1 all-sky infrared cube (Nov 2025)"
+              disabled={mapStatus.s !== 'ready'}
+              onClick={() => setBackgroundMode('spherex')}
+            >
+              <Layers aria-hidden /> <span>SPHEREx DR1</span>
+            </button>
+            <button
+              type="button"
+              className="dock__btn"
+              aria-pressed={backgroundMode === 'wise'}
+              title="WISE / AllWISE infrared sky (2010)"
+              disabled={mapStatus.s !== 'ready'}
+              onClick={() => setBackgroundMode('wise')}
+            >
+              <span>WISE</span>
+            </button>
+          </div>
           <span className="dock__sep" aria-hidden />
           <button type="button" className="dock__btn" title="Center on the selected target (C)" disabled={!coords} onClick={center}>
             <LocateFixed aria-hidden /> <span>Center</span>
@@ -421,7 +474,9 @@ export default function TheEyesPage() {
         <span className="sep">·</span>
         <span>
           Sky survey: {survey.label}
-          {survey.cube ? `, detector D${detector}` : ''} ({survey.credit})
+          {survey.cube ? `, detector D${detector}` : ''}
+          {survey.epochLabel ? ` · ${survey.epochLabel}` : ''} ({survey.credit})
+          {survey.fromArchive ? ' · sky_archive' : ''}
         </span>
         <span className="sep">·</span>
         <span className={config.useMock ? 'demo-tag' : undefined}>{dataLabel}</span>

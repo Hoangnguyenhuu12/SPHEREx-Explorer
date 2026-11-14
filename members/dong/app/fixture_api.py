@@ -3,7 +3,7 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Query
-from fastapi.responses import Response
+from fastapi.responses import FileResponse, Response
 
 from .api_models import (
     Astrometry,
@@ -17,7 +17,7 @@ from .api_models import (
     ResolveQuery,
     ScienceQuery,
 )
-from .services import fixtures
+from .services import combined_timeline, fixtures
 
 router = APIRouter()
 ERRORS = {code: {"model": ErrorResponse} for code in (400, 404, 500, 502, 503, 504)}
@@ -33,9 +33,18 @@ def resolve(query: Annotated[ResolveQuery, Query()]):
     return fixtures.resolve(query)
 
 
-@router.get("/api/frames", response_model=Frames, responses=ERRORS)
+@router.get("/api/frames", response_model=Frames, response_model_exclude_unset=True, responses=ERRORS)
 def frames(query: Annotated[FramesQuery, Query()], response: Response):
     return fixtures.frames(query, response)
+
+
+@router.get('/api/frames/wise0855/{name}', response_class=FileResponse,
+            responses={200: {'content': {'image/png': {}}}, **ERRORS})
+def combined_png(name: str):
+    path = combined_timeline.asset_path(name)
+    if path is None:
+        fixtures.fail(404, 'TIMELINE_UNAVAILABLE', 'The prebuilt observation image is unavailable.')
+    return FileResponse(path, media_type='image/png', headers={'Cache-Control': 'public, max-age=300'})
 
 
 @router.get(

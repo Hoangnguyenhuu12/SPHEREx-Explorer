@@ -1,12 +1,15 @@
 import type {
   AstrometryResponse,
+  CombinedGaiaOverlaysResponse,
   DataMode,
   FlagsResponse,
   FramesParams,
   FramesResponse,
   HealthResponse,
+  HipsLayersResponse,
   PhotometryResponse,
   ResolveResponse,
+  SkyArchiveGaiaResponse,
   SpectrumResponse,
 } from './types'
 
@@ -32,4 +35,7 @@ export interface ObservationApi {
   astrometry(q: TargetQuery, signal?: AbortSignal): Promise<AstrometryResponse>
   spectrum(q: { ra: number; dec: number }, signal?: AbortSignal): Promise<SpectrumResponse>
   flags(frameId: string, signal?: AbortSignal): Promise<FlagsResponse>
+  hipsLayers(signal?: AbortSignal): Promise<HipsLayersResponse>
+  skyArchiveGaia(targetKey: string, signal?: AbortSignal): Promise<SkyArchiveGaiaResponse>
+  combinedGaiaOverlays(sequenceId: string, signal?: AbortSignal): Promise<CombinedGaiaOverlaysResponse>
 }

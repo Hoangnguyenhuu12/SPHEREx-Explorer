@@ -274,7 +274,8 @@ export function DataPanel({ data, activeIndex, detector, onDetector, flags, setF
           <div>
             <dt>Image grid</dt>
             <dd className="num">
-              {data.grid.width}×{data.grid.height} px · {data.grid.pixscale_arcsec}″/px · {data.grid.projection} · stretch {data.norm.stretch}
+              {data.grid.width}×{data.grid.height} px · {data.grid.pixscale_arcsec}″/px · {data.grid.projection}
+              {data.norm ? ` · stretch ${data.norm.stretch}` : ''}
             </dd>
           </div>
           {f.bad_pixel_frac != null && (
@@ -285,11 +286,11 @@ export function DataPanel({ data, activeIndex, detector, onDetector, flags, setF
           )}
           <div>
             <dt>Source</dt>
-            <dd>{data.attribution ?? 'NASA/IPAC Infrared Science Archive (IRSA), SPHEREx'}</dd>
+            <dd>{f.mission === 'unWISE' ? 'unWISE time-resolved coadds via WiseView' : data.attribution ?? 'NASA/IPAC Infrared Science Archive (IRSA), SPHEREx'}</dd>
           </div>
           <details>
             <summary>Product identifier</summary>
-            <code className="num">{f.id}</code>
+            <code className="num">{f.source_product_id ?? f.id}</code>
           </details>
         </dl>
       )}

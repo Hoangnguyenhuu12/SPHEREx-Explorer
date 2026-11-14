@@ -29,11 +29,11 @@ export interface FrameSession {
 }
 
 export function framesQueryKey(p: FramesParams) {
-  return ['frames', config.useMock ? 'mock' : config.apiBaseUrl, p.ra, p.dec, p.detector, p.size, p.maxFrames, p.targetKey ?? null] as const
+  return ['frames', config.useMock ? 'mock' : config.apiBaseUrl, p.ra, p.dec, p.detector, p.size, p.maxFrames, p.targetKey ?? null, p.timeline ?? null] as const
 }
 
 async function decodeAll(
-  urls: string[],
+  urls: (string | null)[],
   signal: AbortSignal,
   onEach: (i: number, bmp: ImageBitmap | null, err?: unknown) => void,
 ): Promise<void> {
@@ -43,14 +43,16 @@ async function decodeAll(
       const i = next++
       if (signal.aborted) return
       try {
-        const bmp = await api.image(urls[i], signal)
+        const url = urls[i]
+        if (url === null) continue
+        const bmp = await api.image(url, signal)
         if (signal.aborted) {
           bmp.close()
           return
         }
         onEach(i, bmp)
       } catch (err) {
-        if (isAbort(err)) return
+        if (signal.aborted || isAbort(err)) return
         onEach(i, null, err)
       }
     }
@@ -80,11 +82,12 @@ export function useFrameSession(params: FramesParams | null): FrameSession {
   const [failed, setFailed] = useState<number[]>([])
   const [loaded, setLoaded] = useState(0)
   const [decodeError, setDecodeError] = useState<unknown>(null)
-  const [decoding, setDecoding] = useState(false)
+  const [imageOwner, setImageOwner] = useState<FramesResponse | null>(null)
   const [diffStatus, setDiffStatus] = useState<FrameSession['diffStatus']>('idle')
   const [startedAt, setStartedAt] = useState<number | null>(null)
   const generation = useRef(0)
   const ctrlRef = useRef<AbortController | null>(null)
+  const diffBitmaps = useRef<(ImageBitmap | null)[]>([])
   const recovered = useRef(false)
   const keyString = JSON.stringify(key)
 
@@ -105,13 +108,14 @@ export function useFrameSession(params: FramesParams | null): FrameSession {
     setLoaded(0)
     setDecodeError(null)
     setDiffStatus('idle')
+    setImageOwner(data)
     if (!data) return
     const ctrl = new AbortController()
     ctrlRef.current = ctrl
     const local: (ImageBitmap | null)[] = new Array(data.frames.length).fill(null)
     const fails: number[] = []
     let expired = false
-    setDecoding(true)
+    let firstError: unknown
     decodeAll(
       data.frames.map((f) => f.png),
       ctrl.signal,
@@ -120,9 +124,13 @@ export function useFrameSession(params: FramesParams | null): FrameSession {
           bmp?.close()
           return
         }
-        if (bmp) local[i] = bmp
-        else {
+        if (bmp) {
+          local[i] = bmp
+          setOriginals([...local])
+        } else {
           fails.push(i)
+          firstError ??= err
+          setFailed([...fails])
           if (err instanceof ApiError && err.code === 'FRAME_NOT_FOUND') expired = true
         }
         setLoaded((n) => n + 1)
@@ -132,23 +140,21 @@ export function useFrameSession(params: FramesParams | null): FrameSession {
       if (expired && !recovered.current) {
         // Backend restarted or evicted images: refetch metadata once, never loop.
         recovered.current = true
-        closeAll(local)
         void qc.resetQueries({ queryKey: key, exact: true })
         return
       }
-      setOriginals(local)
-      setFailed(fails.sort((a, b) => a - b))
-      setDecoding(false)
-      if (expired) setDecodeError(new ApiError('FRAME_NOT_FOUND', 'Images expired twice'))
+      if (fails.length > 0 && fails.length === local.length) setDecodeError(firstError)
     })
     return () => {
       ctrl.abort()
       closeAll(local)
+      closeAll(diffBitmaps.current)
+      diffBitmaps.current = []
     }
   }, [data]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const ensureDiffs = useCallback(() => {
-    if (!data || diffStatus !== 'idle') return
+    if (!data || imageOwner !== data || diffStatus !== 'idle' || !data.frames.some((f) => f.diff_png)) return
     const gen = generation.current
     const ctrl = ctrlRef.current
     if (!ctrl) return
@@ -172,9 +178,10 @@ export function useFrameSession(params: FramesParams | null): FrameSession {
         return
       }
       setDiffs(local)
+      diffBitmaps.current = local
       setDiffStatus(anyFail ? 'error' : 'ready')
     })
-  }, [data, diffStatus])
+  }, [data, imageOwner, diffStatus])
 
   const cancel = useCallback(() => {
     void qc.cancelQueries({ queryKey: key, exact: true })
@@ -191,18 +198,18 @@ export function useFrameSession(params: FramesParams | null): FrameSession {
     if (!params) return 'idle'
     if (query.isError) return 'error'
     if (query.isFetching || (!data && query.isPending)) return 'fetching'
-    if (decodeError) return 'error'
-    if (decoding) return 'decoding'
+    if (decodeError && imageOwner === data) return 'error'
+    if (data && data.frames.length > 0 && (imageOwner !== data || loaded < data.frames.length)) return 'decoding'
     return data ? 'ready' : 'idle'
-  }, [params, query.isError, query.isFetching, query.isPending, data, decodeError, decoding])
+  }, [params, query.isError, query.isFetching, query.isPending, data, decodeError, imageOwner, loaded])
 
   return {
     status,
     data,
-    originals,
-    diffs,
-    failed,
-    loaded,
+    originals: imageOwner === data ? originals : [],
+    diffs: imageOwner === data ? diffs : [],
+    failed: imageOwner === data ? failed : [],
+    loaded: imageOwner === data ? loaded : 0,
     total: data?.frames.length ?? 0,
     error: query.error ?? decodeError,
     startedAt,

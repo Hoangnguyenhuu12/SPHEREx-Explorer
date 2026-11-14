@@ -69,6 +69,17 @@
   align-items: center;
 }
 
+.map-epoch-warn {
+  position: absolute;
+  right: var(--space-3);
+  top: var(--space-3);
+  z-index: 15;
+  max-width: 380px;
+  background: rgb(23 23 31 / 0.94);
+  font-size: 13px;
+  line-height: 18px;
+}
+
 .reopen {
   position: absolute;
   left: var(--space-3);
@@ -297,6 +308,19 @@ kbd {
   height: 24px;
   background: var(--line-strong);
   margin: 0 var(--space-1);
+}
+.dock__switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+.dock__switch .dock__btn {
+  height: 36px;
+  border-radius: 8px;
+  padding: 0 var(--space-2);
 }
 @media (max-width: 740px) {
   .dock {

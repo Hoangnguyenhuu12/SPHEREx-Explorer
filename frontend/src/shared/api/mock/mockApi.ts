@@ -316,4 +316,16 @@ export const mockApi: ObservationApi = {
     }
     return res
   },
+
+  async hipsLayers() {
+    return { api_version: '0.1', source: 'mock', layers: [] }
+  },
+
+  async skyArchiveGaia() {
+    throw new ApiError('NOT_AVAILABLE', 'Mock mode uses VizieR Gaia catalog', 404)
+  },
+
+  async combinedGaiaOverlays() {
+    throw new ApiError('NOT_AVAILABLE', 'Mock mode does not include sky_archive overlays', 404)
+  },
 }

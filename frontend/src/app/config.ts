@@ -17,6 +17,7 @@ export const config = {
   /** Cutout size requested from the backend, degrees (10 arcmin). */
   cutoutSizeDeg: 0.1667,
   maxFrames: 24,
+  combinedMaxFrames: 200,
   imageConcurrency: 4,
 } as const
 

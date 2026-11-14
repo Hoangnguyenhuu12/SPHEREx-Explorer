@@ -54,6 +54,7 @@ class FramesQuery(SkyQuery):
     detector: Detector = 6
     size: float = Field(default=0.1, ge=0.02, le=0.3)
     max_frames: int = Field(default=60, ge=1, le=200)
+    timeline: Literal["combined"] | None = Field(default=None, exclude=True)
 
 
 class ScienceQuery(SkyQuery):
@@ -97,20 +98,25 @@ class Frame(Model):
     mjd: float
     iso: str
     wavelength_um: float = Field(gt=0)
-    bandwidth_um: float = Field(gt=0)
+    bandwidth_um: float | None = Field(gt=0)
     release: str
-    survey: int
-    bad_pixel_frac: float = Field(ge=0, le=1)
+    survey: int | None
+    bad_pixel_frac: float | None = Field(ge=0, le=1)
     predicted_px: Pixel | None
     png: str
-    diff_png: str
+    diff_png: str | None
+    mission: Literal["unWISE", "SPHEREx"] | None = None
+    band_or_detector: str | None = None
+    quality_label: str | None = None
+    source_product_id: str | None = None
+    data_mode: Literal["fixture"] | None = None
 
 
 class Frames(Versioned):
     target: Target
     detector: Detector
     grid: Grid
-    norm: Norm
+    norm: Norm | None
     reference_frame_id: str | None
     frames: list[Frame]
     warnings: list[Literal["SATURATION_POSSIBLE", "FEW_FRAMES", "TRUNCATED", "MIXED_WAVELENGTH", "TARGET_OUTSIDE_COVERAGE"]]
