@@ -65,4 +65,14 @@ def products_for_target(target_key):
     ids = [row.get("product_id") for row in links if row.get("product_id")]
     if not ids:
         return []
-    return _get("products", {"select": "*", "product_id": f"in.({','.join(ids)})", "order": "mjd_start.asc"})
+    # Batch the in.(...) filter: hundreds of IVO ids exceed the URL length Supabase accepts
+    # (about 30 KB fails). Ids contain ? / , so each one is double-quoted per PostgREST rules.
+    rows = []
+    for start in range(0, len(ids), _IN_BATCH):
+        chunk = ids[start : start + _IN_BATCH]
+        quoted = ",".join('"' + i.replace("\\", "\\\\").replace('"', '\\"') + '"' for i in chunk)
+        rows.extend(_get("products", {"select": "*", "product_id": f"in.({quoted})"}))
+    return sorted(rows, key=lambda r: (r.get("mjd_start") is None, r.get("mjd_start") or 0))
+
+
+_IN_BATCH = 100

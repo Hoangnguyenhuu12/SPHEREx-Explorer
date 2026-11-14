@@ -117,7 +117,7 @@ Không dùng chữ in hoa giãn chữ hàng loạt. Chỉ `caption` của nhãn 
 
 CTA chính tới `/where-are-you`. Không có hàng card lặp; bốn bước là một danh sách có số.
 
-**SPHEREx đi theo (14/11):** một tàu duy nhất (`features/artwork/CraftGuide.tsx`, lộ trình thuần trong `craftTimeline.ts`). Ở đầu trang nó nằm đúng chỗ tàu hero. Khi section kế tiếp lộ ở đáy màn hình, tàu bay theo đường cong, thu nhỏ và đậu khi điểm đậu lên tới 30% màn hình. Điểm đậu nằm trong phần đệm trên của How it works, About us và Start from Earth, thẳng mép trái nội dung, phía trên tiêu đề; cỡ 96 px (64 px dưới 720 px). Tàu lơ lửng nhẹ ở đó. Chùm sáng đi vào kính chỉ hiện ở hero. Chỉ animate `transform`.
+**SPHEREx đi theo (14/11):** một tàu duy nhất (`features/artwork/CraftGuide.tsx`, lộ trình thuần trong `craftTimeline.ts`). Ở đầu trang nó nằm đúng chỗ tàu hero. Khi section kế tiếp lộ ở đáy màn hình, tàu bay theo đường cong, thu nhỏ và đậu khi điểm đậu lên tới 30% màn hình. Điểm đậu được **chọn theo màn hình** (`craftDock.ts`): đo các khối chữ của section, ưu tiên lề trái ngang tiêu đề khi lề đủ rộng, nếu không thì phần đệm trên; cỡ co giãn 44–96 px; không bao giờ giao với chữ. Tàu vẽ dưới lớp chữ của section; đường bay vòng ra phía lề trái. Tàu lơ lửng nhẹ ở đó. Chùm sáng đi vào kính chỉ hiện ở hero. Chỉ animate `transform`.
 
 ### 7.3 Story `/story` — 6 phần
 
