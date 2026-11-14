@@ -1,8 +1,11 @@
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
-import { BookOpen, Eye, Globe2, Home, Menu, X } from 'lucide-react'
+import { BookOpen, Eye, FileText, Globe2, Home, LogIn, LogOut, Menu, MessagesSquare, UserPlus, X } from 'lucide-react'
 import { useEffect, useRef, type ReactNode } from 'react'
 import { Link, NavLink } from 'react-router'
 import { PATHS } from '../../app/config'
+import { AccountMenu } from '../../features/auth/AccountMenu'
+import { useLogOut } from '../../features/auth/RequireAuth'
+import { useSession } from '../../features/auth/session'
 import { useOverlay } from './overlay'
 import '../ui/ui.css'
 import './layout.css'
@@ -12,6 +15,12 @@ const NAV = [
   { to: PATHS.story, label: 'Story', icon: BookOpen },
   { to: PATHS.entry, label: 'Where are you', icon: Globe2 },
   { to: PATHS.explorer, label: 'The Eyes', icon: Eye },
+  { to: PATHS.forum, label: 'Forum', icon: MessagesSquare },
+] as const
+
+const ACCOUNT_NAV = [
+  { to: PATHS.login, label: 'Log in', icon: LogIn },
+  { to: PATHS.signup, label: 'Sign up', icon: UserPlus },
 ] as const
 
 export function MenuButton() {
@@ -34,6 +43,8 @@ export function MenuButton() {
 
 export function NavDrawer() {
   const { overlay, close } = useOverlay()
+  const { user } = useSession()
+  const logOut = useLogOut()
   const open = overlay === 'navigation'
   const reduce = useReducedMotion()
   const panelRef = useRef<HTMLElement>(null)
@@ -90,6 +101,39 @@ export function NavDrawer() {
                 </li>
               ))}
             </ul>
+            <ul className="nav-drawer__account" aria-label="Account">
+              {user ? (
+                <>
+                  <li>
+                    <NavLink to={PATHS.myPosts} end onClick={() => close('navigation')}>
+                      <FileText aria-hidden />
+                      My posts
+                    </NavLink>
+                  </li>
+                  <li>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        close('navigation')
+                        void logOut()
+                      }}
+                    >
+                      <LogOut aria-hidden />
+                      Log out
+                    </button>
+                  </li>
+                </>
+              ) : (
+                ACCOUNT_NAV.map(({ to, label, icon: Icon }) => (
+                  <li key={to}>
+                    <NavLink to={to} end onClick={() => close('navigation')}>
+                      <Icon aria-hidden />
+                      {label}
+                    </NavLink>
+                  </li>
+                ))
+              )}
+            </ul>
             <p className="caption nav-drawer__note">Independent project using NASA SPHEREx data.</p>
           </motion.nav>
         </>
@@ -100,14 +144,48 @@ export function NavDrawer() {
 
 type HeaderVariant = 'default' | 'eyes' | 'landing'
 
-/** Only the Landing page shows horizontal navigation; other pages use the left drawer. */
+/** Log in / Sign up for guests, the account menu once logged in. */
+export function AuthActions({ compact = false }: { compact?: boolean }) {
+  const { user } = useSession()
+  if (user) return <AccountMenu />
+  if (compact)
+    return (
+      <NavLink to={PATHS.login} className="btn btn-secondary">
+        <LogIn aria-hidden />
+        Log in
+      </NavLink>
+    )
+  return (
+    <>
+      <NavLink to={PATHS.login} className="btn btn-ghost auth-actions__login">
+        <LogIn aria-hidden />
+        Log in
+      </NavLink>
+      <NavLink to={PATHS.signup} className="btn btn-primary auth-actions__signup">
+        <UserPlus aria-hidden />
+        Sign up
+      </NavLink>
+    </>
+  )
+}
+
+/**
+ * Only the Landing header shows horizontal navigation plus Log in / Sign up; other pages use the
+ * left drawer. Below 900px the Landing header also falls back to the drawer.
+ */
 export function SiteHeader({ variant = 'default', children }: { variant?: HeaderVariant; children?: ReactNode }) {
   const isEyes = variant === 'eyes'
   const isLanding = variant === 'landing'
   return (
     <header className={`site-header${isEyes ? ' site-header--eyes' : ''}${isLanding ? ' site-header--landing' : ''}`}>
       <div className={`site-header__inner${isEyes ? '' : ' wrap'}`}>
-        {!isLanding && <MenuButton />}
+        {isLanding ? (
+          <span className="landing-menu">
+            <MenuButton />
+          </span>
+        ) : (
+          <MenuButton />
+        )}
         <Link to={PATHS.home} className="wordmark" translate="no">
           SPHEREx Explorer
         </Link>
@@ -125,6 +203,9 @@ export function SiteHeader({ variant = 'default', children }: { variant?: Header
                 ))}
               </ul>
             </nav>
+            <div className="auth-actions" role="group" aria-label="Account">
+              <AuthActions />
+            </div>
           </>
         ) : (
           (children ?? (
@@ -176,14 +257,23 @@ export function CompactFooter({ children }: { children?: ReactNode }) {
   )
 }
 
-export function PageShell({ children, header = 'default' }: { children: ReactNode; header?: HeaderVariant }) {
+export function PageShell({
+  children,
+  header = 'default',
+  headerActions,
+}: {
+  children: ReactNode
+  header?: HeaderVariant
+  /** Replaces the default "Open The Eyes" button on non-landing headers. */
+  headerActions?: ReactNode
+}) {
   return (
     <>
       <a href="#main" className="skip-link">
         Skip to content
       </a>
-      <SiteHeader variant={header} />
-      {header !== 'landing' && <NavDrawer />}
+      <SiteHeader variant={header}>{headerActions}</SiteHeader>
+      <NavDrawer />
       <main id="main" className="page-main">
         {children}
       </main>
