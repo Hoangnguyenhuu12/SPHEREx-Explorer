@@ -1,8 +1,10 @@
 # Dong backend API
 
-The active application implements the API 0.1 fixture contract. Issue 24
-connects the frame endpoints to local SPHEREx FITS cutouts.
-Daily scope comes from GitHub Issues. Models and samples follow the
+The active application implements API 0.1. Use `DATA_MODE=real` to render
+local DR1 cutouts from `data/spherex/`; missing real data does not fall back
+to demo images. Photometry and astrometry remain unavailable in this mode
+until validated. Fixture and legacy sections below describe test and historical
+workflows; see `../../README_DATA.md` for the current setup. Models follow the
 [API wiki](https://github.com/MINIONS-WORKFORCE/Human-Binoculars/wiki/The-API-contract).
 
 ## Layout
