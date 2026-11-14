@@ -10,7 +10,8 @@ from download_spherex import ROOT, coordinate
 from repair_fusion_qr3 import footprint_contains
 
 
-def main(detector, targets, batch=''):
+def main(detector, targets, batch='', defer_503=False):
+    failures = []
     for target in targets:
         folder=ROOT/'data/spherex'/target
         suffix=f'-{batch}' if batch else ''
@@ -41,13 +42,23 @@ def main(detector, targets, batch=''):
         if not selection.read_text(encoding='utf8').strip():
             print(target,f'no untried D{detector} candidate',flush=True);continue
         print(target,f'trying at most 3 previously untried D{detector} cutouts',flush=True)
-        subprocess.run([sys.executable,str(ROOT/'scripts/download_selected_spherex.py'),'--target',target,'--url-list',str(selection),'--retry-seconds','180'],cwd=ROOT)
+        command = [sys.executable,str(ROOT/'scripts/download_selected_spherex.py'),'--target',target,'--url-list',str(selection),'--retry-seconds','180']
+        if defer_503:
+            command.append('--defer-503')
+        result = subprocess.run(command,cwd=ROOT)
+        if result.returncode:
+            failures.append(target)
+    if failures:
+        print('Download failures; see selection_report.json:', ', '.join(failures), flush=True)
+        return 1
+    return 0
 
 if __name__=='__main__':
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--detector',type=int,choices=range(1,7),default=6)
-    parser.add_argument('--targets',nargs='+',choices=['epsilon_indi_b','rw_aurigae','barnard','r_draconis'],default=['epsilon_indi_b','rw_aurigae','barnard','r_draconis'])
+    parser.add_argument('--targets',nargs='+',choices=['wise0855','epsilon_indi_b','rw_aurigae','barnard','r_draconis'],default=['epsilon_indi_b','rw_aurigae','barnard','r_draconis'])
     parser.add_argument('--batch',default='',help='Optional alphanumeric batch label; reuse it to resume the same selection')
+    parser.add_argument('--defer-503', action='store_true')
     args=parser.parse_args()
     if args.batch and not args.batch.isalnum():parser.error('batch must be alphanumeric')
-    main(args.detector,args.targets,args.batch)
+    raise SystemExit(main(args.detector,args.targets,args.batch,args.defer_503))
