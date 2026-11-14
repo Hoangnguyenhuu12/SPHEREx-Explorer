@@ -1,12 +1,14 @@
 # SRS v2 – SPHEREx Sky Viewer: website kể chuyện và sky map 360°
 
-Người viết: Thạch · Bản chụp ngày 14/11/2026
+Người viết: Thạch · Bản chụp ngày 14/11/2026, cập nhật phạm vi Forum
 
-> Bản gốc đang được nhóm chỉnh sửa và bình luận tại [tài liệu SRS v2](https://claude.ai/artifact/5wmLU91AsxEcF7RwKZ8PdH). File này là bản chụp để tra cứu trong repo; khi hai bản khác nhau, bản tài liệu là bản đúng. SRS của MVP (12/11) vẫn giữ ở [SRS-MVP.md](SRS-MVP.md).
+> Bản gốc đang được nhóm chỉnh sửa và bình luận tại [tài liệu SRS v2](https://claude.ai/artifact/5wmLU91AsxEcF7RwKZ8PdH). File này ghi lại yêu cầu của bản chụp và bổ sung phạm vi Forum theo API Contract v1.1. SRS của MVP (12/11) có thể tra cứu trong lịch sử Git.
 
 ## 1. Mục tiêu và phạm vi
 
 SRS v2 nâng MVP từ một trang xem blink một vùng nhỏ thành website 4 trang: **Landing**, **Story**, **Where are you?** và **The eyes** (sky map 360°). Hợp đồng API 0.1 và các thành phần đã chạy (viewer blink, bản đồ Aladin, biểu đồ photometry, URL, zoom) được giữ và dùng lại.
+
+Forum là phần mở rộng cho phép người dùng trao đổi và chia sẻ quan sát. Các yêu cầu F-01…F-08 là Must khi phát hành Forum (mục 6.1 và 11). Phạm vi nghiệm thu bốn trang thiên văn được giữ riêng.
 
 **Cách hiểu “sky map video 360°” trong tài liệu này:** bản đồ 360° là bầu trời tĩnh người dùng kéo, xoay, phóng to. “Video” là chuỗi khung SPHEREx của **vùng đang chọn**, phát chồng lên đúng vị trí đó trên bản đồ. Không có video SPHEREx cho cả bầu trời (lý do ở mục 7).
 
@@ -103,6 +105,21 @@ The eyes là bầu trời 360° chiếm gần hết màn hình: thanh điều h�
 
 Popup và Testing chỉ hiển thị thiên thể có trong dữ liệu (5 mục tiêu và sao Gaia). Hành tinh trong hệ Mặt Trời không có trong dữ liệu hiện tại (câu hỏi mở ở mục 12).
 
+### 6.1 Forum cộng đồng
+
+Khách có thể đọc và tìm bài đã công khai. Thành viên đăng nhập để đóng góp. Admin xét duyệt bài và xử lý nội dung bị báo cáo. Liên kết về The eyes giúp người đọc mở lại vùng trời đang được thảo luận.
+
+| ID | Yêu cầu bắt buộc khi phát hành Forum |
+| --- | --- |
+| F-01 | Đăng ký, đăng nhập và xác nhận email qua Supabase Auth. Yêu cầu hoàn tất tên hiển thị trước khi đóng góp. Backend xác thực phiên và quyền user/admin. |
+| F-02 | Tác giả lưu nháp, gửi duyệt và rút bài đang chờ. Sau khi gửi, nội dung phiên bản được giữ nguyên. Muốn sửa thì tạo nháp mới. Tác giả xem phiên bản và lý do từ chối trong khu vực riêng. |
+| F-03 | Admin duyệt hoặc từ chối đúng phiên bản đã xem. Từ chối cần lý do. Phiên bản công khai hiện tại vẫn hiển thị trong khi bản sửa chờ duyệt, kể cả khi bản sửa bị từ chối hoặc rút. |
+| F-04 | Danh sách, tìm kiếm và lọc hashtag chỉ dùng phiên bản đang công khai của bài. Admin quản lý danh mục hashtag. Tác giả chọn từ danh mục hiện hành. Hashtag ngừng kích hoạt vẫn xuất hiện trên bài đã dùng nó. |
+| F-05 | Bình luận một cấp xuất hiện ngay trên bài công khai. Khi gửi, backend kiểm tra phiên bản mà người dùng đang xem. Tác giả được sửa hoặc xóa mềm nội dung của mình theo quyền và trạng thái quy định trong contract. |
+| F-06 | Thành viên báo cáo bài hoặc bình luận. Mỗi người có tối đa một báo cáo đang mở trên cùng đối tượng. Admin xử lý báo cáo, ẩn hoặc khôi phục nội dung có lý do và nhật ký. Duyệt bản sửa không khôi phục bài đã bị ẩn. |
+| F-07 | Gửi thông báo trong ứng dụng cho tác giả theo các sự kiện nêu trong contract. Chỉ chủ tài khoản được đọc thông báo của mình. |
+| F-08 | Hỗ trợ văn bản và liên kết HTTP(S), gồm liên kết quan sát The eyes. Nội dung do cộng đồng đăng phải được trình bày đúng nguồn. Duyệt bài xác nhận nội dung phù hợp diễn đàn, không xác nhận kết quả khoa học. |
+
 ## 7. Dữ liệu và giới hạn
 
 Hệ thống phát được “video” SPHEREx cho một vùng nhỏ quanh vị trí bất kỳ, không phát được cho cả bầu trời, và chưa tự phát hiện được thiên thể. Giao diện phải nói rõ những giới hạn này với người dùng.
@@ -121,7 +138,7 @@ Mỗi loại dữ liệu không phải quan sát thật (mẫu tổng hợp, mô
 
 ## 8. Kiến trúc và thay đổi hợp đồng API
 
-Các yêu cầu Must không cần endpoint mới: The eyes đặt khung lên bản đồ bằng `grid` có sẵn trong `/api/frames` của API 0.1. Thay đổi nằm ở frontend (4 trang, định tuyến, sky map toàn trời).
+Các yêu cầu Must của bốn trang thiên văn không cần endpoint mới: The eyes đặt khung lên bản đồ bằng `grid` có sẵn trong `/api/frames` của API 0.1. Thay đổi nằm ở frontend (4 trang, định tuyến, sky map toàn trời).
 
 ![Kiến trúc v2: frontend trên Vercel, backend FastAPI, gói FITS fixture, IRSA và CDS](images/srs-v2-architecture.png)
 
@@ -133,6 +150,19 @@ Các yêu cầu Must không cần endpoint mới: The eyes đặt khung lên b�
 | Endpoint ứng viên chuyển động (danh sách cặp sáng–tối kèm toạ độ và độ tin cậy) | Chỉ cần nếu làm mục Could ở mục 7 | Could | Hữu Hoàng, Đông |
 
 Mọi thay đổi hợp đồng đi qua review trên wiki trước khi code; sau đó cập nhật `openapi.yaml`, `api_samples/` và chạy `npm run gen:types`.
+
+### 8.1 Kiến trúc và dữ liệu Forum
+
+FastAPI phục vụ các tuyến /api/forum theo hợp đồng riêng. Tham khảo [OpenAPI Forum](../shared/api-contract/openapi-forum-v1.yaml) và [quy tắc nghiệp vụ, phân quyền và tiêu chí AC01–AC14](../shared/api-contract/forum-v1.md).
+
+| Thành phần | Yêu cầu hoặc trạng thái đã kiểm tra |
+| --- | --- |
+| Kho thiên văn | Supabase Nasa / Nasa-Minions, nhánh main, có 7 bảng trong sky_archive. Vai trò anon và authenticated không có quyền đọc hiệu lực trên các bảng này. Kết quả kiểm tra mới xác nhận metadata, chưa đối chiếu từng cột hoặc index. |
+| Database Forum | Cấu hình triển khai trong repo dùng project Supabase riêng cho Forum. Nasa-Minions chưa có schema forum tại thời điểm kiểm tra 14/11/2026. Migration Forum chưa được áp dụng trong lần kiểm tra đó. [Hướng dẫn backend](../members/dong/README.md) |
+| Phân quyền | Supabase Auth cung cấp danh tính. FastAPI kiểm tra token và quyền truy cập theo tài khoản. Schema forum không được đưa ra Supabase Data API. Dùng tài khoản kết nối backend với quyền tối thiểu. Chỉ người vận hành có quyền cấp admin, kể cả khi truy cập qua SQL. |
+| Cài đặt | Áp dụng migration vào project Forum đã chọn và cấu hình FORUM_DATABASE_URL, cấu hình Supabase Auth và secret phân trang theo hướng dẫn backend. Không đưa thông tin xác thực vào Git. [Migration Forum](../supabase/migrations/20261114110430_forum_v1.sql) |
+
+Điều kiện triển khai còn mở: migration hiện cấp quyền ghi toàn bảng profiles cho forum_api. Cần giới hạn quyền ghi để tài khoản backend không thể tự đặt cột role thành admin. Cần kiểm tra quyền này trên môi trường Forum trước khi phát hành.
 
 ## 9. Yêu cầu phi chức năng
 
@@ -146,6 +176,7 @@ Mọi thay đổi hợp đồng đi qua review trên wiki trước khi code; sau
 | NF-06 | Chạy trên Chrome, Edge, Firefox bản mới có WebGL 2 (Aladin cần); trình duyệt thiếu WebGL 2 thì báo rõ | Kiểm tay 3 trình duyệt |
 | NF-07 | Deploy: frontend trên Vercel (`vercel.json` đã có), backend trên một máy chủ công khai; `npm run smoke` đạt trên link công khai trước mỗi lần demo | Smoke test |
 | NF-08 | Mỗi trang có test Playwright cho luồng chính; CI xanh trước khi merge | GitHub Actions |
+| NF-09 | Bản nháp, phiên bản chờ duyệt, lý do kiểm duyệt và thông báo cá nhân không xuất hiện qua API công khai hoặc bộ nhớ đệm. Dữ liệu riêng được xóa khỏi giao diện khi đăng xuất hoặc đổi tài khoản. | Kiểm tra bằng khách và hai tài khoản khác nhau theo AC11–AC12 |
 
 ## 10. Phân công và kế hoạch
 
@@ -191,6 +222,13 @@ v2 đạt khi mọi dòng Must dưới đây đạt trên một máy không ph�
 - [ ] Where are you?: bấm Trái Đất hoặc nhấn Enter thì sang The eyes; có nút Skip; tắt chuyển động khi bật reduced motion.
 - [ ] Story có đủ 6 phần, mọi con số có nguồn.
 - [ ] Chế độ live: một toạ độ ngoài 5 mục tiêu ra khung thật hoặc lỗi rõ ràng trong vòng 65 giây.
+
+**Điều kiện nghiệm thu khi phát hành Forum**
+
+- [ ] Khách đọc, tìm kiếm và lọc được bài đã công khai. Bản nháp, phiên bản chờ duyệt và nội dung đã ẩn không rò rỉ trong danh sách, chi tiết hoặc tìm kiếm.
+- [ ] Chạy luồng lưu nháp → gửi duyệt → duyệt/từ chối/rút. Xác nhận bản công khai cũ chỉ được thay khi bản sửa được duyệt. Hai thao tác đồng thời không thể ghi đè quyết định của nhau.
+- [ ] Kiểm tra bình luận, báo cáo, ẩn/khôi phục, xóa mềm, danh mục hashtag, thông báo và liên kết mở lại The eyes theo [AC01–AC14](../shared/api-contract/forum-v1.md#10-ba-acceptance-traceability).
+- [ ] Migration chạy trên database thử nghiệm riêng. Kiểm tra khách, hai thành viên, admin và tài khoản SQL của backend. Xác nhận tài khoản backend không tự cấp admin, và phiên đăng nhập/đăng xuất hoạt động với frontend.
 
 Khi SRS này được chốt, các dòng trên được chép sang `docs/QA-matrix.md` thành phép thử có người chạy và cột kết quả.
 

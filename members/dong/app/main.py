@@ -13,6 +13,8 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from .api_models import ErrorResponse
 from .fixture_api import router
+from .forum import ForumError
+from .forum import router as forum_router
 from .services.fixtures import FixtureError
 
 app = FastAPI(title="Human Binoculars API", version="0.1")
@@ -38,10 +40,14 @@ app.add_middleware(
             *(v.strip() for v in os.getenv("CORS_ALLOW_ORIGINS", "").split(",") if v.strip()),
         }
     ),
-    allow_methods=["GET"],
-    expose_headers=["Server-Timing", "Cache-Control", "X-Cache"],
+    # Astronomy routes are GET-only; the forum adds bearer-authenticated writes.
+    allow_methods=["GET", "POST", "PATCH", "DELETE"],
+    allow_headers=["Authorization", "Content-Type", "Idempotency-Key"],
+    expose_headers=["Server-Timing", "Cache-Control", "X-Cache", "Retry-After", "WWW-Authenticate"],
 )
 app.include_router(router)
+app.include_router(forum_router)
+FORUM_PREFIX = "/api/forum"
 logger = logging.getLogger("uvicorn.error")
 
 
@@ -55,8 +61,26 @@ def fixture_error(request: Request, exc: FixtureError):
     return error_response(exc.status, exc.code, exc.message, exc.details)
 
 
+def is_forum(request: Request) -> bool:
+    path = request.url.path
+    return path == FORUM_PREFIX or path.startswith(FORUM_PREFIX + "/")
+
+
+@app.exception_handler(ForumError)
+def forum_error(request: Request, exc: ForumError):
+    return JSONResponse(exc.body(), status_code=exc.status, headers=exc.headers)
+
+
 @app.exception_handler(RequestValidationError)
 def validation_error(request: Request, exc: RequestValidationError):
+    if is_forum(request):
+        fields = sorted(
+            {
+                ".".join(str(p) for p in e["loc"][1:] if not isinstance(p, int)) or str(e["loc"][0])
+                for e in exc.errors()
+            }
+        )
+        return forum_error(request, ForumError(400, {"fields": fields}))
     fields = sorted({str(e["loc"][-1]) for e in exc.errors()})
     code = "BAD_COORDS" if {"ra", "dec"}.intersection(fields) else "BAD_PARAM"
     return error_response(400, code, "Invalid request parameters.", {"fields": fields})
@@ -66,6 +90,8 @@ def validation_error(request: Request, exc: RequestValidationError):
 def http_error(request: Request, exc: StarletteHTTPException):
     if isinstance(exc.detail, dict) and "error" in exc.detail:
         return JSONResponse(exc.detail, status_code=exc.status_code)
+    if is_forum(request) and exc.status_code in (404, 405):
+        return forum_error(request, ForumError(404))
     return error_response(exc.status_code, "INTERNAL", "Request failed.", {})
 
 
@@ -92,6 +118,15 @@ async def timing(request: Request, call_next):
             status,
             (perf_counter() - started) * 1000,
         )
+
+
+@app.middleware("http")
+async def forum_no_store(request: Request, call_next):
+    # Every forum response, including errors and 204, is private and uncached.
+    response = await call_next(request)
+    if is_forum(request):
+        response.headers["Cache-Control"] = "no-store"
+    return response
 
 
 def contract_openapi():
