@@ -79,7 +79,7 @@ export function HelpDialog({ onClose }: { onClose: () => void }) {
           </button>
         </div>
         <p>
-          You are looking out from the center of the celestial sphere. Drag to look around the DSS2 visible-light sky and scroll to zoom.
+          You are looking out from the center of the celestial sphere. Drag to look around the SPHEREx infrared all-sky map (it follows the detector you pick) and scroll to zoom.
           The Ground button adds an illustrated horizon. The panel on the left shows SPHEREx infrared
           observations of the selected target, taken on different dates. Step through them to see what changed.
         </p>

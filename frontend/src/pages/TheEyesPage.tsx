@@ -12,7 +12,7 @@ import { useOverlay } from '../shared/layout/overlay'
 import { formatDecDms, formatRaHms } from '../features/target-search/coordinates'
 import { usePlayer } from '../features/blink/player'
 import { useFrameSession } from '../features/blink/useFrameSession'
-import { AladinMap, SURVEY, type SkyMapHandle } from '../features/sky-map/AladinMap'
+import { AladinMap, SURVEY, type SkyMapHandle, type SurveyInfo } from '../features/sky-map/AladinMap'
 import { TargetPopup } from '../features/target-details/TargetPopup'
 import type { ViewerToggles } from '../features/target-details/ObservationViewer'
 import { TargetSearch } from '../features/target-search/TargetSearch'
@@ -79,6 +79,7 @@ export default function TheEyesPage() {
 
   const title = target?.name ?? (rq.kind === 'name' && resolved.data ? resolved.data.name : coords ? 'Custom position' : '')
   const detector = sel.detector || target?.recommendedDetector || 6
+  const [survey, setSurvey] = useState<SurveyInfo>(SURVEY)
 
   const framesParams = useMemo(
     () =>
@@ -273,6 +274,8 @@ export default function TheEyesPage() {
             close('navigation')
             setSource(s)
           }}
+          detector={detector}
+          onSurvey={setSurvey}
         />
 
         {mapStatus.s !== 'ready' && (
@@ -411,7 +414,8 @@ export default function TheEyesPage() {
       <CompactFooter>
         <span className="sep">·</span>
         <span>
-          Sky survey: {SURVEY.label} ({SURVEY.credit})
+          Sky survey: {survey.label}
+          {survey.cube ? `, detector D${detector}` : ''} ({survey.credit})
         </span>
         <span className="sep">·</span>
         <span className={config.useMock ? 'demo-tag' : undefined}>{dataLabel}</span>

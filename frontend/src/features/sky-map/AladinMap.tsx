@@ -1,6 +1,7 @@
 import A from 'aladin-lite'
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import { TARGETS, type TargetKey } from '../../shared/config/targets'
+import { aladinSliceArgument, DSS_SURVEY, sliceForDetector, SPHEREX_SURVEY, type SurveyInfo } from './surveys'
 import './sky-map.css'
 
 /**
@@ -27,11 +28,13 @@ interface Props {
   onStatus?: (status: 'loading' | 'ready' | 'error', message?: string) => void
   onGaiaStatus?: (status: 'loading' | 'ready' | 'error', count?: number) => void
   onSourceSelected?: (s: { ra: number; dec: number; sourceId: string | null; gmag: number | null }) => void
+  /** SPHEREx detector 1–6: the background shows that detector's middle wavelength. */
+  detector?: number
+  /** Which background survey actually loaded (SPHEREx, or DSS2 when IRSA is unreachable). */
+  onSurvey?: (survey: SurveyInfo) => void
 }
 
-export const SURVEY = { id: 'CDS/P/DSS2/color', label: 'DSS2 color', credit: 'Digitized Sky Survey, HiPS by CDS' }
-
-/** Official HiPS mirrors of CDS/P/DSS2/color, tried in order (CDS primary first). */
+/** Official HiPS mirrors of CDS/P/DSS2/color: fallback when the SPHEREx cube cannot be reached. */
 const SURVEY_MIRRORS = [
   'https://alasky.cds.unistra.fr/DSS/DSSColor',
   'https://irsa.ipac.caltech.edu/data/hips/CDS/DSS2/color',
@@ -72,26 +75,33 @@ async function pickVizier(ra: number, dec: number): Promise<string | null> {
   return null
 }
 
-async function pickSurveyUrl(): Promise<string> {
-  for (const base of SURVEY_MIRRORS) {
-    try {
-      const ctrl = new AbortController()
-      const t = setTimeout(() => ctrl.abort(), 4000)
-      const res = await fetch(`${base}/properties`, { signal: ctrl.signal })
-      clearTimeout(t)
-      if (res.ok) return base
-    } catch {
-      // try the next mirror
-    }
+async function reachable(base: string, ms: number): Promise<boolean> {
+  try {
+    const ctrl = new AbortController()
+    const t = setTimeout(() => ctrl.abort(), ms)
+    const res = await fetch(`${base}/properties`, { signal: ctrl.signal })
+    clearTimeout(t)
+    return res.ok
+  } catch {
+    return false
   }
-  return SURVEY_MIRRORS[0]
+}
+
+async function pickSurvey(): Promise<SurveyInfo> {
+  if (await reachable(SPHEREX_SURVEY.url, 6000)) return SPHEREX_SURVEY
+  for (const base of SURVEY_MIRRORS) {
+    if (await reachable(base, 4000)) return { ...DSS_SURVEY, url: base }
+  }
+  return { ...DSS_SURVEY, url: SURVEY_MIRRORS[0] }
 }
 
 // oxlint-disable-next-line typescript/no-explicit-any
 type AladinInstance = any
 
+export { SURVEY, type SurveyInfo } from './surveys'
+
 export const AladinMap = forwardRef<SkyMapHandle, Props>(function AladinMap(
-  { initial, selectedKey, onTargetSelected, onFovChanged, onStatus, onGaiaStatus, onSourceSelected },
+  { initial, selectedKey, onTargetSelected, onFovChanged, onStatus, onGaiaStatus, onSourceSelected, detector = 6, onSurvey },
   ref,
 ) {
   const hostRef = useRef<HTMLDivElement>(null)
@@ -103,6 +113,7 @@ export const AladinMap = forwardRef<SkyMapHandle, Props>(function AladinMap(
   const motionRef = useRef<number | null>(null)
   const onSelectRef = useRef(onTargetSelected)
   const [ready, setReady] = useState(false)
+  const surveyRef = useRef<SurveyInfo | null>(null)
   onSelectRef.current = onTargetSelected
   const onSourceRef = useRef(onSourceSelected)
   onSourceRef.current = onSourceSelected
@@ -112,11 +123,13 @@ export const AladinMap = forwardRef<SkyMapHandle, Props>(function AladinMap(
     const host = hostRef.current
     if (!host) return
     onStatus?.('loading')
-    Promise.all([A.init, pickSurveyUrl()])
-      .then(([, surveyUrl]) => {
+    Promise.all([A.init, pickSurvey()])
+      .then(([, survey]) => {
         if (disposed || !host) return
+        surveyRef.current = survey
+        onSurvey?.(survey)
         const aladin = A.aladin(host, {
-          survey: surveyUrl,
+          survey: survey.url,
           projection: 'TAN',
           fov: initial.fovDeg,
           target: `${initial.ra} ${initial.dec}`,
@@ -190,6 +203,26 @@ export const AladinMap = forwardRef<SkyMapHandle, Props>(function AladinMap(
     // Initial view only; later moves go through the handle.
     // oxlint-disable-next-line react/exhaustive-deps
   }, [])
+
+  // Cube background: show the frame for the chosen detector. Aladin picks the cube's first frame when
+  // the layer is added, so wait until the layer reports itself added before setting ours.
+  useEffect(() => {
+    const a = aladinRef.current
+    if (!ready || !a || !surveyRef.current?.cube) return
+    const slice = sliceForDetector(detector)
+    let tries = 0
+    let timer = 0
+    const apply = () => {
+      const layer = a.getBaseImageLayer?.()
+      if (layer?.added && typeof layer.setSliceNumber === 'function') {
+        layer.setSliceNumber(aladinSliceArgument(slice, layer))
+        return
+      }
+      if (++tries < 40) timer = window.setTimeout(apply, 150)
+    }
+    apply()
+    return () => window.clearTimeout(timer)
+  }, [ready, detector])
 
   useEffect(() => {
     const sel = selectedCatRef.current
