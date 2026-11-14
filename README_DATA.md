@@ -4,16 +4,26 @@ This application uses IRSA DR1 Level-2 spectral images. The acquisition pipeline
 
 ## Phân biệt dữ liệu và môi trường
 
-Đây là phiên bản ứng dụng sử dụng dữ liệu DR1 mới tải từ IRSA. Bản code và dữ liệu trước đó nằm trong `old/` (cục bộ, không theo dõi bằng Git). Khi chuẩn bị nộp, nhóm đối chiếu yêu cầu và cách ghi nguồn với hướng dẫn chính thức của cuộc thi.
+Repo dùng cấu trúc giống GitHub, không còn thư mục `new/` hay `old/`. Code nằm ở thư mục gốc. Mọi dữ liệu ảnh nằm trong `data/`; thư mục này bị Git bỏ qua và phải chia sẻ riêng. Ba loại dữ liệu được tách thành thư mục riêng, không trộn với nhau:
 
-- `data/spherex/`: cutout **thật** tải từ IRSA, có release, URL, thời điểm, detector, SHA-256 và báo cáo kiểm tra. `valid` trong báo cáo chỉ xác nhận các kiểm tra kỹ thuật đã chạy, không xác nhận phát hiện nguồn hoặc kết quả khoa học.
-- `old/data/fixtures/` (cục bộ, không theo dõi bằng Git): fixture pack cũ dùng cho kiểm thử; **fixture mô tả mục đích sử dụng, không khẳng định nguồn gốc là giả**. Có thể chứa dữ liệu thật được chọn/lưu sẵn, hãy xem manifest của từng pack.
-- `api_samples/` và `frontend/src/mocks/`: phản hồi hoặc dữ liệu mẫu cho kiểm thử/giao diện; không trình bày chúng như phép đo khoa học thật. Các bài test có thể tự tạo dữ liệu tổng hợp.
+| Loại | Vị trí | Nguồn và thời gian | Dùng khi |
+| --- | --- | --- | --- |
+| **Dữ liệu hôm nay** (DR1) | `data/spherex/`, `data/processed/`, `data/reports/` | Cutout **thật** SPHEREx DR1 tải từ IRSA ngày 14/11/2026; có release, URL, thời điểm, detector, SHA-256 và báo cáo kiểm tra | `DATA_MODE=real` (luồng chính của MVP) |
+| Dữ liệu hôm nay (QR3 của Khôi) | `data/imports/full_harvest_fusion/` (bản nhập đã kiểm toán), `data/imports/full_harvest_fusion_original/` (gói gốc, trùng từng byte), `data/fusion_repairs/qr3/` | QR3/AllWISE/Gaia, nhập ngày 14/11/2026 | Chỉ khi đặt `DATA_RELEASE=qr3`; không trộn với DR1 |
+| **Dữ liệu hôm trước** (QR2) | `data/archive_qr2_2026-11-06_den_13/` | Ảnh **thật** QR2 và sản phẩm xử lý ngày 6–13/11: `five_targets/`, `target_observations/`, `observation_products/`, `wise0855_*`, `reproject_wise0855/`, `tasks_def/`, `fixtures/manifest.json`, `logs/` | Chỉ để tham khảo/lưu trữ; ứng dụng không tự đọc |
+| **Dữ liệu giả** | `api_samples/` (Git), `frontend/src/shared/api/mock/` (Git) | Mẫu tổng hợp cho giao diện và schema; README ghi rõ là synthetic | `DATA_MODE=fixture` hoặc `VITE_USE_MOCK=true` |
+
+Ngoài ra `data/tools/` chứa Node.js portable (công cụ, không phải dữ liệu), còn `data/tmp/pytest/` là thư mục tạm của pytest và có thể xóa.
+
+`valid` trong báo cáo DR1 chỉ xác nhận các kiểm tra kỹ thuật đã chạy, không xác nhận phát hiện nguồn hay kết quả khoa học. Các bài test có thể tự tạo dữ liệu tổng hợp trong thư mục tạm.
+
+Muốn xem lại bộ QR2 cũ trong chế độ fixture, đặt `DATA_MODE=fixture` và `DATA_DIR=data/archive_qr2_2026-11-06_den_13`. Lưu ý: chế độ này có thể ghi lại `fixtures/manifest.json` trong thư mục lưu trữ, nên nên sao lưu trước. Các script trong `members/huu-hoang/` ghi kết quả mới vào `data/<tên>/`, không ghi vào thư mục lưu trữ.
+
 - `DATA_MODE=fixture` là chế độ dữ liệu fixture của backend; `VITE_USE_MOCK=true` là frontend dùng phản hồi mock. Cần kiểm tra cấu hình đang chạy và nguồn dữ liệu thực tế khi demo. Xem [frontend/README.md](frontend/README.md).
 
 Ảnh demo cũ và fixture không tham gia luồng dữ liệu thực tế. Chúng được giữ trên đĩa để không xóa ngoài ý muốn và chỉ có thể được dùng lại khi chủ động chọn chế độ thử nghiệm.
 
-Gói QR3/AllWISE do thành viên nhóm cung cấp được nhập riêng tại `data/imports/full_harvest_fusion/`; chưa tự động đưa vào API. Đọc [FUSION_IMPORT_REVIEW.md](FUSION_IMPORT_REVIEW.md) về độ phủ, provenance và các điểm chưa kiểm chứng trước khi dùng.
+Gói QR3/AllWISE do thành viên nhóm cung cấp được nhập riêng tại `data/imports/full_harvest_fusion/` (gói gốc: `data/imports/full_harvest_fusion_original/`); chưa tự động đưa vào API. Đọc [FUSION_IMPORT_REVIEW.md](FUSION_IMPORT_REVIEW.md) về độ phủ, provenance và các điểm chưa kiểm chứng trước khi dùng.
 
 Các mẫu QR3 D6 đã truy vấn lại theo vị trí dự đoán tại epoch cho Barnard và Epsilon Indi B nằm riêng ở `data/fusion_repairs/qr3/`. Backend mặc định chọn DR1; đặt `DATA_RELEASE=qr3` trước khi khởi động để thử riêng mẫu QR3. Hai release không được trộn trong một request. Chi tiết, giới hạn WISE 0855, cờ R Draconis và ảnh hiệu chưa được xác minh: [FUSION_REPAIR_REPORT.md](FUSION_REPAIR_REPORT.md).
 

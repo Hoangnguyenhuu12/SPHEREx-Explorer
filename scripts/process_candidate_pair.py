@@ -3,6 +3,7 @@ import argparse
 import hashlib
 import json
 import sys
+from pathlib import Path
 from importlib import import_module
 
 import matplotlib
@@ -19,10 +20,14 @@ from download_spherex import ROOT, coordinate, save_json
 
 sys.path.insert(0, str(ROOT))
 imaging=import_module('members.huu-hoang.tan_pipeline')
-def main(target,detector):
-    out=ROOT/'data/processed'/f'{target}_d{detector}_comparison'
+def main(target,detector,observations=None,output=None):
+    out=Path(output).resolve() if output else ROOT/'data/processed'/f'{target}_d{detector}_comparison'
+    if not out.resolve().is_relative_to((ROOT/'data/processed').resolve()):
+        raise ValueError('Output must be within data/processed')
     screening=json.loads((ROOT/'data/reports/comparison_candidates.json').read_text(encoding='utf8'))
     pairs=[p for p in screening['targets'][target]['candidate_pairs'] if p['detector']==detector]
+    if observations:
+        pairs=[p for p in pairs if set(p['observations'])==set(observations)]
     if not pairs:raise ValueError('No pair passes the recorded preliminary screening')
     pair=max(pairs,key=lambda p:p['time_gap_days'])
     center=coordinate(target,Time(sum(pair['mjd'])/2,format='mjd',scale='utc'))
@@ -88,5 +93,7 @@ if __name__=='__main__':
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--target',choices=['wise0855','epsilon_indi_b','barnard','rw_aurigae','r_draconis'],default='wise0855')
     parser.add_argument('--detector',type=int,choices=range(1,7),default=6)
+    parser.add_argument('--observations',nargs=2,help='Exact observation IDs of a screened pair')
+    parser.add_argument('--output',help='Output directory within data/processed')
     args=parser.parse_args()
-    main(args.target,args.detector)
+    main(args.target,args.detector,args.observations,args.output)

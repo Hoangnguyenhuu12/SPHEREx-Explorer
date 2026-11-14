@@ -188,3 +188,216 @@
 .tooltip-wrap {
   position: relative;
 }
+
+/* Tabs (role="tablist") — shared by The Eyes popup and Forum moderation */
+.tabs {
+  display: flex;
+  gap: var(--space-1);
+  border-bottom: 1px solid var(--line);
+  margin-top: var(--space-2);
+}
+.tabs button {
+  height: 40px;
+  padding: 0 var(--space-3);
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  white-space: nowrap;
+}
+.tabs button:hover {
+  color: var(--fg);
+}
+.tabs button[aria-selected='true'] {
+  color: var(--fg);
+  border-bottom-color: var(--primary);
+}
+
+/* Multi-line text input, same look as .input */
+.textarea {
+  width: 100%;
+  min-height: 120px;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line-strong);
+  background: var(--bg);
+  color: var(--fg);
+  font: inherit;
+  line-height: 24px;
+  resize: vertical;
+}
+.textarea::placeholder {
+  color: color-mix(in srgb, var(--muted) 70%, transparent);
+}
+.input:focus-visible,
+.textarea:focus-visible,
+.select:focus-visible {
+  outline-offset: 0;
+  border-color: var(--primary);
+}
+[aria-invalid='true'].input,
+[aria-invalid='true'].textarea {
+  border-color: var(--danger);
+}
+
+/* Chips: presets and Forum tags (pill shape, DESIGN.md §4) */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: 28px;
+  padding: 0 var(--space-3);
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  background: transparent;
+  color: var(--fg);
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+}
+a.chip:hover,
+button.chip:hover:not(:disabled) {
+  background: var(--surface-2);
+}
+button.chip {
+  cursor: pointer;
+  min-height: 32px;
+}
+.chip[aria-pressed='true'] {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--on-primary);
+}
+.chip:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.chip svg {
+  width: 14px;
+  height: 14px;
+}
+.chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* Dialog (shared/ui/Dialog.tsx) */
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 400;
+  display: grid;
+  place-items: center;
+  padding: var(--space-4);
+  background: rgb(0 0 0 / 0.72);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  animation: dialog-fade var(--dur-panel) var(--ease-out);
+}
+.dialog {
+  width: min(480px, 100%);
+  max-height: calc(100vh - 2 * var(--space-4));
+  overflow: auto;
+  overscroll-behavior: contain;
+  display: grid;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+.dialog__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.dialog__title {
+  font-size: 24px;
+  line-height: 32px;
+}
+.dialog__desc {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 20px;
+  margin-top: var(--space-1);
+}
+.dialog__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+@keyframes dialog-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+/* Form field (label + control + help/error) */
+.field {
+  display: grid;
+  gap: var(--space-1);
+}
+.field__label {
+  font-size: 14px;
+  font-weight: 700;
+}
+.field__hint {
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--muted);
+}
+.field__error {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-1);
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--danger);
+}
+.field__error svg {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  margin-top: 2px;
+}
+.field__row {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.field__count {
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.field__count--over {
+  color: var(--danger);
+}
+
+.btn-danger {
+  background: transparent;
+  border-color: color-mix(in srgb, var(--danger) 60%, transparent);
+  color: var(--danger);
+}
+.btn-danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+}
+.btn-sm {
+  height: 32px;
+  padding: 0 var(--space-3);
+  font-size: 13px;
+}

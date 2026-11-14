@@ -25,4 +25,13 @@ export const PATHS = {
   story: '/story',
   entry: '/where-are-you',
   explorer: '/the-eyes',
+  login: '/login',
+  signup: '/signup',
+  forum: '/forum',
+  forumNew: '/forum/new',
+  myPosts: '/forum/my-posts',
+  adminForum: '/admin/forum',
 } as const
+
+export const forumPostPath = (id: string) => `/forum/posts/${encodeURIComponent(id)}`
+export const forumEditPath = (id: string) => `/forum/posts/${encodeURIComponent(id)}/edit`

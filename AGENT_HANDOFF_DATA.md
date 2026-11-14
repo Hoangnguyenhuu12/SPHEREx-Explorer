@@ -4,7 +4,7 @@ Cập nhật 14/11/2026 (sau khi merge `main` và đưa cặp ảnh lên API). L
 
 ## Yêu cầu của người dùng
 
-- Tận dụng hệ thống đã có để chạy ảnh SPHEREx thật mới tải từ IRSA; không tự động dùng ảnh demo/fixture cũ thay cho dữ liệu nộp thi. Code nằm ở thư mục gốc repo; `old/` cục bộ chỉ là bản sao cũ để tham khảo. Giữ dữ liệu và thay đổi hiện có.
+- Tận dụng hệ thống đã có để chạy ảnh SPHEREx thật mới tải từ IRSA; không tự động dùng ảnh demo/fixture cũ thay cho dữ liệu nộp thi. Code nằm ở thư mục gốc repo như GitHub. Dữ liệu hôm nay (DR1), hôm trước (QR2, `data/archive_qr2_2026-11-06_den_13/`) và dữ liệu giả (`api_samples/`) để ở các thư mục riêng; xem bảng trong `README_DATA.md`. Giữ dữ liệu và thay đổi hiện có.
 - Tìm thêm ảnh DR1 phù hợp cho các sao còn thiếu cặp, kiểm tra và xử lý ảnh khi tìm được. Mục tiêu là MVP trình diễn ảnh qua thời gian; không tuyên bố phát hiện hay đo chuyển động/biến quang khi chưa xác thực khoa học.
 - Giữ FITS gốc và nguồn. Một chuỗi phải cùng detector và release, xem xét bước sóng thực tế, cờ chất lượng, WCS và thời gian; không dùng ảnh tổng hợp lấp dữ liệu thiếu.
 - Tải tuần tự, checkpoint từng file, không tải lại file hợp lệ. HTTP 503: thử lại riêng chỉ mục tối đa 3 phút, quá thời gian báo mã lỗi/chỉ mục cho người dùng và chuyển sang chỉ mục khác.
@@ -40,7 +40,7 @@ Lịch sử tải từng lượt (mvp2–mvp5, D1 Barnard/R Draconis) có trong 
 
 ## Dữ liệu Khôi và QR/DR
 
-Gói `SPHEREx_Full_Harvest_and_Fusion_Data/` (cục bộ, không theo dõi bằng Git) là công việc thu thập và thử hợp nhất/hiệu ảnh của Khôi, gồm QR3, AllWISE, Gaia và sản phẩm dẫn xuất; có thể tham khảo code sau kiểm tra, nhưng không trộn QR3 với DR1 trong chuỗi so sánh. Import được kiểm toán tại `data/imports/full_harvest_fusion/`; xem `FUSION_IMPORT_REVIEW.md`, `FUSION_REPAIR_REPORT.md`. Nhiều cutout QR3 Barnard/Epsilon gốc không phủ vị trí dự đoán theo epoch; đã thử sửa một số cutout D6 tại `data/fusion_repairs/qr3/`. WISE trong gói không có FITS SPHEREx để chứng minh các mục JSON; R Dra thường có pixel mục tiêu không hữu hạn/cờ. Ảnh hiệu SPHEREx D6–AllWISE W1 khác thiết bị/dải sóng, không chứng minh chuyển động; một số nhãn thời gian từng không khớp metadata. QR là quick release, DR là data release; dùng DR1 nhất quán cho luồng chính.
+Gói `data/imports/full_harvest_fusion_original/` (gói gốc `SPHEREx_Full_Harvest_and_Fusion_Data/`, cục bộ, không theo dõi bằng Git) là công việc thu thập và thử hợp nhất/hiệu ảnh của Khôi, gồm QR3, AllWISE, Gaia và sản phẩm dẫn xuất; có thể tham khảo code sau kiểm tra, nhưng không trộn QR3 với DR1 trong chuỗi so sánh. Import được kiểm toán tại `data/imports/full_harvest_fusion/`; xem `FUSION_IMPORT_REVIEW.md`, `FUSION_REPAIR_REPORT.md`. Nhiều cutout QR3 Barnard/Epsilon gốc không phủ vị trí dự đoán theo epoch; đã thử sửa một số cutout D6 tại `data/fusion_repairs/qr3/`. WISE trong gói không có FITS SPHEREx để chứng minh các mục JSON; R Dra thường có pixel mục tiêu không hữu hạn/cờ. Ảnh hiệu SPHEREx D6–AllWISE W1 khác thiết bị/dải sóng, không chứng minh chuyển động; một số nhãn thời gian từng không khớp metadata. QR là quick release, DR là data release; dùng DR1 nhất quán cho luồng chính.
 
 ## File và lệnh cần đọc
 
@@ -65,6 +65,6 @@ Các batch D2–D5 của ba sao, D1 RW `mvp2`–`mvp5`, D6 và D1 của Barnard/
 
 ## Tích hợp và nguồn
 
-Backend có chế độ dữ liệu thật, nhưng API trả ảnh không đồng nghĩa chuỗi đạt điều kiện so sánh; từng có cảnh báo `MIXED_WAVELENGTH`. Xác minh hệ thống và UI trước khi khẳng định MVP hoàn chỉnh; không fallback ảnh demo. `.env` cục bộ đặt `DATA_MODE=real`, `VITE_USE_MOCK=false`; không chia sẻ secrets. Cấu trúc `new/`/`old/` đã bỏ, code trở về thư mục gốc như GitHub; không reset, clean hoặc ghi đè công việc người khác. Dữ liệu thực không được Git theo dõi.
+Backend có chế độ dữ liệu thật, nhưng API trả ảnh không đồng nghĩa chuỗi đạt điều kiện so sánh; từng có cảnh báo `MIXED_WAVELENGTH`. Xác minh hệ thống và UI trước khi khẳng định MVP hoàn chỉnh; không fallback ảnh demo. `.env` cục bộ đặt `DATA_MODE=real`, `VITE_USE_MOCK=false`; không chia sẻ secrets. Đã bỏ cấu trúc `new/`/`old/`; không reset, clean hoặc ghi đè công việc người khác. Dữ liệu thực không được Git theo dõi.
 
 Nguồn: [IRSA SPHEREx](https://irsa.ipac.caltech.edu/Missions/spherex.html), [cutout tutorial](https://caltech-ipac.github.io/irsa-tutorials/spherex-cutouts/), [archive](https://irsa.ipac.caltech.edu/spherex-archive-documentation/), [QR](https://irsa.ipac.caltech.edu/data/SPHEREx/docs/overview_qr.html). Báo lại file mới tải, mã chỉ mục lỗi, số cặp đạt, ảnh đã xử lý, kiểm thử và hạn chế; không khẳng định hoàn thành nếu còn thiếu.

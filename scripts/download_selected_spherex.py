@@ -20,6 +20,7 @@ def main():
     parser.add_argument('--url-list', type=Path, required=True)
     parser.add_argument('--retry-seconds', type=float, default=180)
     parser.add_argument('--limit', type=int, default=3)
+    parser.add_argument('--defer-503', action='store_true', help='Move on immediately after HTTP 503 and save the URL for a later retry')
     args = parser.parse_args()
     if args.retry_seconds <= 0 or args.limit < 1:
         parser.error('retry-seconds and limit must be positive')
@@ -90,6 +91,12 @@ def main():
             except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as exc:
                 part.unlink(missing_ok=True)
                 error = f'{type(exc).__name__}: {exc}'
+                if args.defer_503 and 'returned error: 503' in error:
+                    any_failure = True
+                    report['files'][key] = {'status': 'deferred_503', 'attempts': attempts, 'error': error, 'selection_url': url}
+                    save_json(report_path, report)
+                    print(f'{key}: HTTP 503 deferred; moving on', flush=True)
+                    break
                 if isinstance(exc, ValueError):
                     any_failure = True
                     report['files'][key] = {'status': 'failed', 'attempts': attempts, 'error': error}
@@ -115,6 +122,7 @@ def main():
         'validation_policy': 'Acquisition integrity and identity; non-finite or uncovered target pixels are warnings, not science approval.',
         'files': [entry['validation'] for entry in manifest.get('downloads', []) if 'validation' in entry],
         'errors': [item for item in failed if item not in historical],
+        'deferred_503': [{'observation': key, 'selection_url': value['selection_url']} for key, value in report['files'].items() if value['status'] == 'deferred_503'],
         'historical_non_retained_attempts': historical,
     }
     save_json(folder / 'validation_report.json', validation_report)
