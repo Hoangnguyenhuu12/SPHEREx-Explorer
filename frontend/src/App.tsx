@@ -244,6 +244,7 @@ export default function App() {
     <main className="page">
       <header className="header">
         <h1>SPHEREx Sky Viewer</h1>
+        <a href="/globe">Explore the 3D sky</a>
         <span className={useMock ? "badge badge-mock" : "badge"}>
           {useMock
             ? "Mock API · api_samples/"

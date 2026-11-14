@@ -5,6 +5,8 @@ import { useMock } from "./config";
 import "../../shared/design-tokens.css";
 import "./index.css";
 
+const showGlobe = window.location.pathname.replace(/\/$/, "") === "/globe";
+
 async function enableMocking() {
   if (!useMock) {
     // If mocking was previously enabled in this browser, actively clean up
@@ -42,10 +44,14 @@ async function enableMocking() {
   }
 }
 
-enableMocking().then(() => {
+async function mount() {
+  const Page = showGlobe ? (await import("./globe/GlobePage")).default : App;
+  if (!showGlobe) await enableMocking();
   createRoot(document.getElementById("root")!).render(
     <StrictMode>
-      <App />
+      <Page />
     </StrictMode>,
   );
-});
+}
+
+void mount();
