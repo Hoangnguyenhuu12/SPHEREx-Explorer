@@ -214,3 +214,63 @@ preserved and their documentation uses the new paths.
 Use a dong/<task> branch and a small PR. Code imported by other members belongs
 in shared/. Strip notebook outputs before committing. Keep .env and observed
 FITS/cutouts/databases out of Git.
+
+## Community forum backend (forum-v1.1)
+
+`app/forum/` implements the 32 operations of
+[openapi-forum-v1.yaml](../../shared/api-contract/openapi-forum-v1.yaml) under
+`/api/forum`. The forum code doesn't touch the IRSA/FITS services, and its routes are
+left out of the runtime `/openapi.json` because the forum contract is published
+separately.
+
+    app/forum/
+      router.py      HTTP routes, idempotent POST wrapper, strict query parameters
+      identity.py    Supabase access-token verification (HS256 secret or JWKS)
+      common.py      Actor/role from forum.profiles, audit, notifications, idempotency
+      posts.py       Drafts, immutable revisions, review, post visibility
+      community.py   Comments, reports, notifications, audit queue
+      tags.py        Profile and managed hashtag catalog
+      pagination.py  Signed keyset cursors bound to endpoint, filters and identity
+      models.py      Request models (unknown fields are 400)
+      views.py       Response serializers
+    supabase/migrations/20261114110430_forum_v1.sql   schema, guards, RLS
+
+The forum uses its **own Supabase project**, separate from the astronomy
+database. Set `FORUM_DATABASE_URL`, `FORUM_SUPABASE_URL` (and
+`FORUM_SUPABASE_JWT_SECRET` only for legacy HS256 projects) and
+`FORUM_CURSOR_SECRET` in the root `.env`. Without them, forum routes return 503
+and the astronomy API keeps working.
+
+Set up the forum project:
+
+1. Apply the migration to the forum project (Supabase SQL editor, `supabase db push`,
+   or `psql "$FORUM_DATABASE_URL" -f supabase/migrations/20261114110430_forum_v1.sql`).
+   Don't add the `forum` schema to the Data API's exposed schemas. RLS has no
+   anon/authenticated policies, so direct client access is denied.
+2. Enable email confirmation in Auth and add each frontend origin to the redirect URLs.
+3. Grant the first admin with SQL after that user has called `GET /api/forum/me` once:
+   `update forum.profiles set role = 'admin' where id = '<auth user id>';`
+
+Tests: `python -m pytest members/dong/tests/forum` runs against an embedded
+PostgreSQL (pgserver) and validates every response against the forum contract.
+To use a disposable database instead, set `FORUM_TEST_DATABASE_URL`. **The tests
+erase all data in the `forum` schema of that database.**
+
+CI/CD (`.github/workflows/ci.yml`):
+
+- `forum-backend` (every push/PR): ruff on the forum code, the forum tests on a
+  PostgreSQL 17 service with the Supabase API roles, then `supabase db push` of all
+  migrations onto an empty database and a check that the 10 `forum` tables have RLS
+  and that anon/authenticated have no schema usage or policies. The `python` job
+  runs every other test.
+- `delivery` also needs `forum-backend`, and the backend archive includes
+  `supabase/migrations`.
+- `forum-migrations` (push to `main` only, after `delivery`): `supabase db push`
+  to the forum project. It needs the GitHub environment `forum-production` with the
+  secret `FORUM_MIGRATIONS_DB_URL` (Session pooler URL, URL-encoded password); add
+  required reviewers to that environment for a manual approval. Without the secret
+  it only prints a notice.
+
+New schema changes go in a new file `supabase/migrations/<UTC yyyymmddhhmmss>_<name>.sql`.
+Never edit or rename a migration that a project has already applied: the file name
+must match the version recorded in `supabase_migrations.schema_migrations`.

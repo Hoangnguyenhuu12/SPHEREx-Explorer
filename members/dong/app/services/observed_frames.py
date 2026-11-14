@@ -320,17 +320,16 @@ def verify_cutouts(cutouts):
 
 
 @lru_cache(maxsize=16)
-def render_cached(query_json, target_json, cutouts, individual=False):
+def render_cached(query_json, target_json, cutouts):
     # Version, query and input revisions are part of the public image identity.
     # An old browser URL continues to identify its original bytes after a rebuild.
     verify_cutouts(cutouts)
     digest = hashlib.sha256(RENDER_VERSION.encode())
     digest.update(query_json.encode())
-    digest.update(str(individual).encode())
     for cutout in cutouts:
         digest.update(repr(cutout).encode())
     query = FramesQuery.model_validate_json(query_json)
-    result, images = build_frames(cutouts, query, digest.hexdigest()[:24], individual=individual)
+    result, images = build_frames(cutouts, query, digest.hexdigest()[:24])
     frames = Frames.model_validate(
         {
             **result,

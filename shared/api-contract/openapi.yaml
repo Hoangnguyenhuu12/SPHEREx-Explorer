@@ -2,7 +2,25 @@ openapi: 3.1.0
 info:
   title: Human Binoculars API
   version: '0.1'
+  description: Draft contract for website v2, pending review and implementation.
 paths:
+  /api/targets:
+    get:
+      operationId: listTargets
+      summary: List the five supported targets
+      responses:
+        '200':
+          description: Preset catalog with ICRS coordinates and explicit epochs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TargetCatalog'
+        '500':
+          description: Catalog unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/health:
     get:
       summary: Health
@@ -486,8 +504,13 @@ paths:
           description: Gateway Timeout
 components:
   schemas:
+    TargetCatalogEntry: {"type": "object", "properties": {"target_key": {"type": "string", "enum": ["barnard", "wise0855", "epsindib", "rwaur", "rdra"]}, "name": {"type": "string"}, "aliases": {"type": "array", "items": {"type": "string"}}, "kind": {"type": "string", "enum": ["high_pm", "variable", "other"]}, "constellation": {"anyOf": [{"type": "string"}, {"type": "null"}]}, "ra": {"type": "number"}, "dec": {"type": "number"}, "epoch": {"type": "string"}, "pmra": {"anyOf": [{"type": "number"}, {"type": "null"}]}, "pmdec": {"anyOf": [{"type": "number"}, {"type": "null"}]}, "parallax_mas": {"anyOf": [{"type": "number"}, {"type": "null"}]}, "distance_ly": {"anyOf": [{"type": "number"}, {"type": "null"}]}, "source": {"type": "string"}, "detectors_recommended": {"type": "array", "items": {"type": "integer", "minimum": 1, "maximum": 6}}}, "required": ["target_key", "name", "ra", "dec", "epoch", "kind", "source"]}
+    TargetCatalog: {"type": "object", "properties": {"api_version": {"type": "string", "const": "0.1"}, "targets": {"type": "array", "items": {"$ref": "#/components/schemas/TargetCatalogEntry"}}}, "required": ["api_version", "targets"]}
     Astrometry:
       properties:
+        mode: {"type": "string", "enum": ["fixture", "live"]}
+        data_kind: {"type": "string", "enum": ["observational", "illustrative"]}
+        motion_detectable: {"anyOf": [{"type": "boolean"}, {"type": "null"}]}
         api_version:
           type: string
           const: '0.1'
@@ -516,6 +539,8 @@ components:
       title: Astrometry
     AstrometryPoint:
       properties:
+        predicted_px: {"anyOf": [{"type": "array", "items": {"type": "number"}, "minItems": 2, "maxItems": 2}, {"type": "null"}], "description": "Only present with a matching frame grid explicitly identified by sequence_id."}
+        sequence_id: {"anyOf": [{"type": "string"}, {"type": "null"}]}
         frame_id:
           type: string
           title: Frame Id
@@ -617,6 +642,13 @@ components:
       title: ErrorResponse
     Frame:
       properties:
+        detector: {"type": "integer", "minimum": 1, "maximum": 6}
+        t_min_mjd: {"anyOf": [{"type": "number"}, {"type": "null"}]}
+        t_max_mjd: {"anyOf": [{"type": "number"}, {"type": "null"}]}
+        n_exposures: {"anyOf": [{"type": "integer", "minimum": 1}, {"type": "null"}]}
+        frame_kind: {"type": "string", "enum": ["visit", "exposure", "synthetic"]}
+        product_id: {"anyOf": [{"type": "string"}, {"type": "null"}]}
+        product_ids: {"type": "array", "items": {"type": "string"}}
         id:
           type: string
           title: Id
@@ -678,6 +710,12 @@ components:
       title: Frame
     Frames:
       properties:
+        mode: {"type": "string", "enum": ["fixture", "live"]}
+        data_kind: {"type": "string", "enum": ["observational", "illustrative"]}
+        sequence_id: {"type": "string", "description": "Opaque identity of the ordered frames and their rendered representation."}
+        data_credit: {"type": "string"}
+        diff_norm: {"type": "object", "properties": {"vmin": {"type": "number"}, "vmax": {"type": "number"}, "zero_gray": {"type": "integer", "const": 128}}, "required": ["vmin", "vmax", "zero_gray"]}
+        warning_details: {"type": "array", "items": {"type": "object", "properties": {"code": {"type": "string", "enum": ["SATURATION_POSSIBLE", "FEW_FRAMES", "TRUNCATED", "MIXED_WAVELENGTH", "TARGET_OUTSIDE_COVERAGE"]}, "frame_ids": {"type": "array", "items": {"type": "string"}}}, "required": ["code", "frame_ids"]}}
         api_version:
           type: string
           const: '0.1'
@@ -728,6 +766,8 @@ components:
       title: Frames
     Grid:
       properties:
+        size_deg: {"type": "number", "description": "Requested cutout width in degrees. Compute actual pixel footprint from WCS."}
+        wcs: {"type": "object", "properties": {"crpix": {"type": "array", "items": {"type": "number"}, "minItems": 2, "maxItems": 2, "description": "FITS one-based reference pixel in the FITS raster, before the PNG vertical flip."}, "crval": {"type": "array", "items": {"type": "number"}, "minItems": 2, "maxItems": 2, "description": "Reference ICRS RA and Dec, in degrees."}, "cd": {"type": "array", "items": {"type": "array", "items": {"type": "number"}, "minItems": 2, "maxItems": 2}, "minItems": 2, "maxItems": 2, "description": "FITS CD matrix in degrees per pixel."}}, "required": ["crpix", "crval", "cd"]}
         width:
           type: integer
           exclusiveMinimum: 0.0
@@ -775,6 +815,7 @@ components:
       title: HTTPValidationError
     Health:
       properties:
+        limits: {"type": "object", "properties": {"size_min_deg": {"type": "number"}, "size_max_deg": {"type": "number"}, "max_frames_max": {"type": "integer", "minimum": 1}}, "required": ["size_min_deg", "size_max_deg", "max_frames_max"]}
         api_version:
           type: string
           const: '0.1'
@@ -893,6 +934,10 @@ components:
       title: Norm
     Photometry:
       properties:
+        mode: {"type": "string", "enum": ["fixture", "live"]}
+        data_kind: {"type": "string", "enum": ["observational", "illustrative"]}
+        unit: {"type": "string", "const": "mJy"}
+        aperture_arcsec: {"type": "number", "exclusiveMinimum": 0}
         api_version:
           type: string
           const: '0.1'
@@ -923,6 +968,7 @@ components:
       title: Photometry
     PhotometryPoint:
       properties:
+        flag_reasons: {"type": "array", "items": {"type": "string"}}
         frame_id:
           type: string
           title: Frame Id
@@ -1027,6 +1073,8 @@ components:
       title: ReferenceStar
     Resolve:
       properties:
+        aliases: {"type": "array", "items": {"type": "string"}}
+        constellation: {"anyOf": [{"type": "string"}, {"type": "null"}]}
         api_version:
           type: string
           const: '0.1'
@@ -1036,7 +1084,7 @@ components:
           type: string
           title: Query
         target_key:
-          type: string
+          anyOf: [{"type": "string"}, {"type": "null"}]
           title: Target Key
         name:
           type: string

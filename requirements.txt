@@ -26,7 +26,15 @@ pillow==13.0.0
 httpx==0.28.1
 python-dotenv==1.2.4
 
+# --- Forum backend (Đông): Supabase Postgres + Supabase Auth JWT ---
+psycopg[binary,pool]==3.2.13
+pyjwt[crypto]==2.10.1
+
 # --- Dev tools ---
 pytest==9.2.0
 ruff==0.17.3
 nbstripout==0.9.1
+# Embedded PostgreSQL for forum tests (skip by setting FORUM_TEST_DATABASE_URL).
+pgserver==0.1.4
+pyyaml==6.0.3
+jsonschema==4.26.0

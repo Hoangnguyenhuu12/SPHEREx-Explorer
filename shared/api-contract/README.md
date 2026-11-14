@@ -17,6 +17,9 @@ Run the sample validator from the repo root.
 
 Endpoint and field changes follow the wiki's discussion/review process.
 
+For the proposed SRS v2 changes, see [the FE/BE review draft](srs-v2-draft.md)
+and [its OpenAPI schema](openapi-srs-v2-draft.yaml).
+
 ## Forum extension (contract-first)
 
 The separate [forum OpenAPI contract](openapi-forum-v1.yaml) and

@@ -46,7 +46,8 @@ jobs:
           python-version-file: .python-version
           cache: pip
       - run: python -m pip install -r requirements.txt
-      - run: python -m pytest members -q
+      # Forum tests run in the forum-backend job against a real PostgreSQL 17.
+      - run: python -m pytest members -q --ignore=members/dong/tests/forum
       # The same smoke test as before a demo: health, and resolve + frames + PNGs
       # for all five targets, with CORS for the local frontend origin.
       - name: Smoke test the fixture API
@@ -59,6 +60,86 @@ jobs:
             sleep 1
           done
           node scripts/smoke.mjs http://127.0.0.1:8000 --origin http://localhost:5173
+
+  forum-backend:
+    name: Forum backend (lint, PostgreSQL 17, migrations)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      # Same major version as the Supabase forum project.
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      PGHOST: localhost
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      # Disposable CI database; the tests wipe the forum schema.
+      FORUM_TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+      SUPABASE_CLI_VERSION: 3.1.0
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version-file: .python-version
+          cache: pip
+      - run: python -m pip install -r requirements.txt
+
+      - name: Lint forum code
+        run: python -m ruff check members/dong/app/forum members/dong/tests/forum members/dong/app/main.py
+
+      # Supabase creates these roles; plain PostgreSQL doesn't. With them present the
+      # migration's revoke branch runs, and the checks below are meaningful.
+      - name: Create Supabase API roles
+        run: psql -v ON_ERROR_STOP=1 -c "create role anon nologin; create role authenticated nologin; create role service_role nologin;"
+
+      - name: Forum API tests (contract-validated)
+        run: python -m pytest members/dong/tests/forum -q
+
+      # Applies the migrations with the same tool and order as the deploy job, on an
+      # empty database, then checks the private-schema security model.
+      - uses: supabase/setup-cli@v1
+        with:
+          version: ${{ env.SUPABASE_CLI_VERSION }}
+      - name: Apply migrations with supabase db push (fresh database)
+        run: |
+          createdb push_check
+          supabase db push --remote="postgresql://postgres:postgres@localhost:5432/push_check?sslmode=disable" --yes
+          supabase db push --remote="postgresql://postgres:postgres@localhost:5432/push_check?sslmode=disable" --dry-run
+      - name: Verify forum schema security
+        run: |
+          psql -d push_check -v ON_ERROR_STOP=1 <<'SQL'
+          do $$
+          declare
+            n int;
+          begin
+            select count(*) into n from pg_class c join pg_namespace s on s.oid = c.relnamespace
+              where s.nspname = 'forum' and c.relkind = 'r';
+            if n <> 10 then raise exception 'expected 10 forum tables, found %', n; end if;
+
+            select count(*) into n from pg_class c join pg_namespace s on s.oid = c.relnamespace
+              where s.nspname = 'forum' and c.relkind = 'r' and not c.relrowsecurity;
+            if n > 0 then raise exception '% forum tables without RLS', n; end if;
+
+            if has_schema_privilege('anon', 'forum', 'USAGE')
+               or has_schema_privilege('authenticated', 'forum', 'USAGE') then
+              raise exception 'anon/authenticated must not have USAGE on schema forum';
+            end if;
+
+            select count(*) into n from pg_policy p join pg_class c on c.oid = p.polrelid
+              join pg_namespace s on s.oid = c.relnamespace
+              where s.nspname = 'forum' and exists (
+                select 1 from unnest(p.polroles) r join pg_roles x on x.oid = r
+                where x.rolname in ('anon', 'authenticated', 'public'));
+            if n > 0 then raise exception '% forum policies grant anon/authenticated', n; end if;
+          end $$;
+          SQL
 
   api-samples:
     name: API samples match backend models
@@ -122,12 +203,13 @@ jobs:
 
   delivery:
     name: Package verified build
-    needs: [layout, python, api-samples, frontend, members-js]
+    needs: [layout, python, forum-backend, api-samples, frontend, members-js]
     if: >-
       ${{ !cancelled() &&
           (github.event_name == 'pull_request' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev') &&
           needs.layout.result == 'success' &&
           needs.python.result == 'success' &&
+          needs.forum-backend.result == 'success' &&
           needs.api-samples.result == 'success' &&
           needs.members-js.result == 'success' &&
           ((needs.layout.outputs.frontend == 'true' && needs.frontend.result == 'success') ||
@@ -140,7 +222,7 @@ jobs:
         run: |
           mkdir delivery
           git archive --format=tar.gz --output=delivery/backend.tar.gz HEAD \
-            .python-version requirements.txt api_samples shared \
+            .python-version requirements.txt api_samples shared supabase/migrations \
             members/dong/app members/huu-hoang/tan_pipeline.py
       - uses: actions/setup-node@v5
         if: needs.layout.outputs.frontend == 'true'
@@ -161,3 +243,43 @@ jobs:
           path: delivery/*.tar.gz
           if-no-files-found: error
           retention-days: 14
+
+  # CD for the forum database: applies pending supabase/migrations to the forum
+  # Supabase project (never the astronomy project) after everything above passed on
+  # main. Already-applied versions are skipped; nothing is ever reset.
+  # Setup: create the GitHub environment "forum-production" (add required reviewers
+  # for a manual approval gate) with secret FORUM_MIGRATIONS_DB_URL = the forum
+  # project's Session pooler URL. Without the secret the job only prints a notice.
+  forum-migrations:
+    name: Deploy forum migrations
+    needs: delivery
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: forum-production
+    concurrency:
+      group: forum-migrations
+      cancel-in-progress: false
+    env:
+      DB_URL: ${{ secrets.FORUM_MIGRATIONS_DB_URL }}
+    steps:
+      - uses: actions/checkout@v5
+      - id: secret
+        run: |
+          if [[ -z "$DB_URL" ]]; then
+            echo "::notice::FORUM_MIGRATIONS_DB_URL is not set; forum migrations not deployed."
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "::add-mask::$DB_URL"
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: supabase/setup-cli@v1
+        if: steps.secret.outputs.present == 'true'
+        with:
+          version: 3.1.0
+      - name: Preview pending migrations
+        if: steps.secret.outputs.present == 'true'
+        run: supabase db push --remote="$DB_URL" --dry-run
+      - name: Apply pending migrations
+        if: steps.secret.outputs.present == 'true'
+        run: supabase db push --remote="$DB_URL" --yes

@@ -24,15 +24,28 @@ def test_live_cutouts_keep_completed_visit_when_another_times_out(monkeypatch, t
     assert [cutout.obs_id for cutout in cutouts] == ["available"]
 
 
-def test_preview_samples_twelve_exposures_across_time(monkeypatch, tmp_path):
-    rows = [dict(access_url=f"https://irsa.ipac.caltech.edu/{i}.fits",
-                 obs_id=str(i), energy_bandpassname="SPHEREx-D6", t_min=61000+i/100)
-            for i in range(30)]
-    monkeypatch.setattr(live_cutouts.irsa, "find_images", lambda *a, **k: rows)
-    monkeypatch.setattr(live_cutouts.irsa, "download_cutout",
-                        lambda url, ra, dec, size, path, **k: path.write_bytes(b"fits"))
+def test_frames_select_one_exposure_from_each_of_first_six_visits(monkeypatch, tmp_path):
+    rows = [
+        {
+            "access_url": f"https://irsa.ipac.caltech.edu/{visit}-{index}.fits",
+            "obs_id": f"{visit}-{index}",
+            "energy_bandpassname": "SPHEREx-D6",
+            "t_min": 61000 + visit * 61 + offset,
+        }
+        for visit in range(7)
+        for index, offset in enumerate((0, 30))
+    ]
+    monkeypatch.setattr(live_cutouts.irsa, "find_images", lambda *args, **kwargs: rows)
+    attempts = []
+
+    def download(url, ra, dec, size, path, **kwargs):
+        obs_id = kwargs["expected_obs_id"]
+        attempts.append(obs_id)
+        if obs_id == "0-0":
+            raise ValueError("HTTP 422: missing coverage")
+        path.write_bytes(b"test cutout")
+
+    monkeypatch.setattr(live_cutouts.irsa, "download_cutout", download)
     result = live_cutouts.load_cutouts(FramesQuery(ra=133, dec=-7), tmp_path)
-    assert len(result) == 12
-    assert result[0].obs_id == "0"
-    assert result[-1].obs_id == "29"
-    assert len({item.obs_id for item in result}) == 12
+    assert [item.obs_id for item in result] == ["0-1", "1-0", "2-0", "3-0", "4-0", "5-0"]
+    assert sorted(attempts) == ["0-0", "0-1", "1-0", "2-0", "3-0", "4-0", "5-0"]

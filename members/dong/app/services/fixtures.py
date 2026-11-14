@@ -159,7 +159,7 @@ def frames(query: FramesQuery, response=None):
 
 def render(query, requested_target, cutouts):
     try:
-        return render_cached(query.model_dump_json(), requested_target.model_dump_json(), cutouts, individual=live_mode())
+        return render_cached(query.model_dump_json(), requested_target.model_dump_json(), cutouts)
     except NoCoverage:
         fail(404, "NO_FRAMES", "No SPHEREx images cover this sky grid.",
              {"ra": query.ra, "dec": query.dec})
