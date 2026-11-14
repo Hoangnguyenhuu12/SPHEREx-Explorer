@@ -17,6 +17,7 @@ const PostPage = lazy(() => import('../pages/forum/PostPage'))
 const EditorPage = lazy(() => import('../pages/forum/EditorPage'))
 const MyPostsPage = lazy(() => import('../pages/forum/MyPostsPage'))
 const ModerationPage = lazy(() => import('../pages/admin/ModerationPage'))
+const GlobePage = lazy(() => import('../globe/GlobePage'))
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -59,6 +60,7 @@ const router = createBrowserRouter([
       { path: PATHS.forumNew, element: <EditorPage /> },
       { path: PATHS.myPosts, element: <MyPostsPage /> },
       { path: PATHS.adminForum, element: <ModerationPage /> },
+      { path: '/globe', element: <GlobePage /> },
       { path: '/forum/posts/:id', element: <PostPage /> },
       { path: '/forum/posts/:id/edit', element: <EditorPage /> },
       { path: '/sign-up', element: <Alias to={PATHS.signup} /> },
