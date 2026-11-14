@@ -17,7 +17,7 @@ from ..api_models import (
 )
 from .catalog import resolve_name, targets
 from .frame_rendering import NoCoverage
-from .live_cutouts import cached_result, load_cutouts, workspace
+from .live_cutouts import cached_result, harvest_mode, load_cutouts, workspace
 from .observed_frames import matching_cutouts, render_cached
 from .observed_science import measure
 from shared.pipeline.irsa import UpstreamError, UpstreamTimeout
@@ -49,7 +49,7 @@ def fail(status, code, message, details=None):
 
 
 def require_fixture_mode():
-    if os.getenv("DATA_MODE", "fixture") not in {"fixture", "real"}:
+    if os.getenv("DATA_MODE", "fixture") not in {"fixture", "real", "harvest"}:
         fail(500, "INTERNAL", "Unsupported data mode.")
 
 
@@ -59,7 +59,7 @@ def real_mode():
 
 
 def live_mode():
-    return os.getenv("DATA_MODE", "live") == "live"
+    return os.getenv("DATA_MODE", "live") in {"live", "harvest"}
 
 
 def archive_cutouts(query, directory):
@@ -88,7 +88,9 @@ def target(query):
 
 
 def health():
-    if real_mode():
+    if harvest_mode():
+        result = {"api_version": "0.1", "status": "ok", "mode": "harvest", "fixture_targets": [], "irsa_reachable": False}
+    elif real_mode():
         result = {"api_version": "0.1", "status": "ok", "mode": "local", "fixture_targets": [], "irsa_reachable": None}
     elif live_mode():
         result = {"status": "ok", "mode": "live", "fixture_targets": [], "irsa_reachable": None}

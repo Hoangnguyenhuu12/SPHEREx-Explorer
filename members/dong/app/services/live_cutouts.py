@@ -2,6 +2,7 @@
 
 import logging
 import os
+import re
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -26,9 +27,13 @@ def collections_for_live():
     )
 
 
+def harvest_mode():
+    return os.getenv("DATA_MODE", "fixture") == "harvest"
+
+
 def cached_result(operation, query, build):
     root = Path(os.getenv("DATA_DIR", "data")) / "cache" / "api-0.1-live"
-    key = ("v2-exposures", operation, collections_for_live(), query.model_dump_json())
+    key = ("v3-exposures", os.getenv("DATA_MODE", "fixture"), operation, collections_for_live(), query.model_dump_json())
     with Cache(str(root), size_limit=256 * 1024 * 1024, timeout=2) as cache:
         value = cache.get(key, retry=True)
         if value is not None:
@@ -45,6 +50,8 @@ def cached_result(operation, query, build):
 
 
 def load_cutouts(query, directory):
+    if harvest_mode():
+        return load_harvest_cutouts(query)
     size = getattr(query, "size", 0.1)
     predicted = position_at(query.target_key, 61100)
     ra, dec = (predicted.ra.deg, predicted.dec.deg) if predicted is not None else (query.ra, query.dec)
@@ -136,6 +143,33 @@ def load_cutouts(query, directory):
             raise irsa.UpstreamTimeout("IRSA cutout requests timed out")
         raise irsa.UpstreamError("IRSA cutout requests failed")
     return tuple(cutouts)
+
+
+def load_harvest_cutouts(query):
+    """Read Khôi's downloaded QR3 FITS from data/harvest without network access."""
+    root = Path(os.getenv("DATA_DIR", "data")) / "harvest" / str(query.target_key) / "spherex"
+    if not root.is_dir():
+        return ()
+    result = []
+    for path in root.glob("*.fits"):
+        match = re.search(r"_D([1-6])_", path.name)
+        if match is None or int(match.group(1)) != query.detector:
+            continue
+        try:
+            from astropy.io import fits
+            with fits.open(path, memmap=False) as hdus:
+                header = hdus["IMAGE"].header
+                obs_id = str(header["OBSID"])
+                mjd = float(header["MJD-AVG"])
+        except (OSError, KeyError, TypeError, ValueError):
+            continue
+        result.append(Cutout(path.resolve(), obs_id, query.detector, mjd, "qr3", "", path.stat().st_size, path.stat().st_mtime_ns))
+    result.sort(key=lambda item: item.mjd)
+    max_frames = getattr(query, "max_frames", 60)
+    if len(result) > max_frames:
+        indices = [round(i * (len(result) - 1) / (max_frames - 1)) for i in range(max_frames)] if max_frames > 1 else [0]
+        result = [result[index] for index in indices]
+    return tuple(result)
 
 
 def workspace():
