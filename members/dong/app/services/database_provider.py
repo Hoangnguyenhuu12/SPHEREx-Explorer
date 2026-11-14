@@ -58,3 +58,11 @@ def find_target(name):
         if normalized in {str(value).casefold() for value in values if value is not None}:
             return row
     return None
+
+
+def products_for_target(target_key):
+    links = _get("target_products", {"select": "product_id", "target_key": f"eq.{target_key}"})
+    ids = [row.get("product_id") for row in links if row.get("product_id")]
+    if not ids:
+        return []
+    return _get("products", {"select": "*", "product_id": f"in.({','.join(ids)})", "order": "mjd_start.asc"})
