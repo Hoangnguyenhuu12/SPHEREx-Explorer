@@ -1,0 +1,3991 @@
+openapi: 3.1.0
+info:
+  title: SPHEREx Community Forum API
+  version: '0.1'
+  description: Contract-first forum-v1.1 aligned with FORUM_BUSINESS_ANALYSIS.md supplied 2026-11-14. Planned, not
+    implemented/deployed. Separate from science API.
+  x-contract-revision: forum-v1.1
+tags:
+- name: Forum
+  description: Public reads and authenticated contributions.
+- name: Forum admin
+  description: Revision review, visibility, reports, taxonomy and audit.
+paths:
+  /api/forum/me:
+    get:
+      operationId: forumGetMe
+      tags:
+      - Forum
+      summary: Read own profile and role
+      description: Protected DB role. Null display_name requires profile completion before contributions. Dependency
+        failure503.
+      x-implementation-status: planned
+      security:
+      - SupabaseBearer: []
+      responses:
+        '200':
+          description: Successful response.
+          headers:
+            Cache-Control:
+              description: Required on every forum response.
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeResponse'
+              example:
+                api_version: '0.1'
+                profile:
+                  id: 11111111-1111-4111-8111-111111111111
+                  display_name: Sky observer
+                role: user
+        '400':
+          $ref: '#/components/responses/E400'
+        '401':
+          $ref: '#/components/responses/E401'
+        '429':
+          $ref: '#/components/responses/E429'
+        '500':
+          $ref: '#/components/responses/E500'
+        '503':
+          $ref: '#/components/responses/E503'
+    patch:
+      operationId: forumUpdateProfile
+      tags:
+      - Forum
+      summary: Set own display name
+      description: No role/email/identity changes.
+      x-implementation-status: planned
+      security:
+      - SupabaseBearer: []
+      responses:
+        '200':
+          description: Successful response.
+          headers:
+            Cache-Control:
+              description: Required on every forum response.
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeResponse'
+              example:
+                api_version: '0.1'
+                profile:
+                  id: 11111111-1111-4111-8111-111111111111
+                  display_name: Sky observer
+                role: user
+        '400':
+          $ref: '#/components/responses/E400'
+        '401':
+          $ref: '#/components/responses/E401'
+        '403':
+          $ref: '#/components/responses/E403'
+        '429':
+          $ref: '#/components/responses/E429'
+        '500':
+          $ref: '#/components/responses/E500'
+        '503':
+          $ref: '#/components/responses/E503'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProfileUpdate'
+            example:
+              display_name: Sky observer
+  /api/forum/hashtags:
+    get:
+      operationId: forumListTags
+      tags:
+      - Forum
+      summary: List managed hashtags
+      description: Public catalog; active/inactive unless filtered. slug ASC,id ASC. Counts current public revisions
+        only.
+      x-implementation-status: planned
+      security:
+      - {}
+      - SupabaseBearer: []
+      responses:
+        '200':
+          description: Successful response.
+          headers:
+            Cache-Control:
+              description: Required on every forum response.
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TagsResponse'
+              example:
+                api_version: '0.1'
+                hashtags:
+                - tag:
+                    id: 66666666-6666-4666-8666-666666666666
+                    slug: spherex
+                    display_name: SPHEREx
+                    active: true
+                    version: 1
+                  published_post_count: 1
+                next_cursor: null
+        '400':
+          $ref: '#/components/responses/E400'
+        '401':
+          $ref: '#/components/responses/E401'
+        '429':
+          $ref: '#/components/responses/E429'
+        '500':
+          $ref: '#/components/responses/E500'
+        '503':
+          $ref: '#/components/responses/E503'
+      parameters:
+      - $ref: '#/components/parameters/active'
+      - $ref: '#/components/parameters/limit'
+      - $ref: '#/components/parameters/cursor'
+  /api/forum/admin/hashtags:
+    post:
+      operationId: forumCreateTag
+      tags:
+      - Forum admin
+      summary: Create catalog hashtag
+      description: Admin only. Normalize before unique slug check; collision409. Users cannot create tags.
+      x-implementation-status: planned
+      security:
+      - SupabaseBearer: []
+      responses:
+        '201':
+          description: Successful response.
+          headers:
+            Cache-Control:
+              description: Required on every forum response.
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TagResponse'
+              example:
+                api_version: '0.1'
+                hashtag:
+                  id: 66666666-6666-4666-8666-666666666666
+                  slug: spherex
+                  display_name: SPHEREx
+                  active: true
+                  version: 1
+        '400':
+          $ref: '#/components/responses/E400'
+        '401':
+          $ref: '#/components/responses/E401'
+        '403':
+          $ref: '#/components/responses/E403'
+        '409':
+          $ref: '#/components/responses/E409'
+        '429':
+          $ref: '#/components/responses/E429'
+        '500':
+          $ref: '#/components/responses/E500'
+        '503':
+          $ref: '#/components/responses/E503'
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TagCreate'
+            example:
+              slug: spherex
+              display_name: SPHEREx
+  /api/forum/admin/hashtags/{tag_id}:
+    patch:
+      operationId: forumUpdateTag
+      tags:
+      - Forum admin
+      summary: Rename or deactivate tag
+      description: Admin only, atomic expected_version check. Immutable slug/id, no deletion. Actual change required;
+        increment version. History associations preserved.
+      x-implementation-status: planned
+      security:
+      - SupabaseBearer: []
+      responses:
+        '200':
+          description: Successful response.
+          headers:
+            Cache-Control:
+              description: Required on every forum response.
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TagResponse'
+              example:
+                api_version: '0.1'
+                hashtag:
+                  id: 66666666-6666-4666-8666-666666666666
+                  slug: spherex
+                  display_name: SPHEREx
+                  active: false
+                  version: 2
+        '400':
+          $ref: '#/components/responses/E400'
+        '401':
+          $ref: '#/components/responses/E401'
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+        '409':
+          $ref: '#/components/responses/E409'
+        '429':
+          $ref: '#/components/responses/E429'
+        '500':
+          $ref: '#/components/responses/E500'
+        '503':
+          $ref: '#/components/responses/E503'
+      parameters:
+      - $ref: '#/components/parameters/tag_id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TagUpdate'
+            example:
+              expected_version: 1
+              active: false
+  /api/forum/posts:
+    get:
+      operationId: forumListPosts
+      tags:
+      - Forum
+      summary: Search public posts
+      description: Current approved contents only from published/non-deleted posts. published_at DESC,id DESC. q
+        AND hashtag. Never expose proposed revision, even to author/admin.
+      x-implementation-status: planned
+      security:
+      - {}
+      - SupabaseBearer: []
+      responses:
+        '200':
+          description: Successful response.
+          headers:
+            Cache-Control:
+              description: Required on every forum response.
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicPostsResponse'
+              example:
+                api_version: '0.1'
+                posts:
+                - id: 22222222-2222-4222-8222-222222222222
+                  author:
+                    id: 11111111-1111-4111-8111-111111111111
+                    display_name: Sky observer
+                  published_revision_id: 55555555-5555-4555-8555-555555555555
+                  title: Possible motion near Barnard Star
+                  body: Could this change in position be motion or an image artifact?
+                  hashtags:
+                  - id: 66666666-6666-4666-8666-666666666666
+                    slug: spherex
+                    display_name: SPHEREx
+                    active: true
+                    version: 1
+                  links:
+                  - label: The Eyes
+                    url: https://example.org/the-eyes?ra=269.4521&dec=4.6934
+                  sky_context:
+                    ra: 269.4521
+                    dec: 4.6934
+                    size: 0.1
+                    detector: 6
+                    target_key: barnard
+                  published_at: '2026-11-14T10:00:00Z'
+                  edited_at: null
+                next_cursor: null
+        '400':
+          $ref: '#/components/responses/E400'
+        '401':
+          $ref: '#/components/responses/E401'
+        '429':
+          $ref: '#/components/responses/E429'
+        '500':
+          $ref: '#/components/responses/E500'
+        '503':
+          $ref: '#/components/responses/E503'
+      parameters:
+      - $ref: '#/components/parameters/q'
+      - $ref: '#/components/parameters/hashtag'
+      - $ref: '#/components/parameters/limit'
+      - $ref: '#/components/parameters/cursor'
+    post:
+      operationId: forumCreateDraftPost
+      tags:
+      - Forum
+      summary: Create post and initial draft
+      description: Confirmed account and complete profile required. Unpublished post/draft, not submitted. Incomplete
+        payload may be saved.
+      x-implementation-status: planned
+      security:
+      - SupabaseBearer: []
+      responses:
+        '201':
+          description: Successful response.
+          headers:
+            Cache-Control:
+              description: Required on every forum response.
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceResponse'
+              example:
+                api_version: '0.1'
+                workspace:
+                  post:
+                    id: 22222222-2222-4222-8222-222222222222
+                    author:
+                      id: 11111111-1111-4111-8111-111111111111
+                      display_name: Sky observer
+                    visibility: unpublished
+                    version: 1
+                    published_revision_id: null
+                    working_revision_id: 55555555-5555-4555-8555-555555555555
+                    published_at: null
+                    edited_at: null
+                    created_at: '2026-11-14T10:00:00Z'
+                    updated_at: '2026-11-14T10:00:00Z'
+                    visibility_reason: null
+                  published_revision: null
+                  working_revision:
+                    id: 55555555-5555-4555-8555-555555555555
+                    post_id: 22222222-2222-4222-8222-222222222222
+                    number: 1
+                    status: draft
+                    version: 1
+                    title: Possible motion near Barnard Star
+                    body: Could this change in position be motion or an image artifact?
+                    hashtag_ids:
+                    - 66666666-6666-4666-8666-666666666666
+                    links:
+                    - label: The Eyes
+                      url: https://example.org/the-eyes?ra=269.4521&dec=4.6934
+                    sky_context:
+                      ra: 269.4521
+                      dec: 4.6934
+                      size: 0.1
+                      detector: 6
+                      target_key: barnard
+                    created_at: '2026-11-14T10:00:00Z'
+                    updated_at: '2026-11-14T10:00:00Z'
+                    submitted_at: null
+                    reviewed_at: null
+                    reviewed_by: null
+                    rejection_reason: null
+                    withdrawn_at: null
+                  hashtags:
+                  - id: 66666666-6666-4666-8666-666666666666
+                    slug: spherex
+                    display_name: SPHEREx
+                    active: true
+                    version: 1
+        '400':
+          $ref: '#/components/responses/E400'
+        '401':
+          $ref: '#/components/responses/E401'
+        '403':
+          $ref: '#/components/responses/E403'
+        '409':
+          $ref: '#/components/responses/E409'
+        '429':
+          $ref: '#/components/responses/E429'
+        '500':
+          $ref: '#/components/responses/E500'
+        '503':
+          $ref: '#/components/responses/E503'
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DraftCreate'
+            example:
+              title: Possible motion near Barnard Star
+              body: Could this change in position be motion or an image artifact?
+              hashtag_ids:
+              - 66666666-6666-4666-8666-666666666666
+              links:
+              - label: The Eyes
+                url: https://example.org/the-eyes?ra=269.4521&dec=4.6934
+              sky_context:
+                ra: 269.4521
+                dec: 4.6934
+                size: 0.1
+                detector: 6
+                target_key: barnard
+  /api/forum/posts/{post_id}:
+    get:
+      operationId: forumGetPublicPost
+      tags:
+      - Forum
+      summary: Read public snapshot
+      description: Always public shape. Pending edits never exposed even with owner/admin token. Unpublished/hidden/deleted404.
+        Use workspace for private data.
+      x-implementation-status: planned
+      security:
+      - {}
+      - SupabaseBearer: []
+      responses:
+        '200':
+          description: Successful response.
+          headers:
+            Cache-Control:
+              description: Required on every forum response.
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicPostResponse'
+              example:
+                api_version: '0.1'
+                post:
+                  id: 22222222-2222-4222-8222-222222222222
+                  author:
+                    id: 11111111-1111-4111-8111-111111111111
+                    display_name: Sky observer
+                  published_revision_id: 55555555-5555-4555-8555-555555555555
+                  title: Possible motion near Barnard Star
+                  body: Could this change in position be motion or an image artifact?
+                  hashtags:
+                  - id: 66666666-6666-4666-8666-666666666666
+                    slug: spherex
+                    display_name: SPHEREx
+                    active: true
+                    version: 1
+                  links:
+                  - label: The Eyes
+                    url: https://example.org/the-eyes?ra=269.4521&dec=4.6934
+                  sky_context:
+                    ra: 269.4521
+                    dec: 4.6934
+                    size: 0.1
+                    detector: 6
+                    target_key: barnard
+                  published_at: '2026-11-14T10:00:00Z'
+                  edited_at: null
+        '400':
+          $ref: '#/components/responses/E400'
+        '401':
+          $ref: '#/components/responses/E401'
+        '404':
+          $ref: '#/components/responses/E404'
+        '429':
+          $ref: '#/components/responses/E429'
+        '500':
+          $ref: '#/components/responses/E500'
+        '503':
+          $ref: '#/components/responses/E503'
+      parameters:
+      - $ref: '#/components/parameters/post_id'
+    delete:
+      operationId: forumDeletePost
+      tags:
+      - Forum
+      summary: Author soft-deletes post
+      description: Author only; admin cannot delete others. Hide revisions/comments and atomically withdraw active
+        pending request so it cannot publish. Repeat owner204; missing/inaccessible404; no restore or hard deletion.
+      x-implementation-status: planned
+      security:
+      - SupabaseBearer: []
+      responses:
+        '204':
+          description: Soft-deleted, empty body. Same-owner repeat204 unless comment parent deleted404.
+          headers:
+            Cache-Control:
+              description: Required on every forum response.
+              schema:
+                type: string
+                const: no-store
+        '400':
+          $ref: '#/components/responses/E400'
+        '401':
+          $ref: '#/components/responses/E401'
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+        '429':
+          $ref: '#/components/responses/E429'
+        '500':
+          $ref: '#/components/responses/E500'
+        '503':
+          $ref: '#/components/responses/E503'
+      parameters:
+      - $ref: '#/components/parameters/post_id'
+  /api/forum/me/posts:
+    get:
+      operationId: forumListOwnPosts
+      tags:
+      - Forum
+      summary: List own workspaces
+      description: Only own non-deleted posts; updated_at DESC,id DESC. visibility AND latest non-public revision_status
+        filters; published and pending can coexist.
+      x-implementation-status: planned
+      security:
+      - SupabaseBearer: []
+      responses:
+        '200':
+          description: Successful response.
+          headers:
+            Cache-Control:
+              description: Required on every forum response.
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspacesResponse'
+              example:
+                api_version: '0.1'
+                items:
+                - post:
+                    id: 22222222-2222-4222-8222-222222222222
+                    author:
+                      id: 11111111-1111-4111-8111-111111111111
+                      display_name: Sky observer
+                    visibility: unpublished
+                    version: 1
+                    published_revision_id: null
+                    working_revision_id: 55555555-5555-4555-8555-555555555555
+                    published_at: null
+                    edited_at: null
+                    created_at: '2026-11-14T10:00:00Z'
+                    updated_at: '2026-11-14T10:00:00Z'
+                    visibility_reason: null
+                  published_revision: null
+                  working_revision:
+                    id: 55555555-5555-4555-8555-555555555555
+                    post_id: 22222222-2222-4222-8222-222222222222
+                    number: 1
+                    status: draft
+                    version: 1
+                    title: Possible motion near Barnard Star
+                    body: Could this change in position be motion or an image artifact?
+                    hashtag_ids:
+                    - 66666666-6666-4666-8666-666666666666
+                    links:
+                    - label: The Eyes
+                      url: https://example.org/the-eyes?ra=269.4521&dec=4.6934
+                    sky_context:
+                      ra: 269.4521
+                      dec: 4.6934
+                      size: 0.1
+                      detector: 6
+                      target_key: barnard
+                    created_at: '2026-11-14T10:00:00Z'
+                    updated_at: '2026-11-14T10:00:00Z'
+                    submitted_at: null
+                    reviewed_at: null
+                    reviewed_by: null
+                    rejection_reason: null
+                    withdrawn_at: null
+                  hashtags:
+                  - id: 66666666-6666-4666-8666-666666666666
+                    slug: spherex
+                    display_name: SPHEREx
+                    active: true
+                    version: 1
+                next_cursor: null
+        '400':
+          $ref: '#/components/responses/E400'
+        '401':
+          $ref: '#/components/responses/E401'
+        '429':
+          $ref: '#/components/responses/E429'
+        '500':
+          $ref: '#/components/responses/E500'
+        '503':
+          $ref: '#/components/responses/E503'
+      parameters:
+      - $ref: '#/components/parameters/visibility'
+      - $ref: '#/components/parameters/revision_status'
+      - $ref: '#/components/parameters/limit'
+      - $ref: '#/components/parameters/cursor'
+  /api/forum/posts/{post_id}/workspace:
+    get:
+      operationId: forumGetWorkspace
+      tags:
+      - Forum
+      summary: Inspect private workspace
+      description: Author/admin only, others404; deleted404. Includes current/public and working snapshots, private
+        reasons and referenced tags.
+      x-implementation-status: planned
+      security:
+      - SupabaseBearer: []
+      responses:
+        '200':
+          description: Successful response.
+          headers:
+            Cache-Control:
+              description: Required on every forum response.
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceResponse'
+              example:
+                api_version: '0.1'
+                workspace:
+                  post:
+                    id: 22222222-2222-4222-8222-222222222222
+                    author:
+                      id: 11111111-1111-4111-8111-111111111111
+                      display_name: Sky observer
+                    visibility: unpublished
+                    version: 1
+                    published_revision_id: null
+                    working_revision_id: 55555555-5555-4555-8555-555555555555
+                    published_at: null
+                    edited_at: null
+                    created_at: '2026-11-14T10:00:00Z'
+                    updated_at: '2026-11-14T10:00:00Z'
+                    visibility_reason: null
+                  published_revision: null
+                  working_revision:
+                    id: 55555555-5555-4555-8555-555555555555
+                    post_id: 22222222-2222-4222-8222-222222222222
+                    number: 1
+                    status: draft
+                    version: 1
+                    title: Possible motion near Barnard Star
+                    body: Could this change in position be motion or an image artifact?
+                    hashtag_ids:
+                    - 66666666-6666-4666-8666-666666666666
+                    links:
+                    - label: The Eyes
+                      url: https://example.org/the-eyes?ra=269.4521&dec=4.6934
+                    sky_context:
+                      ra: 269.4521
+                      dec: 4.6934
+                      size: 0.1
+                      detector: 6
+                      target_key: barnard
+                    created_at: '2026-11-14T10:00:00Z'
+                    updated_at: '2026-11-14T10:00:00Z'
+                    submitted_at: null
+                    reviewed_at: null
+                    reviewed_by: null
+                    rejection_reason: null
+                    withdrawn_at: null
+                  hashtags:
+                  - id: 66666666-6666-4666-8666-666666666666
+                    slug: spherex
+                    display_name: SPHEREx
+                    active: true
+                    version: 1
+        '400':
+          $ref: '#/components/responses/E400'
+        '401':
+          $ref: '#/components/responses/E401'
+        '404':
+          $ref: '#/components/responses/E404'
+        '429':
+          $ref: '#/components/responses/E429'
+        '500':
+          $ref: '#/components/responses/E500'
+        '503':
+          $ref: '#/components/responses/E503'
+      parameters:
+      - $ref: '#/components/parameters/post_id'
+  /api/forum/posts/{post_id}/revisions:
+    get:
+      operationId: forumListRevisions
+      tags:
+      - Forum
+      summary: List revision history
+      description: Author/admin only; others404. number DESC,id DESC. Preserve rejected/withdrawn/old-approved content
+        snapshots.
+      x-implementation-status: planned
+      security:
+      - SupabaseBearer: []
+      responses:
+        '200':
+          description: Successful response.
+          headers:
+            Cache-Control:
+              description: Required on every forum response.
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RevisionsResponse'
+              example:
+                api_version: '0.1'
+                revisions:
+                - id: 55555555-5555-4555-8555-555555555555
+                  post_id: 22222222-2222-4222-8222-222222222222
+                  number: 1
+                  status: draft
+                  version: 1
+                  title: Possible motion near Barnard Star
+                  body: Could this change in position be motion or an image artifact?
+                  hashtag_ids:
+                  - 66666666-6666-4666-8666-666666666666
+                  links:
+                  - label: The Eyes
+                    url: https://example.org/the-eyes?ra=269.4521&dec=4.6934
+                  sky_context:
+                    ra: 269.4521
+                    dec: 4.6934
+                    size: 0.1
+                    detector: 6
+                    target_key: barnard
+                  created_at: '2026-11-14T10:00:00Z'
+                  updated_at: '2026-11-14T10:00:00Z'
+                  submitted_at: null
+                  reviewed_at: null
+                  reviewed_by: null
+                  rejection_reason: null
+                  withdrawn_at: null
+                next_cursor: null
+        '400':
+          $ref: '#/components/responses/E400'
+        '401':
+          $ref: '#/components/responses/E401'
+        '404':
+          $ref: '#/components/responses/E404'
+        '429':
+          $ref: '#/components/responses/E429'
+        '500':
+          $ref: '#/components/responses/E500'
+        '503':
+          $ref: '#/components/responses/E503'
+      parameters:
+      - $ref: '#/components/parameters/post_id'
+      - $ref: '#/components/parameters/limit'
+      - $ref: '#/components/parameters/cursor'
+    post:
+      operationId: forumCreateRevision
+      tags:
+      - Forum
+      summary: Clone snapshot into draft
+      description: Author only; source same-post approved/rejected/withdrawn. Require no current draft/pending and
+        exact post version. Preserve public pointer. Copied inactive tags must change before submission.
+      x-implementation-status: planned
+      security:
+      - SupabaseBearer: []
+      responses:
+        '201':
+          description: Successful response.
+          headers:
+            Cache-Control:
+              description: Required on every forum response.
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceResponse'
+              example:
+                api_version: '0.1'
+                workspace:
+                  post:
+                    id: 22222222-2222-4222-8222-222222222222
+                    author:
+                      id: 11111111-1111-4111-8111-111111111111
+                      display_name: Sky observer
+                    visibility: published
+                    version: 4
+                    published_revision_id: 55555555-5555-4555-8555-555555555555
+                    working_revision_id: 77777777-7777-4777-8777-777777777777
+                    published_at: '2026-11-14T10:00:00Z'
+                    edited_at: null
+                    created_at: '2026-11-14T10:00:00Z'
+                    updated_at: '2026-11-14T10:00:00Z'
+                    visibility_reason: null
+                  published_revision:
+                    id: 55555555-5555-4555-8555-555555555555
+                    post_id: 22222222-2222-4222-8222-222222222222
+                    number: 1
+                    status: approved
+                    version: 3
+                    title: Possible motion near Barnard Star
+                    body: Could this change in position be motion or an image artifact?
+                    hashtag_ids:
+                    - 66666666-6666-4666-8666-666666666666
+                    links:
+                    - label: The Eyes
+                      url: https://example.org/the-eyes?ra=269.4521&dec=4.6934
+                    sky_context:
+                      ra: 269.4521
+                      dec: 4.6934
+                      size: 0.1
+                      detector: 6
+                      target_key: barnard
+                    created_at: '2026-11-14T10:00:00Z'
+                    updated_at: '2026-11-14T10:00:00Z'
+                    submitted_at: '2026-11-14T10:00:00Z'
+                    reviewed_at: '2026-11-14T10:00:00Z'
+                    reviewed_by: 44444444-4444-4444-8444-444444444444
+                    rejection_reason: null
+                    withdrawn_at: null
+                  working_revision:
+                    id: 77777777-7777-4777-8777-777777777777
+                    post_id: 22222222-2222-4222-8222-222222222222
+                    number: 2
+                    status: draft
+                    version: 1
+                    title: Possible motion near Barnard Star
+                    body: Could this change in position be motion or an image artifact?
+                    hashtag_ids:
+                    - 66666666-6666-4666-8666-666666666666
+                    links:
+                    - label: The Eyes
+                      url: https://example.org/the-eyes?ra=269.4521&dec=4.6934
+                    sky_context:
+                      ra: 269.4521
+                      dec: 4.6934
+                      size: 0.1
+                      detector: 6
+                      target_key: barnard
+                    created_at: '2026-11-14T10:00:00Z'
+                    updated_at: '2026-11-14T10:00:00Z'
+                    submitted_at: null
+                    reviewed_at: null
+                    reviewed_by: null
+                    rejection_reason: null
+                    withdrawn_at: null
+                  hashtags:
+                  - id: 66666666-6666-4666-8666-666666666666
+                    slug: spherex
+                    display_name: SPHEREx
+                    active: true
+                    version: 1
+        '400':
+          $ref: '#/components/responses/E400'
+        '401':
+          $ref: '#/components/responses/E401'
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+        '409':
+          $ref: '#/components/responses/E409'
+        '429':
+          $ref: '#/components/responses/E429'
+        '500':
+          $ref: '#/components/responses/E500'
+        '503':
+          $ref: '#/components/responses/E503'
+      parameters:
+      - $ref: '#/components/parameters/post_id'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RevisionCreate'
+            example:
+              base_revision_id: 55555555-5555-4555-8555-555555555555
+              expected_post_version: 3
+  /api/forum/posts/{post_id}/revisions/{revision_id}:
+    get:
+      operationId: forumGetRevision
+      tags:
+      - Forum
+      summary: Read exact private revision
+      description: Author/admin only; revision must belong to post. Deleted post or unauthorized404.
+      x-implementation-status: planned
+      security:
+      - SupabaseBearer: []
+      responses:
+        '200':
+          description: Successful response.
+          headers:
+            Cache-Control:
+              description: Required on every forum response.
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RevisionResponse'
+              example:
+                api_version: '0.1'
+                revision:
+                  id: 55555555-5555-4555-8555-555555555555
+                  post_id: 22222222-2222-4222-8222-222222222222
+                  number: 1
+                  status: draft
+                  version: 1
+                  title: Possible motion near Barnard Star
+                  body: Could this change in position be motion or an image artifact?
+                  hashtag_ids:
+                  - 66666666-6666-4666-8666-666666666666
+                  links:
+                  - label: The Eyes
+                    url: https://example.org/the-eyes?ra=269.4521&dec=4.6934
+                  sky_context:
+                    ra: 269.4521
+                    dec: 4.6934
+                    size: 0.1
+                    detector: 6
+                    target_key: barnard
+                  created_at: '2026-11-14T10:00:00Z'
+                  updated_at: '2026-11-14T10:00:00Z'
+                  submitted_at: null
+                  reviewed_at: null
+                  reviewed_by: null
+                  rejection_reason: null
+                  withdrawn_at: null
+        '400':
+          $ref: '#/components/responses/E400'
+        '401':
+          $ref: '#/components/responses/E401'
+        '404':
+          $ref: '#/components/responses/E404'
+        '429':
+          $ref: '#/components/responses/E429'
+        '500':
+          $ref: '#/components/responses/E500'
+        '503':
+          $ref: '#/components/responses/E503'
+      parameters:
+      - $ref: '#/components/parameters/post_id'
+      - $ref: '#/components/parameters/revision_id'
+    patch:
+      operationId: forumUpdateDraft
+      tags:
+      - Forum
+      summary: Save draft content
+      description: Author only, current draft only. Submitted/approved/rejected/withdrawn immutable409. Compare
+        expected_version atomically; no-op400. Increment revision and post versions, post.updated_at.
+      x-implementation-status: planned
+      security:
+      - SupabaseBearer: []
+      responses:
+        '200':
+          description: Successful response.
+          headers:
+            Cache-Control:
+              description: Required on every forum response.
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceResponse'
+              example:
+                api_version: '0.1'
+                workspace:
+                  post:
+                    id: 22222222-2222-4222-8222-222222222222
+                    author:
+                      id: 11111111-1111-4111-8111-111111111111
+                      display_name: Sky observer
+                    visibility: unpublished
+                    version: 2
+                    published_revision_id: null
+                    working_revision_id: 55555555-5555-4555-8555-555555555555
+                    published_at: null
+                    edited_at: null
+                    created_at: '2026-11-14T10:00:00Z'
+                    updated_at: '2026-11-14T10:00:00Z'
+                    visibility_reason: null
+                  published_revision: null
+                  working_revision:
+                    id: 55555555-5555-4555-8555-555555555555
+                    post_id: 22222222-2222-4222-8222-222222222222
+                    number: 1
+                    status: draft
+                    version: 2
+                    title: Possible motion near Barnard Star
+                    body: Additional observation context for the reviewer.
+                    hashtag_ids:
+                    - 66666666-6666-4666-8666-666666666666
+                    links:
+                    - label: The Eyes
+                      url: https://example.org/the-eyes?ra=269.4521&dec=4.6934
+                    sky_context:
+                      ra: 269.4521
+                      dec: 4.6934
+                      size: 0.1
+                      detector: 6
+                      target_key: barnard
+                    created_at: '2026-11-14T10:00:00Z'
+                    updated_at: '2026-11-14T10:00:00Z'
+                    submitted_at: null
+                    reviewed_at: null
+                    reviewed_by: null
+                    rejection_reason: null
+                    withdrawn_at: null
+                  hashtags:
+                  - id: 66666666-6666-4666-8666-666666666666
+                    slug: spherex
+                    display_name: SPHEREx
+                    active: true
+                    version: 1
+        '400':
+          $ref: '#/components/responses/E400'
+        '401':
+          $ref: '#/components/responses/E401'
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+        '409':
+          $ref: '#/components/responses/E409'
+        '429':
+          $ref: '#/components/responses/E429'
+        '500':
+          $ref: '#/components/responses/E500'
+        '503':
+          $ref: '#/components/responses/E503'
+      parameters:
+      - $ref: '#/components/parameters/post_id'
+      - $ref: '#/components/parameters/revision_id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DraftUpdate'
+            example:
+              expected_version: 1
+              body: Additional observation context for the reviewer.
+  /api/forum/posts/{post_id}/revisions/{revision_id}/submission:
+    post:
+      operationId: forumSubmitRevision
+      tags:
+      - Forum
+      summary: Submit exact draft
+      description: Author only, exact draft/revision and post versions. Enforce title10-150/body20-20000/1-5 active
+        tags/safe links. Freeze payload, set pending, increment both versions. Keep public pointer. Audit/notification
+        durable with transition.
+      x-implementation-status: planned
+      security:
+      - SupabaseBearer: []
+      responses:
+        '200':
+          description: Successful response.
+          headers:
+            Cache-Control:
+              description: Required on every forum response.
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceResponse'
+              example:
+                api_version: '0.1'
+                workspace:
+                  post:
+                    id: 22222222-2222-4222-8222-222222222222
+                    author:
+                      id: 11111111-1111-4111-8111-111111111111
+                      display_name: Sky observer
+                    visibility: unpublished
+                    version: 2
+                    published_revision_id: null
+                    working_revision_id: 55555555-5555-4555-8555-555555555555
+                    published_at: null
+                    edited_at: null
+                    created_at: '2026-11-14T10:00:00Z'
+                    updated_at: '2026-11-14T10:00:00Z'
+                    visibility_reason: null
+                  published_revision: null
+                  working_revision:
+                    id: 55555555-5555-4555-8555-555555555555
+                    post_id: 22222222-2222-4222-8222-222222222222
+                    number: 1
+                    status: pending
+                    version: 2
+                    title: Possible motion near Barnard Star
+                    body: Could this change in position be motion or an image artifact?
+                    hashtag_ids:
+                    - 66666666-6666-4666-8666-666666666666
+                    links:
+                    - label: The Eyes
+                      url: https://example.org/the-eyes?ra=269.4521&dec=4.6934
+                    sky_context:
+                      ra: 269.4521
+                      dec: 4.6934
+                      size: 0.1
+                      detector: 6
+                      target_key: barnard
+                    created_at: '2026-11-14T10:00:00Z'
+                    updated_at: '2026-11-14T10:00:00Z'
+                    submitted_at: '2026-11-14T10:00:00Z'
+                    reviewed_at: null
+                    reviewed_by: null
+                    rejection_reason: null
+                    withdrawn_at: null
+                  hashtags:
+                  - id: 66666666-6666-4666-8666-666666666666
+                    slug: spherex
+                    display_name: SPHEREx
+                    active: true
+                    version: 1
+        '400':
+          $ref: '#/components/responses/E400'
+        '401':
+          $ref: '#/components/responses/E401'
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+        '409':
+          $ref: '#/components/responses/E409'
+        '429':
+          $ref: '#/components/responses/E429'
+        '500':
+          $ref: '#/components/responses/E500'
+        '503':
+          $ref: '#/components/responses/E503'
+      parameters:
+      - $ref: '#/components/parameters/post_id'
+      - $ref: '#/components/parameters/revision_id'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Transition'
+            example:
+              expected_revision_version: 1
+              expected_post_version: 1
+  /api/forum/posts/{post_id}/revisions/{revision_id}/withdrawal:
+    post:
+      operationId: forumWithdrawRevision
+      tags:
+      - Forum
+      summary: Withdraw pending submission
+      description: Author only, exact pending revision/post versions. Snapshot becomes withdrawn, working pointer
+        cleared, both versions increment. Public unchanged. New draft created separately. Stale review must fail.
+      x-implementation-status: planned
+      security:
+      - SupabaseBearer: []
+      responses:
+        '200':
+          description: Successful response.
+          headers:
+            Cache-Control:
+              description: Required on every forum response.
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceResponse'
+              example:
+                api_version: '0.1'
+                workspace:
+                  post:
+                    id: 22222222-2222-4222-8222-222222222222
+                    author:
+                      id: 11111111-1111-4111-8111-111111111111
+                      display_name: Sky observer
+                    visibility: unpublished
+                    version: 3
+                    published_revision_id: null
+                    working_revision_id: null
+                    published_at: null
+                    edited_at: null
+                    created_at: '2026-11-14T10:00:00Z'
+                    updated_at: '2026-11-14T10:00:00Z'
+                    visibility_reason: null
+                  published_revision: null
+                  working_revision: null
+                  hashtags:
+                  - id: 66666666-6666-4666-8666-666666666666
+                    slug: spherex
+                    display_name: SPHEREx
+                    active: true
+                    version: 1
+        '400':
+          $ref: '#/components/responses/E400'
+        '401':
+          $ref: '#/components/responses/E401'
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+        '409':
+          $ref: '#/components/responses/E409'
+        '429':
+          $ref: '#/components/responses/E429'
+        '500':
+          $ref: '#/components/responses/E500'
+        '503':
+          $ref: '#/components/responses/E503'
+      parameters:
+      - $ref: '#/components/parameters/post_id'
+      - $ref: '#/components/parameters/revision_id'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Transition'
+            example:
+              expected_revision_version: 2
+              expected_post_version: 2
+  /api/forum/admin/reviews:
+    get:
+      operationId: forumListReviews
+      tags:
+      - Forum admin
+      summary: List pending reviews
+      description: Admin only. Exclude own submissions and deleted posts. submitted_at ASC,revision id ASC. Includes
+        proposed/current snapshots and tag states for comparison.
+      x-implementation-status: planned
+      security:
+      - SupabaseBearer: []
+      responses:
+        '200':
+          description: Successful response.
+          headers:
+            Cache-Control:
+              description: Required on every forum response.
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewQueueResponse'
+              example:
+                api_version: '0.1'
+                items:
+                - post:
+                    id: 22222222-2222-4222-8222-222222222222
+                    author:
+                      id: 11111111-1111-4111-8111-111111111111
+                      display_name: Sky observer
+                    visibility: unpublished
+                    version: 2
+                    published_revision_id: null
+                    working_revision_id: 55555555-5555-4555-8555-555555555555
+                    published_at: null
+                    edited_at: null
+                    created_at: '2026-11-14T10:00:00Z'
+                    updated_at: '2026-11-14T10:00:00Z'
+                    visibility_reason: null
+                  submitted_revision:
+                    id: 55555555-5555-4555-8555-555555555555
+                    post_id: 22222222-2222-4222-8222-222222222222
+                    number: 1
+                    status: pending
+                    version: 2
+                    title: Possible motion near Barnard Star
+                    body: Could this change in position be motion or an image artifact?
+                    hashtag_ids:
+                    - 66666666-6666-4666-8666-666666666666
+                    links:
+                    - label: The Eyes
+                      url: https://example.org/the-eyes?ra=269.4521&dec=4.6934
+                    sky_context:
+                      ra: 269.4521
+                      dec: 4.6934
+                      size: 0.1
+                      detector: 6
+                      target_key: barnard
+                    created_at: '2026-11-14T10:00:00Z'
+                    updated_at: '2026-11-14T10:00:00Z'
+                    submitted_at: '2026-11-14T10:00:00Z'
+                    reviewed_at: null
+                    reviewed_by: null
+                    rejection_reason: null
+                    withdrawn_at: null
+                  published_revision: null
+                  hashtags:
+                  - id: 66666666-6666-4666-8666-666666666666
+                    slug: spherex
+                    display_name: SPHEREx
+                    active: true
+                    version: 1
+                next_cursor: null
+        '400':
+          $ref: '#/components/responses/E400'
+        '401':
+          $ref: '#/components/responses/E401'
+        '403':
+          $ref: '#/components/responses/E403'
+        '429':
+          $ref: '#/components/responses/E429'
+        '500':
+          $ref: '#/components/responses/E500'
+        '503':
+          $ref: '#/components/responses/E503'
+      parameters:
+      - $ref: '#/components/parameters/limit'
+      - $ref: '#/components/parameters/cursor'
+  /api/forum/admin/posts/{post_id}/revisions/{revision_id}/decision:
+    post:
+      operationId: forumReviewRevision
+      tags:
+      - Forum admin
+      summary: Approve or reject exact revision
+      description: Admin only, no self-review. Atomic pending/revision/post version checks; first valid decision
+        wins. Approve requires active tags, swaps public pointer, preserves first published_at, sets edited_at on
+        replacement; hidden stays hidden. Reject requires reason; public unchanged. Clear working pointer. Audit/notification
+        transactional.
+      x-implementation-status: planned
+      security:
+      - SupabaseBearer: []
+      responses:
+        '200':
+          description: Successful response.
+          headers:
+            Cache-Control:
+              description: Required on every forum response.
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceResponse'
+              example:
+                api_version: '0.1'
+                workspace:
+                  post:
+                    id: 22222222-2222-4222-8222-222222222222
+                    author:
+                      id: 11111111-1111-4111-8111-111111111111
+                      display_name: Sky observer
+                    visibility: published
+                    version: 3
+                    published_revision_id: 55555555-5555-4555-8555-555555555555
+                    working_revision_id: null
+                    published_at: '2026-11-14T10:00:00Z'
+                    edited_at: null
+                    created_at: '2026-11-14T10:00:00Z'
+                    updated_at: '2026-11-14T10:00:00Z'
+                    visibility_reason: null
+                  published_revision:
+                    id: 55555555-5555-4555-8555-555555555555
+                    post_id: 22222222-2222-4222-8222-222222222222
+                    number: 1
+                    status: approved
+                    version: 3
+                    title: Possible motion near Barnard Star
+                    body: Could this change in position be motion or an image artifact?
+                    hashtag_ids:
+                    - 66666666-6666-4666-8666-666666666666
+                    links:
+                    - label: The Eyes
+                      url: https://example.org/the-eyes?ra=269.4521&dec=4.6934
+                    sky_context:
+                      ra: 269.4521
+                      dec: 4.6934
+                      size: 0.1
+                      detector: 6
+                      target_key: barnard
+                    created_at: '2026-11-14T10:00:00Z'
+                    updated_at: '2026-11-14T10:00:00Z'
+                    submitted_at: '2026-11-14T10:00:00Z'
+                    reviewed_at: '2026-11-14T10:00:00Z'
+                    reviewed_by: 44444444-4444-4444-8444-444444444444
+                    rejection_reason: null
+                    withdrawn_at: null
+                  working_revision: null
+                  hashtags:
+                  - id: 66666666-6666-4666-8666-666666666666
+                    slug: spherex
+                    display_name: SPHEREx
+                    active: true
+                    version: 1
+        '400':
+          $ref: '#/components/responses/E400'
+        '401':
+          $ref: '#/components/responses/E401'
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+        '409':
+          $ref: '#/components/responses/E409'
+        '429':
+          $ref: '#/components/responses/E429'
+        '500':
+          $ref: '#/components/responses/E500'
+        '503':
+          $ref: '#/components/responses/E503'
+      parameters:
+      - $ref: '#/components/parameters/post_id'
+      - $ref: '#/components/parameters/revision_id'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReviewDecision'
+            examples:
+              approve:
+                value:
+                  decision: approve
+                  expected_revision_version: 2
+                  expected_post_version: 2
+              reject:
+                value:
+                  decision: reject
+                  expected_revision_version: 2
+                  expected_post_version: 2
+                  reason_code: needs_context
+                  reason: Please add observation dates.
+  /api/forum/admin/posts/{post_id}/visibility:
+    post:
+      operationId: forumChangePostVisibility
+      tags:
+      - Forum admin
+      summary: Hide or restore post
+      description: Admin only, expected post version. hide requires published; restore hidden with public pointer.
+        Wrong state409; author-deleted404. Record reason/audit/notification. Review approval never restores hidden
+        post.
+      x-implementation-status: planned
+      security:
+      - SupabaseBearer: []
+      responses:
+        '200':
+          description: Successful response.
+          headers:
+            Cache-Control:
+              description: Required on every forum response.
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceResponse'
+              example:
+                api_version: '0.1'
+                workspace:
+                  post:
+                    id: 22222222-2222-4222-8222-222222222222
+                    author:
+                      id: 11111111-1111-4111-8111-111111111111
+                      display_name: Sky observer
+                    visibility: hidden
+                    version: 4
+                    published_revision_id: 55555555-5555-4555-8555-555555555555
+                    working_revision_id: null
+                    published_at: '2026-11-14T10:00:00Z'
+                    edited_at: null
+                    created_at: '2026-11-14T10:00:00Z'
+                    updated_at: '2026-11-14T10:00:00Z'
+                    visibility_reason:
+                      action: hide
+                      reason: Needs additional context.
+                      actor_id: 44444444-4444-4444-8444-444444444444
+                      at: '2026-11-14T10:00:00Z'
+                  published_revision:
+                    id: 55555555-5555-4555-8555-555555555555
+                    post_id: 22222222-2222-4222-8222-222222222222
+                    number: 1
+                    status: approved
+                    version: 3
+                    title: Possible motion near Barnard Star
+                    body: Could this change in position be motion or an image artifact?
+                    hashtag_ids:
+                    - 66666666-6666-4666-8666-666666666666
+                    links:
+                    - label: The Eyes
+                      url: https://example.org/the-eyes?ra=269.4521&dec=4.6934
+                    sky_context:
+                      ra: 269.4521
+                      dec: 4.6934
+                      size: 0.1
+                      detector: 6
+                      target_key: barnard
+                    created_at: '2026-11-14T10:00:00Z'
+                    updated_at: '2026-11-14T10:00:00Z'
+                    submitted_at: '2026-11-14T10:00:00Z'
+                    reviewed_at: '2026-11-14T10:00:00Z'
+                    reviewed_by: 44444444-4444-4444-8444-444444444444
+                    rejection_reason: null
+                    withdrawn_at: null
+                  working_revision: null
+                  hashtags:
+                  - id: 66666666-6666-4666-8666-666666666666
+                    slug: spherex
+                    display_name: SPHEREx
+                    active: true
+                    version: 1
+        '400':
+          $ref: '#/components/responses/E400'
+        '401':
+          $ref: '#/components/responses/E401'
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+        '409':
+          $ref: '#/components/responses/E409'
+        '429':
+          $ref: '#/components/responses/E429'
+        '500':
+          $ref: '#/components/responses/E500'
+        '503':
+          $ref: '#/components/responses/E503'
+      parameters:
+      - $ref: '#/components/parameters/post_id'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VisibilityChange'
+            example:
+              action: hide
+              expected_version: 3
+              reason: Needs additional context.
+  /api/forum/posts/{post_id}/comments:
+    get:
+      operationId: forumListComments
+      tags:
+      - Forum
+      summary: Read public comments
+      description: Visible/non-deleted comments under published/non-deleted parent only, otherwise404. created_at
+        ASC,id ASC.
+      x-implementation-status: planned
+      security:
+      - {}
+      - SupabaseBearer: []
+      responses:
+        '200':
+          description: Successful response.
+          headers:
+            Cache-Control:
+              description: Required on every forum response.
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommentsResponse'
+              example:
+                api_version: '0.1'
+                comments:
+                - id: 33333333-3333-4333-8333-333333333333
+                  post_id: 22222222-2222-4222-8222-222222222222
+                  observed_revision_id: 55555555-5555-4555-8555-555555555555
+                  author:
+                    id: 11111111-1111-4111-8111-111111111111
+                    display_name: Sky observer
+                  body: Please compare observation times and detectors.
+                  version: 1
+                  created_at: '2026-11-14T10:00:00Z'
+                  updated_at: '2026-11-14T10:00:00Z'
+                next_cursor: null
+        '400':
+          $ref: '#/components/responses/E400'
+        '401':
+          $ref: '#/components/responses/E401'
+        '404':
+          $ref: '#/components/responses/E404'
+        '429':
+          $ref: '#/components/responses/E429'
+        '500':
+          $ref: '#/components/responses/E500'
+        '503':
+          $ref: '#/components/responses/E503'
+      parameters:
+      - $ref: '#/components/parameters/post_id'
+      - $ref: '#/components/parameters/limit'
+      - $ref: '#/components/parameters/cursor'
+    post:
+      operationId: forumCreateComment
+      tags:
+      - Forum
+      summary: Publish comment immediately
+      description: Public parent at transaction boundary. observed_revision_id must match public snapshot, else409.
+        Visible version1; no premoderation.
+      x-implementation-status: planned
+      security:
+      - SupabaseBearer: []
+      responses:
+        '201':
+          description: Successful response.
+          headers:
+            Cache-Control:
+              description: Required on every forum response.
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommentResponse'
+              example:
+                api_version: '0.1'
+                comment:
+                  id: 33333333-3333-4333-8333-333333333333
+                  post_id: 22222222-2222-4222-8222-222222222222
+                  observed_revision_id: 55555555-5555-4555-8555-555555555555
+                  author:
+                    id: 11111111-1111-4111-8111-111111111111
+                    display_name: Sky observer
+                  body: Please compare observation times and detectors.
+                  version: 1
+                  created_at: '2026-11-14T10:00:00Z'
+                  updated_at: '2026-11-14T10:00:00Z'
+        '400':
+          $ref: '#/components/responses/E400'
+        '401':
+          $ref: '#/components/responses/E401'
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+        '409':
+          $ref: '#/components/responses/E409'
+        '429':
+          $ref: '#/components/responses/E429'
+        '500':
+          $ref: '#/components/responses/E500'
+        '503':
+          $ref: '#/components/responses/E503'
+      parameters:
+      - $ref: '#/components/parameters/post_id'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CommentCreate'
+            example:
+              body: Please compare observation times and detectors.
+              observed_revision_id: 55555555-5555-4555-8555-555555555555
+  /api/forum/comments/{comment_id}:
+    patch:
+      operationId: forumUpdateComment
+      tags:
+      - Forum
+      summary: Edit own visible comment
+      description: Author only, visible comment/public parent; foreign visible403, inaccessible404. Atomic expected_version
+        check. Actual change increments version, keeps observed_revision_id.
+      x-implementation-status: planned
+      security:
+      - SupabaseBearer: []
+      responses:
+        '200':
+          description: Successful response.
+          headers:
+            Cache-Control:
+              description: Required on every forum response.
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommentResponse'
+              example:
+                api_version: '0.1'
+                comment:
+                  id: 33333333-3333-4333-8333-333333333333
+                  post_id: 22222222-2222-4222-8222-222222222222
+                  observed_revision_id: 55555555-5555-4555-8555-555555555555
+                  author:
+                    id: 11111111-1111-4111-8111-111111111111
+                    display_name: Sky observer
+                  body: Please compare detector coverage as well.
+                  version: 2
+                  created_at: '2026-11-14T10:00:00Z'
+                  updated_at: '2026-11-14T10:00:00Z'
+        '400':
+          $ref: '#/components/responses/E400'
+        '401':
+          $ref: '#/components/responses/E401'
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+        '409':
+          $ref: '#/components/responses/E409'
+        '429':
+          $ref: '#/components/responses/E429'
+        '500':
+          $ref: '#/components/responses/E500'
+        '503':
+          $ref: '#/components/responses/E503'
+      parameters:
+      - $ref: '#/components/parameters/comment_id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CommentUpdate'
+            example:
+              expected_version: 1
+              body: Please compare detector coverage as well.
+    delete:
+      operationId: forumDeleteComment
+      tags:
+      - Forum
+      summary: Author soft-deletes comment
+      description: Author may delete own comment even if comment/parent hidden. Deleted/missing parent404. Repeat
+        owner204. Admin cannot delete other authors content.
+      x-implementation-status: planned
+      security:
+      - SupabaseBearer: []
+      responses:
+        '204':
+          description: Soft-deleted, empty body. Same-owner repeat204 unless comment parent deleted404.
+          headers:
+            Cache-Control:
+              description: Required on every forum response.
+              schema:
+                type: string
+                const: no-store
+        '400':
+          $ref: '#/components/responses/E400'
+        '401':
+          $ref: '#/components/responses/E401'
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+        '429':
+          $ref: '#/components/responses/E429'
+        '500':
+          $ref: '#/components/responses/E500'
+        '503':
+          $ref: '#/components/responses/E503'
+      parameters:
+      - $ref: '#/components/parameters/comment_id'
+  /api/forum/comments/{comment_id}/workspace:
+    get:
+      operationId: forumInspectComment
+      tags:
+      - Forum
+      summary: Inspect own or admin comment details
+      description: Comment author/admin only, otherwise404. Includes hidden comment and reason, even under hidden
+        parent; author-deleted comment/parent404. Does not expose parent content or reporter identity.
+      x-implementation-status: planned
+      security:
+      - SupabaseBearer: []
+      responses:
+        '200':
+          description: Successful response.
+          headers:
+            Cache-Control:
+              description: Required on every forum response.
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModeratedCommentResponse'
+              example:
+                api_version: '0.1'
+                item:
+                  comment:
+                    id: 33333333-3333-4333-8333-333333333333
+                    post_id: 22222222-2222-4222-8222-222222222222
+                    observed_revision_id: 55555555-5555-4555-8555-555555555555
+                    author:
+                      id: 11111111-1111-4111-8111-111111111111
+                      display_name: Sky observer
+                    body: Please compare observation times and detectors.
+                    version: 1
+                    created_at: '2026-11-14T10:00:00Z'
+                    updated_at: '2026-11-14T10:00:00Z'
+                  visibility: visible
+                  visibility_reason: null
+        '400':
+          $ref: '#/components/responses/E400'
+        '401':
+          $ref: '#/components/responses/E401'
+        '404':
+          $ref: '#/components/responses/E404'
+        '429':
+          $ref: '#/components/responses/E429'
+        '500':
+          $ref: '#/components/responses/E500'
+        '503':
+          $ref: '#/components/responses/E503'
+      parameters:
+      - $ref: '#/components/parameters/comment_id'
+  /api/forum/admin/comments/{comment_id}/visibility:
+    post:
+      operationId: forumChangeCommentVisibility
+      tags:
+      - Forum admin
+      summary: Hide or restore comment
+      description: Admin only, exact comment version. Deleted target/parent404; wrong state409. Increment version;
+        reason/audit/notification. Restoring comment under hidden parent does not restore parent or expose comment
+        publicly.
+      x-implementation-status: planned
+      security:
+      - SupabaseBearer: []
+      responses:
+        '200':
+          description: Successful response.
+          headers:
+            Cache-Control:
+              description: Required on every forum response.
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModeratedCommentResponse'
+              example:
+                api_version: '0.1'
+                item:
+                  comment:
+                    id: 33333333-3333-4333-8333-333333333333
+                    post_id: 22222222-2222-4222-8222-222222222222
+                    observed_revision_id: 55555555-5555-4555-8555-555555555555
+                    author:
+                      id: 11111111-1111-4111-8111-111111111111
+                      display_name: Sky observer
+                    body: Please compare observation times and detectors.
+                    version: 2
+                    created_at: '2026-11-14T10:00:00Z'
+                    updated_at: '2026-11-14T10:00:00Z'
+                  visibility: hidden
+                  visibility_reason:
+                    action: hide
+                    reason: Off-topic comment.
+                    actor_id: 44444444-4444-4444-8444-444444444444
+                    at: '2026-11-14T10:00:00Z'
+        '400':
+          $ref: '#/components/responses/E400'
+        '401':
+          $ref: '#/components/responses/E401'
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+        '409':
+          $ref: '#/components/responses/E409'
+        '429':
+          $ref: '#/components/responses/E429'
+        '500':
+          $ref: '#/components/responses/E500'
+        '503':
+          $ref: '#/components/responses/E503'
+      parameters:
+      - $ref: '#/components/parameters/comment_id'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VisibilityChange'
+            example:
+              action: hide
+              expected_version: 1
+              reason: Off-topic comment.
+  /api/forum/reports:
+    post:
+      operationId: forumCreateReport
+      tags:
+      - Forum
+      summary: Report public content
+      description: Public target required, complete profile. Unique open reporter/target. Existing open report returns200
+        unchanged even with new key, else201. Never auto-hide. other reason requires nonblank description.
+      x-implementation-status: planned
+      security:
+      - SupabaseBearer: []
+      responses:
+        '201':
+          description: Successful response.
+          headers:
+            Cache-Control:
+              description: Required on every forum response.
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportResponse'
+              example:
+                api_version: '0.1'
+                report:
+                  id: 88888888-8888-4888-8888-888888888888
+                  target_type: post
+                  target_id: 22222222-2222-4222-8222-222222222222
+                  reason_code: off_topic
+                  description: Please review the context.
+                  status: open
+                  version: 1
+                  created_at: '2026-11-14T10:00:00Z'
+                  updated_at: '2026-11-14T10:00:00Z'
+        '400':
+          $ref: '#/components/responses/E400'
+        '401':
+          $ref: '#/components/responses/E401'
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+        '409':
+          $ref: '#/components/responses/E409'
+        '429':
+          $ref: '#/components/responses/E429'
+        '500':
+          $ref: '#/components/responses/E500'
+        '503':
+          $ref: '#/components/responses/E503'
+        '200':
+          description: Existing open report receipt for same reporter and target.
+          headers:
+            Cache-Control:
+              description: Required on every forum response.
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportResponse'
+              example:
+                api_version: '0.1'
+                report:
+                  id: 88888888-8888-4888-8888-888888888888
+                  target_type: post
+                  target_id: 22222222-2222-4222-8222-222222222222
+                  reason_code: off_topic
+                  description: Please review the context.
+                  status: open
+                  version: 1
+                  created_at: '2026-11-14T10:00:00Z'
+                  updated_at: '2026-11-14T10:00:00Z'
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReportCreate'
+            example:
+              target_type: post
+              target_id: 22222222-2222-4222-8222-222222222222
+              reason_code: off_topic
+              description: Please review the context.
+  /api/forum/admin/reports:
+    get:
+      operationId: forumListReports
+      tags:
+      - Forum admin
+      summary: List report queue
+      description: Admin only; status defaults open, created_at ASC,id ASC. Identities/internal notes never public.
+      x-implementation-status: planned
+      security:
+      - SupabaseBearer: []
+      responses:
+        '200':
+          description: Successful response.
+          headers:
+            Cache-Control:
+              description: Required on every forum response.
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportsResponse'
+              example:
+                api_version: '0.1'
+                items:
+                - report:
+                    id: 88888888-8888-4888-8888-888888888888
+                    target_type: post
+                    target_id: 22222222-2222-4222-8222-222222222222
+                    reason_code: off_topic
+                    description: Please review the context.
+                    status: open
+                    version: 1
+                    created_at: '2026-11-14T10:00:00Z'
+                    updated_at: '2026-11-14T10:00:00Z'
+                  reporter_id: 11111111-1111-4111-8111-111111111111
+                  resolution_reason: null
+                  resolved_by: null
+                  resolved_at: null
+                next_cursor: null
+        '400':
+          $ref: '#/components/responses/E400'
+        '401':
+          $ref: '#/components/responses/E401'
+        '403':
+          $ref: '#/components/responses/E403'
+        '429':
+          $ref: '#/components/responses/E429'
+        '500':
+          $ref: '#/components/responses/E500'
+        '503':
+          $ref: '#/components/responses/E503'
+      parameters:
+      - $ref: '#/components/parameters/report_status'
+      - $ref: '#/components/parameters/limit'
+      - $ref: '#/components/parameters/cursor'
+  /api/forum/admin/reports/{report_id}/decision:
+    post:
+      operationId: forumResolveReport
+      tags:
+      - Forum admin
+      summary: Resolve or dismiss report
+      description: Admin only, open status/exact version. Record reason, actor/time and audit. Visibility separate
+        explicit action. Deleted target does not prevent report resolution.
+      x-implementation-status: planned
+      security:
+      - SupabaseBearer: []
+      responses:
+        '200':
+          description: Successful response.
+          headers:
+            Cache-Control:
+              description: Required on every forum response.
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminReportResponse'
+              example:
+                api_version: '0.1'
+                item:
+                  report:
+                    id: 88888888-8888-4888-8888-888888888888
+                    target_type: post
+                    target_id: 22222222-2222-4222-8222-222222222222
+                    reason_code: off_topic
+                    description: Please review the context.
+                    status: resolved
+                    version: 2
+                    created_at: '2026-11-14T10:00:00Z'
+                    updated_at: '2026-11-14T10:00:00Z'
+                  reporter_id: 11111111-1111-4111-8111-111111111111
+                  resolution_reason: Reviewed and handled.
+                  resolved_by: 44444444-4444-4444-8444-444444444444
+                  resolved_at: '2026-11-14T10:00:00Z'
+        '400':
+          $ref: '#/components/responses/E400'
+        '401':
+          $ref: '#/components/responses/E401'
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+        '409':
+          $ref: '#/components/responses/E409'
+        '429':
+          $ref: '#/components/responses/E429'
+        '500':
+          $ref: '#/components/responses/E500'
+        '503':
+          $ref: '#/components/responses/E503'
+      parameters:
+      - $ref: '#/components/parameters/report_id'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReportDecision'
+            example:
+              decision: resolved
+              expected_version: 1
+              reason: Reviewed and handled.
+  /api/forum/me/notifications:
+    get:
+      operationId: forumListNotifications
+      tags:
+      - Forum
+      summary: Read own in-app notifications
+      description: Recipient only, created_at DESC,id DESC. No email/push. Linked resources obey current access
+        and may404 after deletion.
+      x-implementation-status: planned
+      security:
+      - SupabaseBearer: []
+      responses:
+        '200':
+          description: Successful response.
+          headers:
+            Cache-Control:
+              description: Required on every forum response.
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationsResponse'
+              example:
+                api_version: '0.1'
+                notifications:
+                - id: 99999999-9999-4999-8999-999999999999
+                  type: submission_received
+                  post_id: 22222222-2222-4222-8222-222222222222
+                  revision_id: 55555555-5555-4555-8555-555555555555
+                  comment_id: null
+                  created_at: '2026-11-14T10:00:00Z'
+                  read_at: null
+                next_cursor: null
+        '400':
+          $ref: '#/components/responses/E400'
+        '401':
+          $ref: '#/components/responses/E401'
+        '429':
+          $ref: '#/components/responses/E429'
+        '500':
+          $ref: '#/components/responses/E500'
+        '503':
+          $ref: '#/components/responses/E503'
+      parameters:
+      - $ref: '#/components/parameters/unread'
+      - $ref: '#/components/parameters/limit'
+      - $ref: '#/components/parameters/cursor'
+  /api/forum/me/notifications/{notification_id}:
+    patch:
+      operationId: forumReadNotification
+      tags:
+      - Forum
+      summary: Mark own notification read
+      description: Recipient only otherwise404. Repeating read=true preserves first read_at.
+      x-implementation-status: planned
+      security:
+      - SupabaseBearer: []
+      responses:
+        '200':
+          description: Successful response.
+          headers:
+            Cache-Control:
+              description: Required on every forum response.
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationResponse'
+              example:
+                api_version: '0.1'
+                notification:
+                  id: 99999999-9999-4999-8999-999999999999
+                  type: submission_received
+                  post_id: 22222222-2222-4222-8222-222222222222
+                  revision_id: 55555555-5555-4555-8555-555555555555
+                  comment_id: null
+                  created_at: '2026-11-14T10:00:00Z'
+                  read_at: '2026-11-14T10:00:00Z'
+        '400':
+          $ref: '#/components/responses/E400'
+        '401':
+          $ref: '#/components/responses/E401'
+        '403':
+          $ref: '#/components/responses/E403'
+        '404':
+          $ref: '#/components/responses/E404'
+        '429':
+          $ref: '#/components/responses/E429'
+        '500':
+          $ref: '#/components/responses/E500'
+        '503':
+          $ref: '#/components/responses/E503'
+      parameters:
+      - $ref: '#/components/parameters/notification_id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NotificationRead'
+            example:
+              read: true
+  /api/forum/admin/audit-events:
+    get:
+      operationId: forumListAudit
+      tags:
+      - Forum admin
+      summary: Read audit history
+      description: Admin-only append-only events, created_at DESC,id DESC. No mutation API.
+      x-implementation-status: planned
+      security:
+      - SupabaseBearer: []
+      responses:
+        '200':
+          description: Successful response.
+          headers:
+            Cache-Control:
+              description: Required on every forum response.
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditResponse'
+              example:
+                api_version: '0.1'
+                events:
+                - id: 99999999-9999-4999-8999-999999999999
+                  actor_id: 44444444-4444-4444-8444-444444444444
+                  action: revision_approved
+                  post_id: 22222222-2222-4222-8222-222222222222
+                  revision_id: 55555555-5555-4555-8555-555555555555
+                  comment_id: null
+                  report_id: null
+                  hashtag_id: null
+                  reason: null
+                  from_state: pending
+                  to_state: approved
+                  created_at: '2026-11-14T10:00:00Z'
+                next_cursor: null
+        '400':
+          $ref: '#/components/responses/E400'
+        '401':
+          $ref: '#/components/responses/E401'
+        '403':
+          $ref: '#/components/responses/E403'
+        '429':
+          $ref: '#/components/responses/E429'
+        '500':
+          $ref: '#/components/responses/E500'
+        '503':
+          $ref: '#/components/responses/E503'
+      parameters:
+      - $ref: '#/components/parameters/limit'
+      - $ref: '#/components/parameters/cursor'
+components:
+  securitySchemes:
+    SupabaseBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Supabase Auth access token. Verify signature/issuer/audience/expiry; role from protected DB,
+        never client metadata.
+  parameters:
+    post_id:
+      name: post_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    revision_id:
+      name: revision_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    comment_id:
+      name: comment_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    tag_id:
+      name: tag_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    report_id:
+      name: report_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    notification_id:
+      name: notification_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    limit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 50
+        default: 20
+      description: Maximum records.
+    cursor:
+      name: cursor
+      in: query
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 2048
+      description: Opaque endpoint/filter/order/identity-bound cursor. Invalid/expired/mismatch400. Reset on filter
+        change; no frozen snapshot.
+    q:
+      name: q
+      in: query
+      schema:
+        type: string
+        minLength: 0
+        maxLength: 200
+      description: Trimmed NFC case-insensitive accent-sensitive literal substring in public title OR body. Empty
+        no filter. % and _ literal. AND hashtag.
+    hashtag:
+      name: hashtag
+      in: query
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 40
+      description: 'One slug; trim/lowercase/remove leading # (URL encode # as %23). Unknown valid slug empty; inactive
+        historic tags supported.'
+    active:
+      name: active
+      in: query
+      schema:
+        type: boolean
+      description: Tag catalog filter; omit for both. Editor requests true.
+    visibility:
+      name: visibility
+      in: query
+      schema:
+        $ref: '#/components/schemas/Visibility'
+      description: Own post visibility filter.
+    revision_status:
+      name: revision_status
+      in: query
+      schema:
+        type: string
+        enum:
+        - draft
+        - pending
+        - rejected
+        - withdrawn
+      description: 'Own posts: status of the latest revision by number, AND visibility. A latest approved revision matches none of these values.'
+    unread:
+      name: unread
+      in: query
+      schema:
+        type: boolean
+      description: true unread, false read, omitted both.
+    report_status:
+      name: status
+      in: query
+      schema:
+        type: string
+        enum:
+        - open
+        - resolved
+        - dismissed
+        default: open
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: All POSTs. UUID per intent; reuse on retries. Actor+operation+resource scoped, minimum24h retention.
+        Same payload replays success; mismatch/in-flight409. Recheck permissions. See guide.
+  responses:
+    E400:
+      description: Invalid request parameters.
+      headers:
+        Cache-Control:
+          description: Required on every forum response.
+          schema:
+            type: string
+            const: no-store
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            api_version: '0.1'
+            error:
+              code: BAD_PARAM
+              message: Invalid request parameters.
+              details: {}
+    E401:
+      description: A valid access token is required.
+      headers:
+        Cache-Control:
+          description: Required on every forum response.
+          schema:
+            type: string
+            const: no-store
+        WWW-Authenticate:
+          schema:
+            type: string
+          example: Bearer
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            api_version: '0.1'
+            error:
+              code: UNAUTHORIZED
+              message: A valid access token is required.
+              details: {}
+    E403:
+      description: Operation not permitted.
+      headers:
+        Cache-Control:
+          description: Required on every forum response.
+          schema:
+            type: string
+            const: no-store
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            api_version: '0.1'
+            error:
+              code: FORBIDDEN
+              message: Operation not permitted.
+              details: {}
+    E404:
+      description: Resource not found.
+      headers:
+        Cache-Control:
+          description: Required on every forum response.
+          schema:
+            type: string
+            const: no-store
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            api_version: '0.1'
+            error:
+              code: NOT_FOUND
+              message: Resource not found.
+              details: {}
+    E409:
+      description: Resource changed or action conflicts with state.
+      headers:
+        Cache-Control:
+          description: Required on every forum response.
+          schema:
+            type: string
+            const: no-store
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            api_version: '0.1'
+            error:
+              code: CONFLICT
+              message: Resource changed or action conflicts with state.
+              details: {}
+    E429:
+      description: Too many requests.
+      headers:
+        Cache-Control:
+          description: Required on every forum response.
+          schema:
+            type: string
+            const: no-store
+        Retry-After:
+          schema:
+            type: integer
+            minimum: 1
+          example: 30
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            api_version: '0.1'
+            error:
+              code: RATE_LIMITED
+              message: Too many requests.
+              details: {}
+    E500:
+      description: Internal processing error.
+      headers:
+        Cache-Control:
+          description: Required on every forum response.
+          schema:
+            type: string
+            const: no-store
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            api_version: '0.1'
+            error:
+              code: INTERNAL
+              message: Internal processing error.
+              details: {}
+    E503:
+      description: Forum dependency unavailable.
+      headers:
+        Cache-Control:
+          description: Required on every forum response.
+          schema:
+            type: string
+            const: no-store
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            api_version: '0.1'
+            error:
+              code: SERVICE_UNAVAILABLE
+              message: Forum dependency unavailable.
+              details: {}
+  schemas:
+    Role:
+      type: string
+      enum:
+      - user
+      - admin
+    Visibility:
+      type: string
+      enum:
+      - unpublished
+      - published
+      - hidden
+    RevisionStatus:
+      type: string
+      enum:
+      - draft
+      - pending
+      - approved
+      - rejected
+      - withdrawn
+    Author:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        display_name:
+          type: string
+          minLength: 1
+          maxLength: 80
+      required:
+      - id
+      - display_name
+    Profile:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        display_name:
+          anyOf:
+          - type: string
+            minLength: 1
+            maxLength: 80
+          - type: 'null'
+      required:
+      - id
+      - display_name
+      description: Null means complete profile before contributing. Never expose email.
+    MeResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        api_version:
+          type: string
+          const: '0.1'
+        profile:
+          $ref: '#/components/schemas/Profile'
+        role:
+          $ref: '#/components/schemas/Role'
+      required:
+      - api_version
+      - profile
+      - role
+    ProfileUpdate:
+      type: object
+      additionalProperties: false
+      properties:
+        display_name:
+          type: string
+          minLength: 1
+          maxLength: 80
+      required:
+      - display_name
+      description: Trim and reject blank. Cannot assign role or another identity.
+    Tag:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        slug:
+          type: string
+          minLength: 1
+          maxLength: 40
+          pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
+        display_name:
+          type: string
+          minLength: 1
+          maxLength: 80
+        active:
+          type: boolean
+        version:
+          type: integer
+          minimum: 1
+      required:
+      - id
+      - slug
+      - display_name
+      - active
+      - version
+      description: Stable id/immutable slug. Admin edits name/active only; historical associations retained.
+    TagCount:
+      type: object
+      additionalProperties: false
+      properties:
+        tag:
+          $ref: '#/components/schemas/Tag'
+        published_post_count:
+          type: integer
+          minimum: 0
+      required:
+      - tag
+      - published_post_count
+      description: Distinct published, non-deleted posts with tag on current approved revision only.
+    TagCreate:
+      type: object
+      additionalProperties: false
+      properties:
+        slug:
+          type: string
+          minLength: 1
+          maxLength: 40
+        display_name:
+          type: string
+          minLength: 1
+          maxLength: 80
+      required:
+      - slug
+      - display_name
+      description: 'Admin only. Trim, lowercase, remove leading #, then require ^[a-z0-9]+(?:-[a-z0-9]+)*$ and unique
+        slug; active starts true.'
+    TagUpdate:
+      type: object
+      additionalProperties: false
+      properties:
+        expected_version:
+          type: integer
+          minimum: 1
+        display_name:
+          type: string
+          minLength: 1
+          maxLength: 80
+        active:
+          type: boolean
+      required:
+      - expected_version
+      anyOf:
+      - required:
+        - display_name
+      - required:
+        - active
+    Link:
+      type: object
+      additionalProperties: false
+      properties:
+        label:
+          type: string
+          minLength: 1
+          maxLength: 120
+        url:
+          type: string
+          minLength: 1
+          maxLength: 2048
+          format: uri
+          pattern: ^https?://
+      required:
+      - label
+      - url
+      description: Only HTTP(S), valid host, no URL credentials. Store without fetching. Escape labels; no embeds
+        or raw HTML.
+    SkyContext:
+      type: object
+      additionalProperties: false
+      properties:
+        ra:
+          type: number
+          minimum: 0
+          exclusiveMaximum: 360
+        dec:
+          type: number
+          minimum: -90
+          maximum: 90
+        size:
+          type: number
+          minimum: 0.02
+          maximum: 0.3
+        detector:
+          type: integer
+          minimum: 1
+          maximum: 6
+        target_key:
+          type: string
+          minLength: 1
+          maxLength: 80
+        collection:
+          type: string
+          minLength: 1
+          maxLength: 80
+        t_min_mjd:
+          type: number
+        t_max_mjd:
+          type: number
+        product_ids:
+          type: array
+          items:
+            type: string
+            minLength: 1
+            maxLength: 200
+          maxItems: 100
+          uniqueItems: true
+      required:
+      - ra
+      - dec
+      - size
+      - detector
+      dependentRequired:
+        t_min_mjd:
+        - t_max_mjd
+        t_max_mjd:
+        - t_min_mjd
+      description: Optional user context, not verified science. ICRS degrees, cutout size degrees, UTC MJD min<=max.
+        collection/time/product_ids are metadata, not new /api/frames query fields. No transient PNG URL or automatic
+        IRSA call.
+    DraftCreate:
+      type: object
+      additionalProperties: false
+      properties:
+        title:
+          type: string
+          minLength: 0
+          maxLength: 150
+        body:
+          type: string
+          minLength: 0
+          maxLength: 20000
+        hashtag_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 5
+          uniqueItems: true
+        links:
+          type: array
+          items:
+            $ref: '#/components/schemas/Link'
+          maxItems: 10
+        sky_context:
+          anyOf:
+          - $ref: '#/components/schemas/SkyContext'
+          - type: 'null'
+      required: []
+      description: Incomplete draft permitted. Defaults empty title/body/tags/links, null context. Submission requires
+        trimmed title10-150, body20-20000, 1-5 active catalog tags.
+    DraftUpdate:
+      type: object
+      additionalProperties: false
+      properties:
+        expected_version:
+          type: integer
+          minimum: 1
+        title:
+          type: string
+          minLength: 0
+          maxLength: 150
+        body:
+          type: string
+          minLength: 0
+          maxLength: 20000
+        hashtag_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 5
+          uniqueItems: true
+        links:
+          type: array
+          items:
+            $ref: '#/components/schemas/Link'
+          maxItems: 10
+        sky_context:
+          anyOf:
+          - $ref: '#/components/schemas/SkyContext'
+          - type: 'null'
+      required:
+      - expected_version
+      anyOf:
+      - required:
+        - title
+      - required:
+        - body
+      - required:
+        - hashtag_ids
+      - required:
+        - links
+      - required:
+        - sky_context
+      description: Only current draft mutable. Omitted preserves, [] clears arrays, null clears context. Actual
+        change required; increments revision/post versions.
+    Revision:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        post_id:
+          type: string
+          format: uuid
+        number:
+          type: integer
+          minimum: 1
+        status:
+          $ref: '#/components/schemas/RevisionStatus'
+        version:
+          type: integer
+          minimum: 1
+        title:
+          type: string
+          minLength: 0
+          maxLength: 150
+        body:
+          type: string
+          minLength: 0
+          maxLength: 20000
+        hashtag_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 5
+          uniqueItems: true
+        links:
+          type: array
+          items:
+            $ref: '#/components/schemas/Link'
+          maxItems: 10
+        sky_context:
+          anyOf:
+          - $ref: '#/components/schemas/SkyContext'
+          - type: 'null'
+        created_at:
+          type: string
+          format: date-time
+          pattern: Z$
+        updated_at:
+          type: string
+          format: date-time
+          pattern: Z$
+        submitted_at:
+          anyOf:
+          - type: string
+            format: date-time
+            pattern: Z$
+          - type: 'null'
+        reviewed_at:
+          anyOf:
+          - type: string
+            format: date-time
+            pattern: Z$
+          - type: 'null'
+        reviewed_by:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+        rejection_reason:
+          anyOf:
+          - type: string
+            minLength: 1
+            maxLength: 1000
+          - type: 'null'
+        withdrawn_at:
+          anyOf:
+          - type: string
+            format: date-time
+            pattern: Z$
+          - type: 'null'
+      required:
+      - id
+      - post_id
+      - number
+      - status
+      - version
+      - title
+      - body
+      - hashtag_ids
+      - links
+      - sky_context
+      - created_at
+      - updated_at
+      - submitted_at
+      - reviewed_at
+      - reviewed_by
+      - rejection_reason
+      - withdrawn_at
+      description: Private snapshot. Payload immutable after submission; workflow metadata may transition, incrementing
+        version. Rejected/withdrawn/approved history never becomes draft again.
+    VisibilityReason:
+      type: object
+      additionalProperties: false
+      properties:
+        action:
+          type: string
+          enum:
+          - hide
+          - restore
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 1000
+        actor_id:
+          type: string
+          format: uuid
+        at:
+          type: string
+          format: date-time
+          pattern: Z$
+      required:
+      - action
+      - reason
+      - actor_id
+      - at
+    PostState:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        author:
+          $ref: '#/components/schemas/Author'
+        visibility:
+          $ref: '#/components/schemas/Visibility'
+        version:
+          type: integer
+          minimum: 1
+        published_revision_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+        working_revision_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+        published_at:
+          anyOf:
+          - type: string
+            format: date-time
+            pattern: Z$
+          - type: 'null'
+        edited_at:
+          anyOf:
+          - type: string
+            format: date-time
+            pattern: Z$
+          - type: 'null'
+        created_at:
+          type: string
+          format: date-time
+          pattern: Z$
+        updated_at:
+          type: string
+          format: date-time
+          pattern: Z$
+        visibility_reason:
+          anyOf:
+          - $ref: '#/components/schemas/VisibilityReason'
+          - type: 'null'
+      required:
+      - id
+      - author
+      - visibility
+      - version
+      - published_revision_id
+      - working_revision_id
+      - published_at
+      - edited_at
+      - created_at
+      - updated_at
+      - visibility_reason
+      description: Private. At most one current public pointer and one working draft/pending. Hidden is independent
+        of revision approval. deleted_at stays internal.
+    Workspace:
+      type: object
+      additionalProperties: false
+      properties:
+        post:
+          $ref: '#/components/schemas/PostState'
+        published_revision:
+          anyOf:
+          - $ref: '#/components/schemas/Revision'
+          - type: 'null'
+        working_revision:
+          anyOf:
+          - $ref: '#/components/schemas/Revision'
+          - type: 'null'
+        hashtags:
+          type: array
+          items:
+            $ref: '#/components/schemas/Tag'
+      required:
+      - post
+      - published_revision
+      - working_revision
+      - hashtags
+      description: Author/admin only; includes both snapshots and current catalog states. Historical snapshots use
+        revision endpoints.
+    PublicPost:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        author:
+          $ref: '#/components/schemas/Author'
+        published_revision_id:
+          type: string
+          format: uuid
+        title:
+          type: string
+          minLength: 10
+          maxLength: 150
+        body:
+          type: string
+          minLength: 20
+          maxLength: 20000
+        hashtags:
+          type: array
+          items:
+            $ref: '#/components/schemas/Tag'
+          minItems: 1
+          maxItems: 5
+        links:
+          type: array
+          items:
+            $ref: '#/components/schemas/Link'
+          maxItems: 10
+        sky_context:
+          anyOf:
+          - $ref: '#/components/schemas/SkyContext'
+          - type: 'null'
+        published_at:
+          type: string
+          format: date-time
+          pattern: Z$
+        edited_at:
+          anyOf:
+          - type: string
+            format: date-time
+            pattern: Z$
+          - type: 'null'
+      required:
+      - id
+      - author
+      - published_revision_id
+      - title
+      - body
+      - hashtags
+      - links
+      - sky_context
+      - published_at
+      - edited_at
+      description: Current approved content only from a published/non-deleted post; never pending payload, review
+        reasons or workflow pointers.
+    RevisionCreate:
+      type: object
+      additionalProperties: false
+      properties:
+        base_revision_id:
+          type: string
+          format: uuid
+        expected_post_version:
+          type: integer
+          minimum: 1
+      required:
+      - base_revision_id
+      - expected_post_version
+      description: Clone same-post approved/rejected/withdrawn snapshot to draft. Require no active draft/pending.
+        Inactive copied tags must be replaced before submission.
+    Transition:
+      type: object
+      additionalProperties: false
+      properties:
+        expected_revision_version:
+          type: integer
+          minimum: 1
+        expected_post_version:
+          type: integer
+          minimum: 1
+      required:
+      - expected_revision_version
+      - expected_post_version
+      description: Compare both versions and required state atomically; stale/wrong state409.
+    ReviewDecision:
+      oneOf:
+      - type: object
+        additionalProperties: false
+        properties:
+          decision:
+            type: string
+            enum:
+            - approve
+          expected_revision_version:
+            type: integer
+            minimum: 1
+          expected_post_version:
+            type: integer
+            minimum: 1
+        required:
+        - decision
+        - expected_revision_version
+        - expected_post_version
+      - type: object
+        additionalProperties: false
+        properties:
+          decision:
+            type: string
+            enum:
+            - reject
+          expected_revision_version:
+            type: integer
+            minimum: 1
+          expected_post_version:
+            type: integer
+            minimum: 1
+          reason_code:
+            type: string
+            enum:
+            - off_topic
+            - spam
+            - abuse
+            - personal_information
+            - needs_context
+            - other
+          reason:
+            type: string
+            minLength: 1
+            maxLength: 1000
+        required:
+        - decision
+        - expected_revision_version
+        - expected_post_version
+        - reason_code
+        - reason
+      description: Admin only, no self-review. Approve requires tags still active, otherwise409 reason INACTIVE_HASHTAG.
+        Reject requires nonblank reason; no silent content/tag rewriting.
+    ReviewItem:
+      type: object
+      additionalProperties: false
+      properties:
+        post:
+          $ref: '#/components/schemas/PostState'
+        submitted_revision:
+          $ref: '#/components/schemas/Revision'
+        published_revision:
+          anyOf:
+          - $ref: '#/components/schemas/Revision'
+          - type: 'null'
+        hashtags:
+          type: array
+          items:
+            $ref: '#/components/schemas/Tag'
+      required:
+      - post
+      - submitted_revision
+      - published_revision
+      - hashtags
+    VisibilityChange:
+      type: object
+      additionalProperties: false
+      properties:
+        action:
+          type: string
+          enum:
+          - hide
+          - restore
+        expected_version:
+          type: integer
+          minimum: 1
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 1000
+      required:
+      - action
+      - expected_version
+      - reason
+      description: Admin explicit action, version and nonblank reason. Restore never revives author-deleted content.
+    Comment:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        post_id:
+          type: string
+          format: uuid
+        observed_revision_id:
+          type: string
+          format: uuid
+        author:
+          $ref: '#/components/schemas/Author'
+        body:
+          type: string
+          minLength: 1
+          maxLength: 3000
+        version:
+          type: integer
+          minimum: 1
+        created_at:
+          type: string
+          format: date-time
+          pattern: Z$
+        updated_at:
+          type: string
+          format: date-time
+          pattern: Z$
+      required:
+      - id
+      - post_id
+      - observed_revision_id
+      - author
+      - body
+      - version
+      - created_at
+      - updated_at
+      description: Single-level; observed_revision_id remains fixed when public post later changes.
+    CommentCreate:
+      type: object
+      additionalProperties: false
+      properties:
+        body:
+          type: string
+          minLength: 1
+          maxLength: 3000
+        observed_revision_id:
+          type: string
+          format: uuid
+      required:
+      - body
+      - observed_revision_id
+      description: Public parent required. Supplied observed_revision_id must equal current public revision, else409.
+    CommentUpdate:
+      type: object
+      additionalProperties: false
+      properties:
+        body:
+          type: string
+          minLength: 1
+          maxLength: 3000
+        expected_version:
+          type: integer
+          minimum: 1
+      required:
+      - body
+      - expected_version
+      description: Author only, visible comment under public parent; actual change increments version.
+    ModeratedComment:
+      type: object
+      additionalProperties: false
+      properties:
+        comment:
+          $ref: '#/components/schemas/Comment'
+        visibility:
+          type: string
+          enum:
+          - visible
+          - hidden
+        visibility_reason:
+          anyOf:
+          - $ref: '#/components/schemas/VisibilityReason'
+          - type: 'null'
+      required:
+      - comment
+      - visibility
+      - visibility_reason
+      description: Private author/admin view. Reporter identity never included.
+    ReportCreate:
+      type: object
+      additionalProperties: false
+      properties:
+        target_type:
+          type: string
+          enum:
+          - post
+          - comment
+        target_id:
+          type: string
+          format: uuid
+        reason_code:
+          type: string
+          enum:
+          - off_topic
+          - spam
+          - abuse
+          - personal_information
+          - other
+        description:
+          type: string
+          minLength: 0
+          maxLength: 2000
+      required:
+      - target_type
+      - target_id
+      - reason_code
+      description: Only public target. Default description empty; other requires nonblank. One open report per reporter/target.
+        Reports never auto-hide content.
+    Report:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        target_type:
+          type: string
+          enum:
+          - post
+          - comment
+        target_id:
+          type: string
+          format: uuid
+        reason_code:
+          type: string
+          enum:
+          - off_topic
+          - spam
+          - abuse
+          - personal_information
+          - other
+        description:
+          type: string
+          minLength: 0
+          maxLength: 2000
+        status:
+          type: string
+          enum:
+          - open
+          - resolved
+          - dismissed
+        version:
+          type: integer
+          minimum: 1
+        created_at:
+          type: string
+          format: date-time
+          pattern: Z$
+        updated_at:
+          type: string
+          format: date-time
+          pattern: Z$
+      required:
+      - id
+      - target_type
+      - target_id
+      - reason_code
+      - description
+      - status
+      - version
+      - created_at
+      - updated_at
+      description: Reporter receipt, no internal notes or other reporters.
+    AdminReport:
+      type: object
+      additionalProperties: false
+      properties:
+        report:
+          $ref: '#/components/schemas/Report'
+        reporter_id:
+          type: string
+          format: uuid
+        resolution_reason:
+          anyOf:
+          - type: string
+            minLength: 1
+            maxLength: 1000
+          - type: 'null'
+        resolved_by:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+        resolved_at:
+          anyOf:
+          - type: string
+            format: date-time
+            pattern: Z$
+          - type: 'null'
+      required:
+      - report
+      - reporter_id
+      - resolution_reason
+      - resolved_by
+      - resolved_at
+      description: Admin only. Inspect target via private workspace/comment endpoint.
+    ReportDecision:
+      type: object
+      additionalProperties: false
+      properties:
+        decision:
+          type: string
+          enum:
+          - resolved
+          - dismissed
+        expected_version:
+          type: integer
+          minimum: 1
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 1000
+      required:
+      - decision
+      - expected_version
+      - reason
+      description: Only open report. Resolving does not implicitly hide/restore target.
+    Notification:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum:
+          - submission_received
+          - revision_approved
+          - revision_rejected
+          - post_hidden
+          - post_restored
+          - comment_hidden
+          - comment_restored
+        post_id:
+          type: string
+          format: uuid
+        revision_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+        comment_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+        created_at:
+          type: string
+          format: date-time
+          pattern: Z$
+        read_at:
+          anyOf:
+          - type: string
+            format: date-time
+            pattern: Z$
+          - type: 'null'
+      required:
+      - id
+      - type
+      - post_id
+      - revision_id
+      - comment_id
+      - created_at
+      - read_at
+      description: Recipient only. Resource references, no public preview of private content. Reason from authorized
+        workspace/comment endpoint. Deleted resource may404.
+    NotificationRead:
+      type: object
+      additionalProperties: false
+      properties:
+        read:
+          type: boolean
+          const: true
+      required:
+      - read
+    AuditEvent:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        actor_id:
+          type: string
+          format: uuid
+        action:
+          type: string
+          minLength: 1
+          maxLength: 80
+        post_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+        revision_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+        comment_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+        report_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+        hashtag_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+        reason:
+          anyOf:
+          - type: string
+            minLength: 1
+            maxLength: 1000
+          - type: 'null'
+        from_state:
+          anyOf:
+          - type: string
+            minLength: 1
+            maxLength: 80
+          - type: 'null'
+        to_state:
+          anyOf:
+          - type: string
+            minLength: 1
+            maxLength: 80
+          - type: 'null'
+        created_at:
+          type: string
+          format: date-time
+          pattern: Z$
+      required:
+      - id
+      - actor_id
+      - action
+      - post_id
+      - revision_id
+      - comment_id
+      - report_id
+      - hashtag_id
+      - reason
+      - from_state
+      - to_state
+      - created_at
+      description: Append-only admin audit; actor/action/target/reason/before-after/time. No token/password or edit/delete
+        API.
+    WorkspaceResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        api_version:
+          type: string
+          const: '0.1'
+        workspace:
+          $ref: '#/components/schemas/Workspace'
+      required:
+      - api_version
+      - workspace
+    PublicPostResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        api_version:
+          type: string
+          const: '0.1'
+        post:
+          $ref: '#/components/schemas/PublicPost'
+      required:
+      - api_version
+      - post
+    RevisionResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        api_version:
+          type: string
+          const: '0.1'
+        revision:
+          $ref: '#/components/schemas/Revision'
+      required:
+      - api_version
+      - revision
+    CommentResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        api_version:
+          type: string
+          const: '0.1'
+        comment:
+          $ref: '#/components/schemas/Comment'
+      required:
+      - api_version
+      - comment
+    ModeratedCommentResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        api_version:
+          type: string
+          const: '0.1'
+        item:
+          $ref: '#/components/schemas/ModeratedComment'
+      required:
+      - api_version
+      - item
+    TagResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        api_version:
+          type: string
+          const: '0.1'
+        hashtag:
+          $ref: '#/components/schemas/Tag'
+      required:
+      - api_version
+      - hashtag
+    ReportResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        api_version:
+          type: string
+          const: '0.1'
+        report:
+          $ref: '#/components/schemas/Report'
+      required:
+      - api_version
+      - report
+    AdminReportResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        api_version:
+          type: string
+          const: '0.1'
+        item:
+          $ref: '#/components/schemas/AdminReport'
+      required:
+      - api_version
+      - item
+    NotificationResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        api_version:
+          type: string
+          const: '0.1'
+        notification:
+          $ref: '#/components/schemas/Notification'
+      required:
+      - api_version
+      - notification
+    PublicPostsResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        api_version:
+          type: string
+          const: '0.1'
+        posts:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicPost'
+          maxItems: 50
+        next_cursor:
+          anyOf:
+          - type: string
+            minLength: 1
+            maxLength: 2048
+          - type: 'null'
+      required:
+      - api_version
+      - posts
+      - next_cursor
+    WorkspacesResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        api_version:
+          type: string
+          const: '0.1'
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Workspace'
+          maxItems: 50
+        next_cursor:
+          anyOf:
+          - type: string
+            minLength: 1
+            maxLength: 2048
+          - type: 'null'
+      required:
+      - api_version
+      - items
+      - next_cursor
+    RevisionsResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        api_version:
+          type: string
+          const: '0.1'
+        revisions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Revision'
+          maxItems: 50
+        next_cursor:
+          anyOf:
+          - type: string
+            minLength: 1
+            maxLength: 2048
+          - type: 'null'
+      required:
+      - api_version
+      - revisions
+      - next_cursor
+    CommentsResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        api_version:
+          type: string
+          const: '0.1'
+        comments:
+          type: array
+          items:
+            $ref: '#/components/schemas/Comment'
+          maxItems: 50
+        next_cursor:
+          anyOf:
+          - type: string
+            minLength: 1
+            maxLength: 2048
+          - type: 'null'
+      required:
+      - api_version
+      - comments
+      - next_cursor
+    TagsResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        api_version:
+          type: string
+          const: '0.1'
+        hashtags:
+          type: array
+          items:
+            $ref: '#/components/schemas/TagCount'
+          maxItems: 50
+        next_cursor:
+          anyOf:
+          - type: string
+            minLength: 1
+            maxLength: 2048
+          - type: 'null'
+      required:
+      - api_version
+      - hashtags
+      - next_cursor
+    ReviewQueueResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        api_version:
+          type: string
+          const: '0.1'
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReviewItem'
+          maxItems: 50
+        next_cursor:
+          anyOf:
+          - type: string
+            minLength: 1
+            maxLength: 2048
+          - type: 'null'
+      required:
+      - api_version
+      - items
+      - next_cursor
+    ReportsResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        api_version:
+          type: string
+          const: '0.1'
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminReport'
+          maxItems: 50
+        next_cursor:
+          anyOf:
+          - type: string
+            minLength: 1
+            maxLength: 2048
+          - type: 'null'
+      required:
+      - api_version
+      - items
+      - next_cursor
+    NotificationsResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        api_version:
+          type: string
+          const: '0.1'
+        notifications:
+          type: array
+          items:
+            $ref: '#/components/schemas/Notification'
+          maxItems: 50
+        next_cursor:
+          anyOf:
+          - type: string
+            minLength: 1
+            maxLength: 2048
+          - type: 'null'
+      required:
+      - api_version
+      - notifications
+      - next_cursor
+    AuditResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        api_version:
+          type: string
+          const: '0.1'
+        events:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuditEvent'
+          maxItems: 50
+        next_cursor:
+          anyOf:
+          - type: string
+            minLength: 1
+            maxLength: 2048
+          - type: 'null'
+      required:
+      - api_version
+      - events
+      - next_cursor
+    ErrorResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        api_version:
+          type: string
+          const: '0.1'
+        error:
+          type: object
+          additionalProperties: false
+          properties:
+            code:
+              type: string
+              enum:
+              - BAD_PARAM
+              - UNAUTHORIZED
+              - FORBIDDEN
+              - NOT_FOUND
+              - CONFLICT
+              - RATE_LIMITED
+              - INTERNAL
+              - SERVICE_UNAVAILABLE
+            message:
+              type: string
+            details:
+              type: object
+              additionalProperties: true
+          required:
+          - code
+          - message
+          - details
+      required:
+      - api_version
+      - error

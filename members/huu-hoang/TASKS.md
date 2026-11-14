@@ -1,3 +1,5 @@
+> Ghi chú lịch sử: tài liệu này mô tả công việc và dữ liệu giai đoạn trước. Ứng dụng hiện tại dùng DR1 trong `data/spherex`; xem `README_DATA.md`.
+
 # Hữu Hoàng — tasks A, B, C, D, E, F
 
 Ngày thực hiện A–C: **07/11/2026**; bổ sung D: **08/11/2026**. Dấu **−** là task chính; dấu **+** là task phụ.
@@ -449,6 +451,8 @@ Thí nghiệm này cho **5/18 mẫu đạt điều kiện số học**: 3 D1 và
 **Sau khi nhận kết quả của họ:** Đông/Khôi đưa manifest/FITS và metadata collection, thời điểm, detector, footprint, flags, variance; Hữu Hoàng đối chiếu nguồn/đơn vị/SHA256 rồi dùng FITS gốc. Nguyên đưa runbook và quy tắc nền/khẩu độ/bước sóng, tiêu chí loại mẫu và chuẩn đối chiếu; Hữu Hoàng chạy lại trong thư mục mới, trả bảng mẫu có trạng thái, hình khẩu độ/nền và báo cáo kiểm cho Nguyên. Chỉ khi có điểm đo đạt kiểm và Nguyên duyệt mới chốt hoàn thành trích phổ khoa học. Nếu bị chặn quá 30 phút, ghi rõ chặn và làm demo/secondary theo lộ trình; không báo đã có kết quả của người khác.
 
 **Chốt F:** đã chạy đường trích mẫu từ FITS thật cho mục tiêu mới, phát hiện cấu hình nền gần không dùng được, thử nền rộng và xuất 5 mẫu đo sơ bộ kèm phân loại lý do loại, ca kiểm soát và danh sách việc bàn giao. **Chưa có phổ được kiểm khoa học, chưa hoàn thành phần duyệt của Nguyên hoặc bài đổi vai của nhóm.** Hành động tiếp theo cụ thể là kiểm footprint mẫu không có khẩu độ, chọn ảnh ít mask và nhờ Nguyên đánh giá mẫu nền gần/xa, PSF và định danh nguồn trước khi tải thêm hàng loạt.
+
+**Kiểm tra footprint ngày 14/11/2026:** mẫu `2026W01_2A_0408_2`, detector D6, có extension IMAGE kích thước **58 cột × 14 hàng**. Vị trí dự đoán trong báo cáo là `(x, y) = (28,86; 28,22)` pixel, tính từ 0; tọa độ y nằm ngoài khoảng hàng 0–13 của cutout. Vì vậy khẩu độ bán kính 2 pixel không giao với mảng ảnh và trạng thái `outside_image` phù hợp với dữ liệu hiện có. Đây là kết luận về footprint cutout, chưa xác nhận vị trí nguồn thật hay nguyên nhân cutout bị cắt ngắn. Cần chọn quan sát khác có đủ coverage tại vị trí dự đoán trước khi đo lại.
 
 ```powershell
 # Lần đầu tự tải dữ liệu Luhman 16 khi chưa có cutout bàn giao:

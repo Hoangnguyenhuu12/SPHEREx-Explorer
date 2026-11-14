@@ -16,3 +16,13 @@ Run the sample validator from the repo root.
     .venv/Scripts/python.exe members/dong/scripts/validate_api_samples.py
 
 Endpoint and field changes follow the wiki's discussion/review process.
+
+## Forum extension (contract-first)
+
+The separate [forum OpenAPI contract](openapi-forum-v1.yaml) and
+[FE/BE guide](forum-v1.md) implement the contract step against the supplied
+FORUM_BUSINESS_ANALYSIS.md. See [synthetic examples](examples/forum-v1.json).
+Revision forum-v1.1 covers drafts, immutable revisions, review, managed tags,
+comments/reports, hide/restore, notifications and audit. These endpoints are
+planned, not implemented or deployed. Science schemas and active frontend types
+remain unchanged; do not treat contract examples as working server responses.
