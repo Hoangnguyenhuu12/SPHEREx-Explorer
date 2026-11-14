@@ -79,8 +79,8 @@ export function HelpDialog({ onClose }: { onClose: () => void }) {
           </button>
         </div>
         <p>
-          You are standing on Earth looking up. The map is a visible-light sky survey (DSS2) that you can pan and zoom; the
-          ground at the bottom and the sky motion are illustrations to help you find your way. The panel on the left shows SPHEREx infrared
+          You are looking out from the center of the celestial sphere. Drag to look around the DSS2 visible-light sky and scroll to zoom.
+          The Ground button adds an illustrated horizon. The panel on the left shows SPHEREx infrared
           observations of the selected target, taken on different dates. Step through them to see what changed.
         </p>
         <p className="caption">

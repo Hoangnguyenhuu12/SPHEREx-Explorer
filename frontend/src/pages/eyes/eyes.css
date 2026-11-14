@@ -4,6 +4,7 @@
 .eyes {
   height: 100vh;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   grid-template-rows: var(--eyes-header-h) 1fr var(--eyes-footer-h);
   overflow: hidden;
 }
@@ -263,6 +264,16 @@ kbd {
 .dock__icon {
   width: 40px;
 }
+.dock__zoom {
+  min-width: 7ch;
+  padding: 4px 6px;
+  border-radius: 6px;
+  background: var(--surface-2);
+  color: var(--fg);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
 .dock__btn svg,
 .dock__icon svg {
   width: 18px;
@@ -286,6 +297,27 @@ kbd {
   height: 24px;
   background: var(--line-strong);
   margin: 0 var(--space-1);
+}
+@media (max-width: 740px) {
+  .dock {
+    max-width: calc(100% - 12px);
+    overflow-x: auto;
+  }
+  .dock__btn,
+  .dock__icon {
+    flex: 0 0 34px;
+    padding: 0;
+  }
+  .dock__sep {
+    display: none;
+  }
+  .dock__btn span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
 }
 .sky-motion-note {
   position: absolute;

@@ -7,6 +7,9 @@
   width: 100%;
   height: 100%;
 }
+.sky-map .aladin-imageCanvas {
+  filter: brightness(1.15);
+}
 /* Keep Aladin's own logo/attribution visible; only restyle typography. */
 .sky-map .aladin-container,
 .sky-map {
