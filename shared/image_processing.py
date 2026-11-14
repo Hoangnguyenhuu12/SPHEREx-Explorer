@@ -27,6 +27,18 @@ def mask_flags(pixels, flags, header):
         for k in header
         if k.startswith("MP_") and k not in {"MP_SOURCE", "MP_FULLSAMPLE"}
     }
+    for key in header:
+        if not key.startswith("MSKN"):
+            continue
+        name = str(header[key]).strip().upper()
+        mask_key = "MSKM" + key[4:]
+        if mask_key not in header:
+            raise ValueError(f"Missing flag mask {mask_key}")
+        value = int(header[mask_key])
+        if value <= 0 or value & (value - 1):
+            raise ValueError(f"Invalid flag mask {mask_key}")
+        if name not in {"SOURCE", "FULLSAMPLE"}:
+            bits.add(value.bit_length() - 1)
     if not bits:
         raise ValueError("Missing flag definitions")
     mask = sum(1 << bit for bit in bits)

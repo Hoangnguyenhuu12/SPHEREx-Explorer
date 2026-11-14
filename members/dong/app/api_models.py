@@ -20,7 +20,7 @@ class Versioned(Model):
 
 class Health(Versioned):
     status: Literal["ok", "degraded"]
-    mode: Literal["fixture", "live"]
+    mode: Literal["fixture", "live", "local", "harvest"]
     fixture_targets: list[str]
     irsa_reachable: bool | None
     git_sha: str
@@ -160,6 +160,7 @@ class Photometry(Versioned):
     reference_star: ReferenceStar | None
     points: list[PhotometryPoint]
     variability: Variability | None
+    warnings: list[str] = []
 
 
 class Position(Model):
@@ -177,6 +178,8 @@ class AstrometryPoint(Model):
     measured: Measurement | None
     predicted: Position | None
     offset_arcsec: float | None = Field(ge=0)
+    residual_ra_mas: float | None = None
+    residual_dec_mas: float | None = None
     measured_px: Pixel | None
 
 
@@ -201,6 +204,7 @@ class Astrometry(Versioned):
     catalog_pm: CatalogPM
     points: list[AstrometryPoint]
     fit: MotionFit | None
+    warnings: list[str] = []
 
 
 class ErrorDetail(Model):

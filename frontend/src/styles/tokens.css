@@ -1,0 +1,60 @@
+/* Design tokens — source of truth: docs/DESIGN.md */
+:root {
+  color-scheme: dark;
+
+  --bg: #09090d;
+  --surface: #17171f;
+  --surface-2: #22222e;
+  --fg: #fff3d6;
+  --heading: #ffd184;
+  --muted: #c9c2b7;
+  --primary: #f4ef83;
+  --primary-hover: #fff59a;
+  --on-primary: #09090d;
+  --pink: #e948ac;
+  --blue: #2f9dd0;
+  --olive: #8f942f;
+  --line: #2a2a38;
+  --line-strong: #6b6b80;
+  --warn: #ffb45c;
+  --danger: #ff8a8a;
+
+  --font-display: 'Averia Serif Libre', Georgia, serif;
+  --font-body: 'Andika', system-ui, sans-serif;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+  --space-9: 96px;
+
+  --radius-sm: 4px;
+  --radius: 8px;
+
+  --wrap: 1200px;
+  --gutter: 48px;
+  --header-h: 64px;
+  --eyes-header-h: 56px;
+  --eyes-footer-h: 36px;
+  --control-h: 40px;
+
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --dur-hover: 120ms;
+  --dur-panel: 220ms;
+}
+
+@media (max-width: 1400px) {
+  :root {
+    --gutter: 40px;
+  }
+}
+
+@media (max-width: 720px) {
+  :root {
+    --gutter: 16px;
+  }
+}
