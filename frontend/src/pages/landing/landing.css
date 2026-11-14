@@ -365,10 +365,91 @@
   align-items: flex-end;
   gap: var(--space-6);
 }
+@media (max-width: 720px) {
+  .intro__head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .intro__head .sky-preview {
+    width: min(280px, 100%);
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   .landing-sky__glow,
   .hero__craft,
   .hero__art {
+    animation: none;
+  }
+}
+
+/* SPHEREx guide: the hero craft follows the reader and floats at the top-left of each section
+   (CraftGuide.tsx, craftTimeline.ts). Decorative; never over text. */
+.landing-flow {
+  position: relative;
+  /* The flying craft's SVG overflows its box; clip sideways without creating a scroll container. */
+  overflow-x: clip;
+}
+.craft-anchor {
+  position: absolute;
+  inset: 4%;
+  pointer-events: none;
+}
+.craft-guide {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 3;
+  pointer-events: none;
+  will-change: transform;
+}
+.craft-guide__float {
+  width: 100%;
+  height: 100%;
+  animation: craft-float 7s ease-in-out infinite;
+  filter: drop-shadow(0 0 28px rgb(244 239 131 / 0.25));
+}
+.craft-guide__svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.intro > .wrap,
+.about > .wrap,
+.cta__inner {
+  position: relative;
+}
+/* Dock: inside the section's top padding, aligned with the content's left edge, above the heading. */
+.craft-dock {
+  --dock: 96px;
+  position: absolute;
+  left: calc(var(--gutter) - 12px);
+  top: calc(-1 * var(--space-9) + 2px);
+  width: var(--dock);
+  height: var(--dock);
+  pointer-events: none;
+}
+.cta .craft-dock {
+  /* .cta__inner sits 140px below the artwork band. */
+  top: calc(-140px - var(--space-9) + 2px);
+}
+.craft-dock__svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  --craft-beam: 0;
+}
+@media (max-width: 720px) {
+  .craft-dock {
+    --dock: 64px;
+    left: calc(var(--gutter) - 6px);
+    top: calc(-1 * var(--space-9) + 14px);
+  }
+  .cta .craft-dock {
+    top: calc(-140px - var(--space-9) + 14px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .craft-guide__float {
     animation: none;
   }
 }

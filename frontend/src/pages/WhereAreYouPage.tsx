@@ -1,10 +1,11 @@
 import { useReducedMotion } from 'motion/react'
-import { ArrowRight, Pause, Play } from 'lucide-react'
+import { ArrowRight, Globe2, Pause, Play, Sun } from 'lucide-react'
 import { lazy, Suspense, useCallback, useRef, useState } from 'react'
 import { PATHS } from '../app/config'
 import { useRouteTransition } from '../features/route-transition/TransitionHost'
 import { webglAvailable } from '../features/earth-scene/webgl'
 import { StarfieldCanvas } from '../features/artwork/StarfieldCanvas'
+import type { SceneView } from '../features/earth-scene/EarthScene'
 import { NavDrawer, SiteFooter, SiteHeader } from '../shared/layout/Shell'
 import './where/where.css'
 
@@ -15,19 +16,22 @@ export default function WhereAreYouPage() {
   const [userPaused, setUserPaused] = useState(false)
   const [hover, setHover] = useState(false)
   const [earthReady, setEarthReady] = useState(false)
+  const [view, setView] = useState<SceneView>('earth')
   const onReady = useCallback(() => setEarthReady(true), [])
   const sunRef = useRef<HTMLSpanElement>(null)
-  const mercuryRef = useRef<HTMLSpanElement>(null)
-  const venusRef = useRef<HTMLSpanElement>(null)
-  const moonRef = useRef<HTMLSpanElement>(null)
-  const marsRef = useRef<HTMLSpanElement>(null)
-  const labels = { sun: sunRef, mercury: mercuryRef, venus: venusRef, moon: moonRef, mars: marsRef }
+  const earthRef = useRef<HTMLSpanElement>(null)
+  const spherexRef = useRef<HTMLSpanElement>(null)
+  const labels = { sun: sunRef, earth: earthRef, spherex: spherexRef }
   const [gl] = useState(webglAvailable)
   const { phase, launch } = useRouteTransition()
   const launching = phase === 'launching'
   const paused = userPaused || !!reduce
+  const solar = view === 'solar'
 
   const explore = useCallback(() => launch(PATHS.explorer), [launch])
+  const toggleView = useCallback(() => setView((v) => (v === 'solar' ? 'earth' : 'solar')), [])
+  // In the solar view, clicking Earth brings it back to the centre; in the Earth view it explores.
+  const onEarthClick = useCallback(() => (solar ? setView('earth') : explore()), [solar, explore])
 
   return (
     <>
@@ -36,7 +40,7 @@ export default function WhereAreYouPage() {
       </a>
       <SiteHeader />
       <NavDrawer />
-      <main id="main" className={`where${launching && !reduce ? ' is-launching' : ''}`}>
+      <main id="main" className={`where${launching && !reduce ? ' is-launching' : ''}${solar ? ' is-solar' : ''}`}>
         <StarfieldCanvas className="where__stars" density={1.1} shootingEverySec={2.2} drift={false} />
         <div className="where__scene">
           <h1 className="where__title">Where are you</h1>
@@ -46,21 +50,27 @@ export default function WhereAreYouPage() {
               <>
                 {!earthReady && <img className="where__static" src="/textures/earth-static.png" alt="" width={392} height={392} />}
                 <Suspense fallback={null}>
-                  <EarthScene paused={paused} launching={launching && !reduce} onEarthClick={explore} onHover={setHover} onReady={onReady} labels={labels} />
+                  <EarthScene
+                    view={view}
+                    instant={!!reduce}
+                    paused={paused}
+                    launching={launching && !reduce}
+                    onEarthClick={onEarthClick}
+                    onSunClick={toggleView}
+                    onHover={setHover}
+                    onReady={onReady}
+                    labels={labels}
+                  />
                 </Suspense>
-                {(
-                  [
-                    [sunRef, 'Sun'],
-                    [mercuryRef, 'Mercury'],
-                    [venusRef, 'Venus'],
-                    [moonRef, 'Moon'],
-                    [marsRef, 'Mars'],
-                  ] as const
-                ).map(([ref, name]) => (
-                  <span key={name} ref={ref} className="where__label" aria-hidden>
-                    {name}
-                  </span>
-                ))}
+                <span ref={sunRef} className="where__label where__label--center" aria-hidden>
+                  Sun
+                </span>
+                <span ref={earthRef} className="where__label where__label--center" aria-hidden>
+                  Earth
+                </span>
+                <span ref={spherexRef} className="where__label where__label--craft" aria-hidden translate="no">
+                  SPHEREx
+                </span>
               </>
             ) : (
               <button type="button" className="where__static-btn" onClick={explore} aria-label="Explore the sky from Earth">
@@ -82,15 +92,38 @@ export default function WhereAreYouPage() {
               Explore the sky <ArrowRight aria-hidden />
             </button>
             {gl && (
+              <button type="button" className="btn btn-secondary" onClick={toggleView} aria-pressed={solar}>
+                {solar ? <Globe2 aria-hidden /> : <Sun aria-hidden />}
+                {solar ? 'Back to Earth' : 'View from the Sun'}
+              </button>
+            )}
+            {gl && (
               <button type="button" className="btn btn-secondary" onClick={() => setUserPaused((p) => !p)} aria-pressed={paused} disabled={!!reduce}>
                 {paused ? <Play aria-hidden /> : <Pause aria-hidden />}
-                {reduce ? 'Rotation off (reduced motion)' : paused ? 'Resume rotation' : 'Pause rotation'}
+                {reduce ? 'Motion off (reduced motion)' : paused ? 'Resume motion' : 'Pause motion'}
               </button>
             )}
           </div>
 
+          {gl && (
+            <p className="where__fact" aria-live="polite">
+              <span className="where__fact-dot" aria-hidden />
+              {solar ? (
+                <span>
+                  Earth travels around the Sun once a year, and <strong translate="no">SPHEREx</strong> goes with it. Its orbit turns a
+                  little every day so it always rides the line between day and night — that is what a sun-synchronous orbit means.
+                </span>
+              ) : (
+                <span>
+                  <strong translate="no">SPHEREx</strong> circles Earth about 14.5 times a day, roughly 650 km up, passing over both poles
+                  along the line between day and night. On every orbit it scans a full ring of sky. Click the Sun to see Earth’s yearly path.
+                </span>
+              )}
+            </p>
+          )}
           <p className="caption where__caption">
-            Illustrative scene — sizes and distances not to scale.{!gl && ' 3D view unavailable on this device; showing a still image.'}
+            Illustrative scene — sizes, distances and speeds not to scale; SPHEREx is shown much larger and slower than it is.
+            {!gl && ' 3D view unavailable on this device; showing a still image.'}
           </p>
         </div>
       </main>

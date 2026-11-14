@@ -4,7 +4,7 @@ import { useId } from 'react'
  * Original stylised illustration of the SPHEREx observatory: three nested cone-shaped photon
  * shields around the telescope, a hexagonal spacecraft bus and a fixed solar panel. Not to scale.
  */
-export function SpherexCraft({ className }: { className?: string }) {
+export function SpherexCraft({ className, decorative = false }: { className?: string; decorative?: boolean }) {
   const id = useId().replace(/:/g, '')
   const metal = `metal-${id}`
   const inner = `inner-${id}`
@@ -12,7 +12,11 @@ export function SpherexCraft({ className }: { className?: string }) {
   const glow = `glow-${id}`
   const beam = `beam-${id}`
   return (
-    <svg className={className} viewBox="0 0 520 520" role="img" aria-label="Illustration of the SPHEREx space telescope">
+    <svg
+      className={className}
+      viewBox="0 0 520 520"
+      {...(decorative ? { "aria-hidden": true } : { role: "img", "aria-label": "Illustration of the SPHEREx space telescope" })}
+    >
       <defs>
         <linearGradient id={metal} x1="0" y1="0" x2="1" y2="0">
           <stop offset="0" stopColor="#7d7f8c" />
@@ -39,8 +43,8 @@ export function SpherexCraft({ className }: { className?: string }) {
         </linearGradient>
       </defs>
 
-      {/* Light collected by the telescope */}
-      <path d="M40 120 L250 205 L250 245 L40 300 Z" fill={`url(#${beam})`} opacity="0.55" />
+      {/* Light collected by the telescope. --craft-beam (0–1) lets the landing guide fade it out. */}
+      <path d="M40 120 L250 205 L250 245 L40 300 Z" fill={`url(#${beam})`} style={{ opacity: "calc(0.55 * var(--craft-beam, 1))" }} />
 
       <g transform="rotate(-18 300 260)">
         {/* Photon shields: three nested open cones */}
