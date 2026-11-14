@@ -1,6 +1,6 @@
 # Báo cáo tiếp nhận gói Full Harvest and Fusion
 
-Ngày kiểm tra: 14/11/2026. Gói gốc do thành viên nhóm cung cấp: `SPHEREx_Full_Harvest_and_Fusion_Data/` (cục bộ, không theo dõi bằng Git). Bản sao đã nhập: `data/imports/full_harvest_fusion/`. Cả 178 file trong gói gốc được đối chiếu SHA-256 với bản sao; không có sai khác. Giữ nguyên gói gốc và cấu trúc đường dẫn trong bản nhập.
+Ngày kiểm tra: 14/11/2026. Gói gốc do thành viên nhóm cung cấp: `data/imports/full_harvest_fusion_original/` (gói gốc `SPHEREx_Full_Harvest_and_Fusion_Data/`, cục bộ, không theo dõi bằng Git). Bản sao đã nhập: `data/imports/full_harvest_fusion/`. Cả 178 file trong gói gốc được đối chiếu SHA-256 với bản sao; không có sai khác. Giữ nguyên gói gốc và cấu trúc đường dẫn trong bản nhập.
 
 ## Thành phần
 
