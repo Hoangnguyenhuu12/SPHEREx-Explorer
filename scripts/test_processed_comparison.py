@@ -24,9 +24,8 @@ def test_current_irsa_flag_definitions_mask_bad_pixels():
         mask_flags(np.ones(3), np.zeros(3, dtype=int), header)
 
 
-@pytest.mark.parametrize('target,detector',[('wise0855',6),('epsilon_indi_b',6),('wise0855',3),('rw_aurigae',1)])
-def test_processed_pair_integrity(target,detector):
-    folder=ROOT/'data/processed'/f'{target}_d{detector}_comparison'
+@pytest.mark.parametrize('folder', sorted({p.parent for pattern in ('*_comparison/report.json', '*_pairs/*/report.json') for p in (ROOT/'data/processed').glob(pattern)}))
+def test_processed_pair_integrity(folder):
     if not (folder/'report.json').is_file():pytest.skip('Local processed DR1 products are not present')
     report=json.loads((folder/'report.json').read_text(encoding='utf8'))
     assert report['status']=='preliminary_engineering_diagnostic'
