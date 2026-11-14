@@ -56,7 +56,7 @@ Không dùng chữ in hoa giãn chữ hàng loạt. Chỉ `caption` của nhãn 
 
 ## 4. Control, focus, hình khối
 
-- Radius: `4` (ảnh khoa học, input), `8` (nút, popup, modal). Không bo tròn lớn kiểu bubble; pill chỉ cho chip preset.
+- Radius: `4` (ảnh khoa học, input), `8` (nút, popup, modal). Không bo tròn lớn kiểu bubble; pill chỉ cho chip preset và chip chủ đề (hashtag) của Forum (duyệt 14/11, M2).
 - Nút: chiều cao **40 px** (desktop), vùng chạm tối thiểu 40×40, nhãn `label`.
   - Primary: nền `--primary`, chữ `--bg`; hover sáng hơn 6%, press dịch 1 px.
   - Secondary: viền `--line-strong`, chữ `--fg`; hover nền `--surface-2`.
@@ -173,6 +173,18 @@ Bố cục bài viết: mục lục dính bên trái (240 px) liệt kê 6 phầ
 - Thanh công cụ map dọc mép phải; attribution của Aladin luôn thấy được ở góc dưới phải.
 - Nguồn survey nền và nguồn ảnh SPHEREx tách riêng: survey ghi ở footer gọn và góc map; ngày quan sát chỉ ở popup.
 - Chi tiết tab: Overview (mô tả, What to look for, toạ độ + copy, khoảng quan sát), Motion (đường đi đo/dự đoán, sai số), Brightness (đường cong ánh sáng), Data (detector, bước sóng, release, khoảng thời gian, cảnh báo, flags), More tools (Gaia overlay, click spectrum, false-color RGB, share/embed).
+
+### 7.6 Forum `/forum`, `/forum/posts/:id`, `/forum/new`, `/forum/my-posts`, `/admin/forum`
+
+Chi tiết: `docs/ui-design/` (phương án B + editor/diff của A). Tóm tắt quy ước:
+
+- Vùng đọc và nhập liệu: **không artwork, không glow**. Danh sách bài là các dòng phân cách `--line`, không phải lưới card.
+- Feed: cột chủ đề dính 240 px bên trái (mẫu `.story-toc`), danh sách tối đa 760 px. Dưới 1000 px cột chủ đề thành chip pill xuống dòng.
+- Chi tiết bài: cột chữ 72 ch + cột phụ 280 px chứa thẻ quan sát. Dưới 1000 px thẻ quan sát chuyển vào cột chữ.
+- Điểm nhấn duy nhất: **thẻ quan sát** (link The Eyes) có viền trái 3 px `--blue`.
+- Trạng thái luôn có chữ + icon + màu (`StatusBadge`): Draft `--muted`, Pending `--warn`, Published `--olive`, Rejected/Hidden `--danger`.
+- Kiểm duyệt: danh sách 340 px + panel duyệt (mẫu popup The Eyes); dưới 1000 px chuyển thành danh sách → trang xem.
+- Dialog dùng chung `shared/ui/Dialog.tsx`: focus trap, Esc, trả focus, không cuộn nền.
 
 ## 8. Tiêu chí review quan sát được
 
