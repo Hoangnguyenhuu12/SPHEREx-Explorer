@@ -25,7 +25,7 @@ Không truyền tọa độ J2026 vào trường J2000.
 - Cùng thang asinh trong mỗi detector, cùng thang ảnh hiệu đối xứng trong chuỗi.
 - `predicted_px` dùng gốc trên trái: `(x_fits, height-1-y_fits)`.
 - PNG gốc không vẽ dấu thập; `crosshair_url` là ảnh riêng cùng kích thước pixel.
-- Thiếu dữ liệu màu `#703090`. RGB gán D6/D3/D1 vào R/G/B trên cùng lưới.
+- Thiếu dữ liệu màu `#000000`. RGB gán D6/D3/D1 vào R/G/B trên cùng lưới.
 - Không suy biến thiên từ ảnh hiệu chưa khớp bước sóng, PSF và nền.
 
 Chạy `.venv/Scripts/python.exe members/huu-hoang/build_frames.py` để tạo

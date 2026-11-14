@@ -77,7 +77,7 @@ def export_result_previews(reference, aligned, footprint, valid, norm, unit):
             )
         else:
             cmap = plt.get_cmap("gray").copy()
-            cmap.set_bad("#703090")
+            cmap.set_bad("#000000")
             im = ax.imshow(data, origin="lower", cmap=cmap, norm=norm, interpolation="nearest")
         ax.set_title(title)
         ax.set_xlabel("x pixel (zero based)")
@@ -194,7 +194,7 @@ def export_blink(reference, aligned, valid, norm, unit):
     """Blink only common valid pixels, with identical geometry and display scale."""
     frames = []
     cmap = plt.get_cmap("gray").copy()
-    cmap.set_bad("#703090")
+    cmap.set_bad("#000000")
     for year, data in [(2025, reference), (2026, aligned)]:
         fig, ax = plt.subplots(figsize=(7, 7), dpi=120)
         fig.subplots_adjust(left=0.12, right=0.84, bottom=0.15, top=0.86)

@@ -42,7 +42,7 @@ def main():
             report = json.loads((ROOT / 'data/spherex' / args.target / 'selection_report.json').read_text(encoding='utf8'))
             paths = [parse_qs(urlsplit(url).query)['path'][0] for url in selection.read_text(encoding='utf8').splitlines() if url]
             keys = [re.search(r'level2_(.+?)D([1-6])_spx_', path) for path in paths]
-            if any(m is None for m in keys) or not keys or any(report['files'].get(f'{m.group(1)}_D{m.group(2)}', {}).get('status') not in {'downloaded', 'already_downloaded', 'deferred_503'} for m in keys):
+            if any(m is None for m in keys) or not keys or any(report['files'].get(f'{m.group(1)}_D{m.group(2)}', {}).get('status') not in {'downloaded', 'already_downloaded', 'deferred_503', 'deferred_timeout'} for m in keys):
                 raise RuntimeError('Download failed; inspect selection report')
         if run('screen_comparison_candidates.py'):
             raise RuntimeError('Screening failed')

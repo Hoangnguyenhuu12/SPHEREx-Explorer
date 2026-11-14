@@ -327,7 +327,7 @@ Task này cần issue từ buổi tích hợp của Thạch/Nguyên và app củ
 
 **Bước 1 — giữ kiểm tra căn ảnh và thang màu.** Các kiểm tra căn ảnh/ghép ảnh tiếp tục kiểm tâm/hướng tọa độ, ảnh xoay/lệch và phép median/trừ. Demo dữ liệu thật ở phần căn ảnh đo lệch tương đối các nguồn nền; không ép mục tiêu chuyển động về giữa. `combine_observation_frames.py` đã dùng chung ngưỡng percentile 2/99,5 và asinh cho các đợt của một detector, dùng thang hiệu đối xứng ±percentile 99 của trị tuyệt đối. Đây là tham số hiển thị thực hành đã dùng, chưa phải tham số cuối được cả nhóm duyệt. Không tự dịch ảnh thật khi chưa có bằng chứng lỗi căn từ issue.
 
-**Bước 2 — sửa lỗi tự phát hiện: màu của vùng không có số đo trên ảnh hiệu.** Bản bản dựng chuỗi ảnh trước khi sửa màu dùng `RdBu_r` mặc định: NaN (Not a Number — không có số đo hữu hạn) có thể hiện trong suốt/trắng, dễ bị hiểu nhầm thành hiệu gần 0. Đã sửa trong [combine_observation_frames.py](combine_observation_frames.py) để NaN hiện tím `#703090`, thống nhất với ảnh median. Chỉ đổi hiển thị; không điền số 0 và không đổi phép trừ FITS.
+**Bước 2 — sửa lỗi tự phát hiện: màu của vùng không có số đo trên ảnh hiệu.** Bản bản dựng chuỗi ảnh trước khi sửa màu dùng `RdBu_r` mặc định: NaN (Not a Number — không có số đo hữu hạn) có thể hiện trong suốt/trắng, dễ bị hiểu nhầm thành hiệu gần 0. Đã sửa trong [combine_observation_frames.py](combine_observation_frames.py) để NaN hiện đen `#000000`, thống nhất với ảnh median. Chỉ đổi hiển thị; không điền số 0 và không đổi phép trừ FITS.
 
 ![Cùng một ảnh hiệu trước/sau sửa màu vùng thiếu](../../data/observation_products/change_candidates/missing_data_display_comparison.png)
 

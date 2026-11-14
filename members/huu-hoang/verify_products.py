@@ -58,7 +58,7 @@ def main():
                     h["MEDIAN"].data,
                     origin="lower",
                     norm=norm,
-                    cmap=plt.get_cmap("gray").with_extremes(bad="#703090"),
+                    cmap=plt.get_cmap("gray").with_extremes(bad="#000000"),
                 )
             axes[row, col].set_title(f"{target} / {frame['label']} / n={frame['n_inputs']}")
         rgb = json.loads((folder / "rgb_report.json").read_text())
@@ -85,7 +85,7 @@ def main():
         summary.append(record)
     fig.suptitle(
         "Five-target sample / D3 first and last visit / false-color last visit\n"
-        "Fixed J2026 TAN grids; purple=missing/masked; no detection or variability claim"
+        "Fixed J2026 TAN grids; black=missing/masked; no detection or variability claim"
     )
     fig.savefig(BASE / "overview.png", dpi=150)
     plt.close(fig)

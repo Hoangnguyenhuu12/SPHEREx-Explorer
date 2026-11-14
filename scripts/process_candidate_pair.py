@@ -19,12 +19,14 @@ from reproject import reproject_interp
 from download_spherex import ROOT, coordinate, save_json
 
 sys.path.insert(0, str(ROOT))
+# Masked/no-data pixels: pure black (team choice for the demo).
+MASK_COLOR='#000000';MASK_RGB=[0,0,0]
 imaging=import_module('members.huu-hoang.tan_pipeline')
-def main(target,detector,observations=None,output=None):
+def main(target,detector,observations=None,output=None,screening_path=None):
     out=Path(output).resolve() if output else ROOT/'data/processed'/f'{target}_d{detector}_comparison'
     if not out.resolve().is_relative_to((ROOT/'data/processed').resolve()):
         raise ValueError('Output must be within data/processed')
-    screening=json.loads((ROOT/'data/reports/comparison_candidates.json').read_text(encoding='utf8'))
+    screening=json.loads((Path(screening_path) if screening_path else ROOT/'data/reports/comparison_candidates.json').read_text(encoding='utf8'))
     pairs=[p for p in screening['targets'][target]['candidate_pairs'] if p['detector']==detector]
     if observations:
         pairs=[p for p in pairs if set(p['observations'])==set(observations)]
@@ -63,8 +65,8 @@ def main(target,detector,observations=None,output=None):
     hdus=fits.HDUList([fits.PrimaryHDU(),fits.ImageHDU(data[0].astype('float32'),header=hdr,name='EPOCH1'),fits.ImageHDU(data[1].astype('float32'),header=hdr,name='EPOCH2'),fits.ImageHDU(common.astype('uint8'),header=grid.to_header(),name='COMMON'),fits.ImageHDU(spectral_ok.astype('uint8'),header=grid.to_header(),name='SPECTRAL_MATCH'),fits.ImageHDU(difference.astype('float32'),header=hdr,name='DIFFERENCE')])
     hdus.writeto(out/'aligned_diagnostic.fits',overwrite=True,checksum=True)
     fig,axes=plt.subplots(1,3,figsize=(12,4.4),layout='constrained')
-    gray_cmap=plt.get_cmap('gray').copy();gray_cmap.set_bad('magenta')
-    diff_cmap=plt.get_cmap('coolwarm').copy();diff_cmap.set_bad('magenta')
+    gray_cmap=plt.get_cmap('gray').copy();gray_cmap.set_bad(MASK_COLOR)
+    diff_cmap=plt.get_cmap('coolwarm').copy();diff_cmap.set_bad(MASK_COLOR)
     for idx in range(2):
         im=axes[idx].imshow(np.ma.masked_invalid(np.where(common,data[idx],np.nan)),origin='lower',cmap=gray_cmap,vmin=lo,vmax=hi)
         axes[idx].scatter(*predicted[idx],marker='+',c='deepskyblue',s=120,linewidths=1.5)
@@ -72,14 +74,14 @@ def main(target,detector,observations=None,output=None):
     axes[2].imshow(np.ma.masked_invalid(difference),origin='lower',cmap=diff_cmap,vmin=-diff_limit,vmax=diff_limit)
     axes[2].set_title('Epoch 2 − epoch 1\nDiagnostic only')
     for ax in axes:ax.set_xlabel('x (pixel)');ax.set_ylabel('y (pixel)')
-    fig.suptitle(f'{target} D{detector} · DR1 · predicted position marked + · magenta = masked\nNot a confirmed detection; no PSF matching',fontsize=10)
+    fig.suptitle(f'{target} D{detector} · DR1 · predicted position marked + · black = no data (masked)\nNot a confirmed detection; no PSF matching',fontsize=10)
     fig.colorbar(im,ax=axes[:2],label='MJy/sr')
     fig.savefig(out/'comparison.png',dpi=150);plt.close(fig)
     images=[]
     for idx,d in enumerate(data):
         scaled=np.where(common,np.clip((d-lo)/(hi-lo),0,1),0)
         pixels=np.uint8(np.nan_to_num(scaled,nan=0)*255)
-        rgb=np.repeat(pixels[::-1,:,None],3,axis=2);rgb[~common[::-1]]=[255,0,255]
+        rgb=np.repeat(pixels[::-1,:,None],3,axis=2);rgb[~common[::-1]]=MASK_RGB
         img=Image.fromarray(rgb).resize((470,470),resample=Image.Resampling.NEAREST)
         draw=ImageDraw.Draw(img);draw.rectangle((0,0,470,28),fill='black');draw.text((6,6),inputs[idx]['iso_utc'][:10]+' UTC - diagnostic',fill='white')
         px=(predicted[idx][0]+.5)*470/shape[1];py=(shape[0]-.5-predicted[idx][1])*470/shape[0]
@@ -95,5 +97,6 @@ if __name__=='__main__':
     parser.add_argument('--detector',type=int,choices=range(1,7),default=6)
     parser.add_argument('--observations',nargs=2,help='Exact observation IDs of a screened pair')
     parser.add_argument('--output',help='Output directory within data/processed')
+    parser.add_argument('--screening',help='Screening report to use instead of the shared report')
     args=parser.parse_args()
-    main(args.target,args.detector,args.observations,args.output)
+    main(args.target,args.detector,args.observations,args.output,args.screening)

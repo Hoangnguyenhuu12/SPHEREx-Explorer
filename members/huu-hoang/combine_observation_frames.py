@@ -121,7 +121,7 @@ def make_frames(ra, dec, fov, det, *, manifest=None, output=None, gap_days=30):
         limit = float(np.finfo(float).eps)
     for index, (product, image) in enumerate(zip(products, arrays)):
         fig, ax = plt.subplots(figsize=(6, 5), constrained_layout=True)
-        cmap = plt.get_cmap("gray").with_extremes(bad="#703090")
+        cmap = plt.get_cmap("gray").with_extremes(bad="#000000")
         im = ax.imshow(image, origin="lower", cmap=cmap, norm=norm)
         start, end = Time(product["selected_mjd"], format="mjd").iso
         ax.set_title(
@@ -138,7 +138,7 @@ def make_frames(ra, dec, fov, det, *, manifest=None, output=None, gap_days=30):
             output / f"{name}.fits", overwrite=True
         )
         fig, ax = plt.subplots(figsize=(6, 5), constrained_layout=True)
-        difference_cmap = plt.get_cmap("RdBu_r").with_extremes(bad="#703090")
+        difference_cmap = plt.get_cmap("RdBu_r").with_extremes(bad="#000000")
         im = ax.imshow(diff, origin="lower", cmap=difference_cmap, vmin=-limit, vmax=limit)
         ax.set_title(name + "\nVisual difference; wavelengths/PSF/background unmatched", fontsize=9)
         fig.colorbar(im, ax=ax, label=unit)
