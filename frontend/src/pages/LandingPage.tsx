@@ -1,7 +1,10 @@
 import { ArrowRight, BookOpen } from 'lucide-react'
+import { useReducedMotion } from 'motion/react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router'
 import { PATHS } from '../app/config'
 import { Artwork } from '../features/artwork/Artwork'
+import { CraftDock, CraftGuide } from '../features/artwork/CraftGuide'
 import { SkyPreview } from '../features/artwork/SkyPreview'
 import { SpherexCraft } from '../features/artwork/SpherexCraft'
 import { StarfieldCanvas } from '../features/artwork/StarfieldCanvas'
@@ -17,6 +20,18 @@ const STEPS = [
 ]
 
 export default function LandingPage() {
+  const reduce = useReducedMotion()
+  const flowRef = useRef<HTMLDivElement>(null)
+  const heroAnchor = useRef<HTMLSpanElement>(null)
+  const introDock = useRef<HTMLSpanElement>(null)
+  const aboutDock = useRef<HTMLSpanElement>(null)
+  const ctaDock = useRef<HTMLSpanElement>(null)
+  const anchors = useMemo(() => [heroAnchor, introDock, aboutDock, ctaDock], [])
+  // The flying guide takes over the hero craft once it has measured the page.
+  const [guideReady, setGuideReady] = useState(false)
+  const onGuideReady = useCallback(() => setGuideReady(true), [])
+  const guided = !reduce && guideReady
+
   return (
     <PageShell header="landing">
       <div className="landing-sky" aria-hidden>
@@ -24,6 +39,8 @@ export default function LandingPage() {
         <span className="landing-sky__glow landing-sky__glow--a" />
         <span className="landing-sky__glow landing-sky__glow--b" />
       </div>
+      <div className="landing-flow" ref={flowRef}>
+      {!reduce && <CraftGuide containerRef={flowRef} anchorRefs={anchors} onReady={onGuideReady} />}
       <section className="hero" aria-labelledby="hero-title">
         <div className="wrap hero__grid">
           <div className="hero__copy">
@@ -48,7 +65,8 @@ export default function LandingPage() {
           <div className="hero__visual">
             <StarfieldCanvas className="hero__meteors" density={0.25} shootingEverySec={1.4} drift={false} />
             <Artwork variant="hero" className="hero__art" />
-            <div className="hero__craft">
+            <span ref={heroAnchor} className="craft-anchor" aria-hidden />
+            <div className="hero__craft" style={guided ? { visibility: 'hidden' } : undefined}>
               <SpherexCraft className="hero__craft-svg" />
             </div>
           </div>
@@ -57,6 +75,7 @@ export default function LandingPage() {
 
       <section className="intro" aria-labelledby="intro-title">
         <div className="wrap">
+          <CraftDock ref={introDock} still={!!reduce} />
           <div className="intro__head">
             <div>
               <h2 id="intro-title">How it works</h2>
@@ -80,6 +99,7 @@ export default function LandingPage() {
 
       <section className="about" aria-labelledby="about-title">
         <div className="wrap about__grid">
+          <CraftDock ref={aboutDock} still={!!reduce} />
           <div>
             <h2 id="about-title">About us</h2>
             <p className="about__text">
@@ -106,6 +126,7 @@ export default function LandingPage() {
       <section className="cta" aria-labelledby="cta-title">
         <Artwork variant="band" className="cta__art" />
         <div className="wrap cta__inner">
+          <CraftDock ref={ctaDock} still={!!reduce} />
           <h2 id="cta-title">Start from Earth</h2>
           <p>Begin at home, then look out at the stars SPHEREx has been watching.</p>
           <Link to={PATHS.entry} className="btn btn-primary btn-lg">
@@ -113,6 +134,7 @@ export default function LandingPage() {
           </Link>
         </div>
       </section>
+      </div>
     </PageShell>
   )
 }
