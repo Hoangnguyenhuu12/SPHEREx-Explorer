@@ -240,7 +240,7 @@ export function SiteFooter() {
           </ul>
         </nav>
         <p className="caption site-footer__credit">
-          Not affiliated with or endorsed by NASA. Earth imagery: NASA Blue Marble. Sky survey in The Eyes: DSS2 via CDS
+          Not affiliated with or endorsed by NASA. Earth imagery: NASA Blue Marble. Sky map in The Eyes: SPHEREx DR1 all-sky cube via IRSA (DSS2 via CDS as fallback)
           Aladin Lite.
         </p>
       </div>
