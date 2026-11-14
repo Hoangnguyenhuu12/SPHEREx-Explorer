@@ -180,12 +180,13 @@ def load_database_cutouts(query):
         if match is None or int(match.group(1)) != query.detector:
             continue
         metadata = product.get("metadata") or {}
-        relative = metadata.get("relative_path") or metadata.get("fits_path")
+        relative = product.get("local_file") or metadata.get("relative_path") or metadata.get("fits_path")
         if not relative:
             continue
         path = Path(relative)
         if not path.is_absolute():
-            path = Path(os.getenv("DATA_DIR", "data")) / path
+            data_dir = Path(os.getenv("DATA_DIR", "data"))
+            path = data_dir.joinpath(*path.parts[1:]) if path.parts[0] == "data" else data_dir / path
         if not path.is_file():
             continue
         result.append(Cutout(path.resolve(), str(product.get("obs_id", path.stem)), query.detector, float(product.get("mjd_start")), str(product.get("collection", "")).removeprefix("spherex_"), "", path.stat().st_size, path.stat().st_mtime_ns))

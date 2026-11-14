@@ -3,6 +3,8 @@
 import os
 
 import requests
+import psycopg
+from psycopg.rows import dict_row
 
 
 class DatabaseError(RuntimeError):
@@ -11,6 +13,19 @@ class DatabaseError(RuntimeError):
 
 def enabled():
     return os.getenv("DATA_MODE") == "database"
+
+
+def _postgres_enabled():
+    return bool(os.getenv("PGHOST") and os.getenv("PGUSER"))
+
+
+def _query(sql, params=()):
+    try:
+        with psycopg.connect(connect_timeout=15, row_factory=dict_row) as conn:
+            conn.read_only = True
+            return conn.execute(sql, params).fetchall()
+    except psycopg.Error as exc:
+        raise DatabaseError("Supabase database query failed") from exc
 
 
 def _get(table, params=None):
@@ -51,12 +66,15 @@ def _get_paginated(table, params=None, page_size=_PAGE_SIZE):
 
 
 def health():
+    if _postgres_enabled():
+        _query("SELECT target_key FROM sky_archive.targets LIMIT 1")
+        return True
     _get("targets", {"select": "target_key", "limit": "1"})
     return True
 
 
 def targets():
-    rows = _get("targets")
+    rows = _query("SELECT * FROM sky_archive.targets") if _postgres_enabled() else _get("targets")
     result = {}
     for row in rows:
         key = row.get("target_key") or row.get("id")
@@ -76,6 +94,14 @@ def find_target(name):
 
 
 def products_for_target(target_key):
+    if _postgres_enabled():
+        return _query("""SELECT DISTINCT p.*, f.provenance->>'local_file' AS local_file
+                         FROM sky_archive.target_products tp
+                         JOIN sky_archive.products p ON p.product_id = tp.product_id
+                         LEFT JOIN sky_archive.dr1_frames f
+                           ON f.product_id = p.product_id AND f.target_key = tp.target_key
+                              AND f.download_status = 'downloaded'
+                         WHERE tp.target_key = %s ORDER BY p.mjd_start""", (target_key,))
     links = _get("target_products", {"select": "product_id", "target_key": f"eq.{target_key}"})
     ids = [row.get("product_id") for row in links if row.get("product_id")]
     if not ids:

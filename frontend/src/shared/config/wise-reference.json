@@ -1,0 +1,26 @@
+{
+  "manifestUrl": "https://gprawwpsgvhfzwyfoout.supabase.co/storage/v1/object/public/spherex-dr1-demo/wise-reference/allwise-v1/manifest.json",
+  "blinkManifestUrl": "https://gprawwpsgvhfzwyfoout.supabase.co/storage/v1/object/public/spherex-dr1-demo/wise-reference/unwise-wise0855-w2-v1/manifest.json",
+  "blinkManifests": {
+    "wise0855": {
+      "W1": "https://gprawwpsgvhfzwyfoout.supabase.co/storage/v1/object/public/spherex-dr1-demo/wise-reference/unwise-wise0855-w1-v1/manifest.json",
+      "W2": "https://gprawwpsgvhfzwyfoout.supabase.co/storage/v1/object/public/spherex-dr1-demo/wise-reference/unwise-wise0855-w2-v1/manifest.json"
+    },
+    "barnard": {
+      "W1": "https://gprawwpsgvhfzwyfoout.supabase.co/storage/v1/object/public/spherex-dr1-demo/wise-reference/unwise-barnard-w1-v1/manifest.json",
+      "W2": "https://gprawwpsgvhfzwyfoout.supabase.co/storage/v1/object/public/spherex-dr1-demo/wise-reference/unwise-barnard-w2-v1/manifest.json"
+    },
+    "epsindib": {
+      "W1": "https://gprawwpsgvhfzwyfoout.supabase.co/storage/v1/object/public/spherex-dr1-demo/wise-reference/unwise-epsindib-w1-v1/manifest.json",
+      "W2": "https://gprawwpsgvhfzwyfoout.supabase.co/storage/v1/object/public/spherex-dr1-demo/wise-reference/unwise-epsindib-w2-v1/manifest.json"
+    },
+    "rwaur": {
+      "W1": "https://gprawwpsgvhfzwyfoout.supabase.co/storage/v1/object/public/spherex-dr1-demo/wise-reference/unwise-rwaur-w1-v1/manifest.json",
+      "W2": "https://gprawwpsgvhfzwyfoout.supabase.co/storage/v1/object/public/spherex-dr1-demo/wise-reference/unwise-rwaur-w2-v1/manifest.json"
+    },
+    "rdra": {
+      "W1": "https://gprawwpsgvhfzwyfoout.supabase.co/storage/v1/object/public/spherex-dr1-demo/wise-reference/unwise-rdra-w1-v1/manifest.json",
+      "W2": "https://gprawwpsgvhfzwyfoout.supabase.co/storage/v1/object/public/spherex-dr1-demo/wise-reference/unwise-rdra-w2-v1/manifest.json"
+    }
+  }
+}

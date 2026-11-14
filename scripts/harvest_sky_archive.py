@@ -307,7 +307,8 @@ def export(args, regions):
                     association = ("target_key", "source_id", *SEARCH_COLUMNS)
                     output.writelines(insert("target_gaia_dr3", (*association, "search_frame"), association,
                                              [(key, row[0], *footprint, "ICRS") for row in gaia]))
-            output.write("COMMIT;\n")
+            metadata_migration = ROOT / "supabase/sky_archive/20261115010000_products_dr1_metadata.sql"
+            output.write(metadata_migration.read_text(encoding="utf-8") + "\nCOMMIT;\n")
             output.close()
             temporary.replace(args.output)
         finally:

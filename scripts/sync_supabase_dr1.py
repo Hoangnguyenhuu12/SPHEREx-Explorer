@@ -288,9 +288,16 @@ def main():
             db_products[(tkey, obs, int(band[-1]))] = mjd
             db_ids.add(pid)
         frames = collect_frames(db_products)
-        cur.execute("select pair_id, extract(epoch from updated_at) from sky_archive.dr1_pairs where upload_status = 'uploaded'")
-        uploaded = {pid: float(ts) for pid, ts in cur.fetchall()}
-        pairs = collect_pairs(frames, storage, uploaded)
+        # dr1_pairs may be retired by the team (sequences supersede it); never recreate it here.
+        cur.execute("select to_regclass('sky_archive.dr1_pairs') is not null")
+        has_pairs = cur.fetchone()[0]
+        if not has_pairs:
+            print('sky_archive.dr1_pairs not present: skipping pairs, syncing frames and sequences only')
+        uploaded = {}
+        if has_pairs:
+            cur.execute("select pair_id, extract(epoch from updated_at) from sky_archive.dr1_pairs where upload_status = 'uploaded'")
+            uploaded = {pid: float(ts) for pid, ts in cur.fetchall()}
+        pairs = collect_pairs(frames, storage, uploaded) if has_pairs else []
         # Only one primary per target+detector (the *_comparison folder); guard against duplicates.
         # Screened primaries win over display-only ones for the same target+detector.
         pairs.sort(key=lambda p: p['pair_kind'] != 'screened')
@@ -305,8 +312,9 @@ def main():
         if args.dry_run:
             return
         upsert(cur, 'dr1_frames', 'frame_id', list(frames.values()), FRAME_COLS)
-        cur.execute('update sky_archive.dr1_pairs set is_primary = false where pair_id <> all(%s)', [[p['pair_id'] for p in pairs if p['is_primary']]])
-        upsert(cur, 'dr1_pairs', 'pair_id', pairs, PAIR_COLS)
+        if has_pairs:
+            cur.execute('update sky_archive.dr1_pairs set is_primary = false where pair_id <> all(%s)', [[p['pair_id'] for p in pairs if p['is_primary']]])
+            upsert(cur, 'dr1_pairs', 'pair_id', pairs, PAIR_COLS)
         # Sequences (additive; pairs above are unchanged).
         cur.execute("select sequence_id, extract(epoch from updated_at) from sky_archive.dr1_sequences where upload_status = 'uploaded'")
         seq_uploaded = {sid: float(ts) for sid, ts in cur.fetchall()}
@@ -315,7 +323,7 @@ def main():
         upsert(cur, 'dr1_sequences', 'sequence_id', sequences, SEQ_COLS)
         print('sequences', len(sequences), dict(Counter(s['upload_status'] for s in sequences)))
         conn.commit()
-        print('synced to sky_archive.dr1_frames / dr1_pairs')
+        print('synced to sky_archive.dr1_frames' + (' / dr1_pairs' if has_pairs else '') + ' / dr1_sequences')
 
 
 if __name__ == '__main__':
