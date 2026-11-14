@@ -398,7 +398,7 @@
   position: absolute;
   left: 0;
   top: 0;
-  z-index: 3;
+  z-index: 0;
   pointer-events: none;
   will-change: transform;
 }
@@ -413,40 +413,17 @@
   height: 100%;
   overflow: visible;
 }
+/* Section text paints above the craft, so the craft can never hide words. */
 .intro > .wrap,
 .about > .wrap,
 .cta__inner {
   position: relative;
+  z-index: 1;
 }
-/* Dock: inside the section's top padding, aligned with the content's left edge, above the heading. */
-.craft-dock {
-  --dock: 96px;
+.craft-still {
   position: absolute;
-  left: calc(var(--gutter) - 12px);
-  top: calc(-1 * var(--space-9) + 2px);
-  width: var(--dock);
-  height: var(--dock);
+  z-index: 0;
   pointer-events: none;
-}
-.cta .craft-dock {
-  /* .cta__inner sits 140px below the artwork band. */
-  top: calc(-140px - var(--space-9) + 2px);
-}
-.craft-dock__svg {
-  width: 100%;
-  height: 100%;
-  overflow: visible;
-  --craft-beam: 0;
-}
-@media (max-width: 720px) {
-  .craft-dock {
-    --dock: 64px;
-    left: calc(var(--gutter) - 6px);
-    top: calc(-1 * var(--space-9) + 14px);
-  }
-  .cta .craft-dock {
-    top: calc(-140px - var(--space-9) + 14px);
-  }
 }
 @media (prefers-reduced-motion: reduce) {
   .craft-guide__float {

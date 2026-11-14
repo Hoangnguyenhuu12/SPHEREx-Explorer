@@ -39,12 +39,13 @@ describe('craft timeline', () => {
     expect(interpolate(1e6, t.input, t.y)).toBe(docks[2].y)
   })
 
-  it('tilts and swings sideways only mid-flight', () => {
+  it('tilts mid-flight and swings out towards the left margin, away from the text', () => {
     const depart = 64 + docks[1].y - vh * 0.95
     const arrive = 64 + docks[1].y - vh * 0.3
     const mid = (depart + arrive) / 2
     expect(interpolate(mid, t.input, t.rotate)).toBeGreaterThan(0)
-    expect(interpolate(mid, t.input, t.x)).toBeGreaterThan(docks[0].x)
+    expect(interpolate(mid, t.input, t.x)).toBeLessThan(docks[0].x)
+    expect(interpolate(mid, t.input, t.x)).toBeGreaterThanOrEqual(4)
   })
 })
 

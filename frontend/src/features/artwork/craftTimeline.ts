@@ -58,8 +58,9 @@ export function buildTimeline(anchors: Anchor[], containerTop: number, viewport:
     const dx = to.x - from.x
     const dy = to.y - from.y
     const dist = Math.hypot(dx, dy)
+    // Swing out towards the left margin, away from the text column.
     const mid = {
-      x: (from.x + to.x) / 2 + ARC * dist * 0.35,
+      x: Math.max(4, Math.min(from.x, to.x) - ARC * dist * 0.2),
       y: (from.y + to.y) / 2,
       size: (from.size + to.size) / 2,
     }
