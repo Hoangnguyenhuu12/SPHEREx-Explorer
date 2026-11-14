@@ -45,6 +45,10 @@ def mask_flags(pixels, flags, header):
     return np.where(np.isfinite(pixels) & ((flags & mask) == 0), pixels, np.nan)
 
 
+# Masked/no-data pixels: pure black #000000 (team choice for the demo).
+MISSING_RGB = (0, 0, 0)
+
+
 def png_bytes(rgb):
     buffer = io.BytesIO()
     Image.fromarray(np.flipud(rgb).astype(np.uint8)).save(buffer, format="PNG")
@@ -59,12 +63,12 @@ def stretch(pixels, low, high):
 def frame_png(pixels, low, high):
     gray = stretch(pixels, low, high)
     rgb = np.repeat(gray[..., None], 3, axis=-1)
-    rgb[~np.isfinite(pixels)] = [112, 48, 144]
+    rgb[~np.isfinite(pixels)] = MISSING_RGB
     return png_bytes(rgb)
 
 
 def diff_png(pixels, limit):
-    """Red positive, blue negative, purple missing, one symmetric series scale."""
+    """Red positive, blue negative, black missing, one symmetric series scale."""
     value = np.clip(np.nan_to_num(pixels, nan=0.0) / max(limit, 1e-12), -1, 1)
     rgb = np.stack(
         [
@@ -74,12 +78,12 @@ def diff_png(pixels, limit):
         ],
         axis=-1,
     )
-    rgb[~np.isfinite(pixels)] = [112, 48, 144]
+    rgb[~np.isfinite(pixels)] = MISSING_RGB
     return png_bytes(np.rint(rgb))
 
 
 def rgb_png(d6, d3, d1):
-    """D6/D3/D1 -> R/G/B, same aligned grid required; missing -> purple."""
+    """D6/D3/D1 -> R/G/B, same aligned grid required; missing -> black."""
     planes = [np.asarray(p, dtype=float) for p in (d6, d3, d1)]
     if len({p.shape for p in planes}) != 1 or planes[0].ndim != 2:
         raise ValueError("RGB planes must share a 2-D sky grid")
@@ -90,7 +94,7 @@ def rgb_png(d6, d3, d1):
             raise ValueError("RGB channel has no usable pixels")
         channels.append(stretch(plane, *np.percentile(finite, [2, 99.5])))
     rgb = np.stack(channels, axis=-1)
-    rgb[~np.all(np.isfinite(planes), axis=0)] = [112, 48, 144]
+    rgb[~np.all(np.isfinite(planes), axis=0)] = MISSING_RGB
     return png_bytes(rgb)
 
 

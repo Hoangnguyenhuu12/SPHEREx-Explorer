@@ -106,7 +106,7 @@ VITE_USE_MOCK=false
    * Khi chọn **`Synthetic stars (offline)`** ở mục `Gaia layer`, bản đồ Aladin Lite chủ động ngắt tải nền ảnh DSS/HiPS từ máy chủ CDS từ xa và chỉ hiển thị **40 vòng tròn sao mẫu màu vàng trên nền xám** — đây là hành vi đúng thiết kế giúp chạy ổn định khi mất mạng hoặc bị chặn kết nối tới CDS.
    * Muốn xem nền trời thật và dữ liệu Gaia DR3 thật (khi có mạng), chuyển `Gaia layer` sang `Gaia DR3 (CDS / VizieR)`.
 3. **Hiểu đúng các cảnh báo khoa học (`Warnings`):**
-   * `SATURATION_POSSIBLE`: Sao mục tiêu quá sáng làm một số pixel ở tâm có thể bị bão hòa (được mask tím `#703090` khi xử lý để không làm sai lệch phép đo).
+   * `SATURATION_POSSIBLE`: Sao mục tiêu quá sáng làm một số pixel ở tâm có thể bị bão hòa (được mask đen `#000000` khi xử lý để không làm sai lệch phép đo).
    * `MIXED_WAVELENGTH`: Bộ lọc biến thiên tuyến tính (LVF) của SPHEREx khiến các khung khác vị trí trên detector có bước sóng hơi lệch nhau; biến thiên độ sáng có thể do màu sắc chứ không chỉ do chuyển động.
    * `FEW_FRAMES`: Xuất hiện khi một cấu hình lọc ra ít hơn 3 khung (với 2 khung vẫn giữ lại để quan sát, nhưng chưa đủ 3 thời điểm độc lập để kết luận chắc chắn chuyển động riêng).
 4. **Dấu thập đỏ (`Crosshair`) và vị trí ngôi sao:**
