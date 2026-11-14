@@ -72,3 +72,8 @@ def photometry(query: Annotated[PhotometryQuery, Query()]):
 @router.get("/api/astrometry", response_model=Astrometry, responses=ERRORS)
 def astrometry(query: Annotated[ScienceQuery, Query()]):
     return fixtures.astrometry(query)
+
+
+@router.get("/api/spectrum", responses=ERRORS)
+def spectrum(query: Annotated[ScienceQuery, Query()]):
+    return fixtures.spectrum(query)
