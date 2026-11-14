@@ -60,7 +60,7 @@ def real_mode():
 
 
 def live_mode():
-    return os.getenv("DATA_MODE", "live") in {"live", "harvest"}
+    return os.getenv("DATA_MODE", "live") in {"live", "harvest", "database"}
 
 
 def archive_cutouts(query, directory):
