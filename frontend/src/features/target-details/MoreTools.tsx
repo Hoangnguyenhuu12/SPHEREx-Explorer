@@ -7,7 +7,7 @@ import { describeError } from '../../shared/api/errors'
 import type { FramesResponse } from '../../shared/api/types'
 import type { TargetInfo } from '../../shared/config/targets'
 import { framesQueryKey } from '../blink/useFrameSession'
-import { DemoTag, SpectrumResult } from './SciencePanels'
+import { DemoTag } from './SciencePanels'
 import { formatUtcDate } from './format'
 
 interface Props {
@@ -18,9 +18,6 @@ interface Props {
   gaia: boolean
   setGaia: (v: boolean) => void
   gaiaStatus: { status: 'idle' | 'loading' | 'ready' | 'error'; count?: number }
-  pick: boolean
-  setPick: (v: boolean) => void
-  picked: { ra: number; dec: number; x: number; y: number } | null
   shareUrl: string
   embedUrl: string
 }
@@ -165,15 +162,6 @@ export function MoreTools(p: Props) {
                 ? `${p.gaiaStatus.count ?? 'Some'} Gaia DR3 sources brighter than G = 18 within 6′ (ESA/Gaia via VizieR). Positions are at the Gaia epoch J2016.`
                 : 'Real catalog data from ESA/Gaia via VizieR, drawn on the sky map.'}
         </p>
-      </section>
-
-      <section className="tool">
-        <h4>Spectrum at a point</h4>
-        <label className="check">
-          <input type="checkbox" checked={p.pick} onChange={(e) => p.setPick(e.target.checked)} disabled={!p.data} />
-          Pick a point on the image
-        </label>
-        {p.pick || p.picked ? <SpectrumResult position={p.picked} /> : null}
       </section>
 
       <section className="tool">

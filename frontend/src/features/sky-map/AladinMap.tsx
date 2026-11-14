@@ -1,6 +1,8 @@
 import A from 'aladin-lite'
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
+import { mapPosition } from '../../shared/config/epoch'
 import { TARGETS, type TargetKey } from '../../shared/config/targets'
+import { aladinSliceArgument, DSS_SURVEY, sliceForDetector, SPHEREX_SURVEY, type SurveyInfo } from './surveys'
 import './sky-map.css'
 
 /**
@@ -27,11 +29,13 @@ interface Props {
   onStatus?: (status: 'loading' | 'ready' | 'error', message?: string) => void
   onGaiaStatus?: (status: 'loading' | 'ready' | 'error', count?: number) => void
   onSourceSelected?: (s: { ra: number; dec: number; sourceId: string | null; gmag: number | null }) => void
+  /** SPHEREx detector 1–6: the background shows that detector's middle wavelength. */
+  detector?: number
+  /** Which background survey actually loaded (SPHEREx, or DSS2 when IRSA is unreachable). */
+  onSurvey?: (survey: SurveyInfo) => void
 }
 
-export const SURVEY = { id: 'CDS/P/DSS2/color', label: 'DSS2 color', credit: 'Digitized Sky Survey, HiPS by CDS' }
-
-/** Official HiPS mirrors of CDS/P/DSS2/color, tried in order (CDS primary first). */
+/** Official HiPS mirrors of CDS/P/DSS2/color: fallback when the SPHEREx cube cannot be reached. */
 const SURVEY_MIRRORS = [
   'https://alasky.cds.unistra.fr/DSS/DSSColor',
   'https://irsa.ipac.caltech.edu/data/hips/CDS/DSS2/color',
@@ -40,6 +44,12 @@ const SURVEY_MIRRORS = [
 ]
 
 export const GAIA_RADIUS_DEG = 0.1
+
+/**
+ * Closest map zoom: the SPHEREx DR1 HiPS is only ~12.9″ per pixel, so zooming further shows big
+ * blocks. Readout 1/tan(fov/2) = 300 → about 30,000%, half of the previous ~60,000% maximum.
+ */
+const MIN_FOV_DEG = (2 * Math.atan(1 / 300) * 180) / Math.PI
 
 /** VizieR mirrors for Gaia DR3 (I/355/gaiadr3). */
 const VIZIER_MIRRORS = ['https://vizier.cds.unistra.fr', 'https://vizier.cfa.harvard.edu', 'https://vizier.iucaa.in']
@@ -72,26 +82,33 @@ async function pickVizier(ra: number, dec: number): Promise<string | null> {
   return null
 }
 
-async function pickSurveyUrl(): Promise<string> {
-  for (const base of SURVEY_MIRRORS) {
-    try {
-      const ctrl = new AbortController()
-      const t = setTimeout(() => ctrl.abort(), 4000)
-      const res = await fetch(`${base}/properties`, { signal: ctrl.signal })
-      clearTimeout(t)
-      if (res.ok) return base
-    } catch {
-      // try the next mirror
-    }
+async function reachable(base: string, ms: number): Promise<boolean> {
+  try {
+    const ctrl = new AbortController()
+    const t = setTimeout(() => ctrl.abort(), ms)
+    const res = await fetch(`${base}/properties`, { signal: ctrl.signal })
+    clearTimeout(t)
+    return res.ok
+  } catch {
+    return false
   }
-  return SURVEY_MIRRORS[0]
+}
+
+async function pickSurvey(): Promise<SurveyInfo> {
+  if (await reachable(SPHEREX_SURVEY.url, 6000)) return SPHEREX_SURVEY
+  for (const base of SURVEY_MIRRORS) {
+    if (await reachable(base, 4000)) return { ...DSS_SURVEY, url: base }
+  }
+  return { ...DSS_SURVEY, url: SURVEY_MIRRORS[0] }
 }
 
 // oxlint-disable-next-line typescript/no-explicit-any
 type AladinInstance = any
 
+export { SURVEY, type SurveyInfo } from './surveys'
+
 export const AladinMap = forwardRef<SkyMapHandle, Props>(function AladinMap(
-  { initial, selectedKey, onTargetSelected, onFovChanged, onStatus, onGaiaStatus, onSourceSelected },
+  { initial, selectedKey, onTargetSelected, onFovChanged, onStatus, onGaiaStatus, onSourceSelected, detector = 6, onSurvey },
   ref,
 ) {
   const hostRef = useRef<HTMLDivElement>(null)
@@ -103,6 +120,7 @@ export const AladinMap = forwardRef<SkyMapHandle, Props>(function AladinMap(
   const motionRef = useRef<number | null>(null)
   const onSelectRef = useRef(onTargetSelected)
   const [ready, setReady] = useState(false)
+  const surveyRef = useRef<SurveyInfo | null>(null)
   onSelectRef.current = onTargetSelected
   const onSourceRef = useRef(onSourceSelected)
   onSourceRef.current = onSourceSelected
@@ -112,11 +130,13 @@ export const AladinMap = forwardRef<SkyMapHandle, Props>(function AladinMap(
     const host = hostRef.current
     if (!host) return
     onStatus?.('loading')
-    Promise.all([A.init, pickSurveyUrl()])
-      .then(([, surveyUrl]) => {
+    Promise.all([A.init, pickSurvey()])
+      .then(([, survey]) => {
         if (disposed || !host) return
+        surveyRef.current = survey
+        onSurvey?.(survey)
         const aladin = A.aladin(host, {
-          survey: surveyUrl,
+          survey: survey.url,
           projection: 'TAN',
           fov: initial.fovDeg,
           target: `${initial.ra} ${initial.dec}`,
@@ -139,8 +159,18 @@ export const AladinMap = forwardRef<SkyMapHandle, Props>(function AladinMap(
           showFov: false,
         })
         aladinRef.current = aladin
+        let clamping = false
         const reportFov = (fovDeg: number) => {
-          if (!disposed && Number.isFinite(fovDeg) && fovDeg > 0 && fovDeg < 180) onFovChanged(fovDeg)
+          if (disposed || !Number.isFinite(fovDeg) || fovDeg <= 0 || fovDeg >= 180) return
+          if (fovDeg < MIN_FOV_DEG && !clamping) {
+            // Wheel, pinch or buttons went past the limit: snap back to it.
+            clamping = true
+            aladin.setFoV(MIN_FOV_DEG)
+            clamping = false
+            onFovChanged(MIN_FOV_DEG)
+            return
+          }
+          onFovChanged(fovDeg)
         }
         aladin.on('zoomChanged', reportFov)
         reportFov(aladin.getFov()[0])
@@ -155,7 +185,13 @@ export const AladinMap = forwardRef<SkyMapHandle, Props>(function AladinMap(
           labelColor: '#FFF3D6',
           labelFont: '14px Andika, sans-serif',
         })
-        cat.addSources(TARGETS.map((t) => A.source(t.raDeg, t.decDeg, { name: t.shortName, key: t.key })))
+        // Markers at the stars' positions in the SPHEREx DR1 map epoch, not J2000 (proper motion).
+        cat.addSources(
+          TARGETS.map((t) => {
+            const p = mapPosition(t)
+            return A.source(p.ra, p.dec, { name: t.shortName, key: t.key })
+          }),
+        )
         aladin.addCatalog(cat)
         targetCatRef.current = cat
 
@@ -191,12 +227,35 @@ export const AladinMap = forwardRef<SkyMapHandle, Props>(function AladinMap(
     // oxlint-disable-next-line react/exhaustive-deps
   }, [])
 
+  // Cube background: show the frame for the chosen detector. Aladin picks the cube's first frame when
+  // the layer is added, so wait until the layer reports itself added before setting ours.
+  useEffect(() => {
+    const a = aladinRef.current
+    if (!ready || !a || !surveyRef.current?.cube) return
+    const slice = sliceForDetector(detector)
+    let tries = 0
+    let timer = 0
+    const apply = () => {
+      const layer = a.getBaseImageLayer?.()
+      if (layer?.added && typeof layer.setSliceNumber === 'function') {
+        layer.setSliceNumber(aladinSliceArgument(slice, layer))
+        return
+      }
+      if (++tries < 40) timer = window.setTimeout(apply, 150)
+    }
+    apply()
+    return () => window.clearTimeout(timer)
+  }, [ready, detector])
+
   useEffect(() => {
     const sel = selectedCatRef.current
     if (!ready || !sel) return
     sel.removeAll()
     const t = TARGETS.find((x) => x.key === selectedKey)
-    if (t) sel.addSources([A.source(t.raDeg, t.decDeg, { key: t.key })])
+    if (t) {
+      const p = mapPosition(t)
+      sel.addSources([A.source(p.ra, p.dec, { key: t.key })])
+    }
   }, [ready, selectedKey])
 
   useImperativeHandle(
@@ -205,7 +264,7 @@ export const AladinMap = forwardRef<SkyMapHandle, Props>(function AladinMap(
       focus(ra, dec, fovDeg) {
         const a = aladinRef.current
         if (!a) return
-        if (fovDeg) a.setFoV(fovDeg)
+        if (fovDeg) a.setFoV(Math.max(MIN_FOV_DEG, fovDeg))
         if (typeof a.animateToRaDec === 'function') a.animateToRaDec(ra, dec, 0.8)
         else a.gotoRaDec(ra, dec)
       },
@@ -265,7 +324,11 @@ export const AladinMap = forwardRef<SkyMapHandle, Props>(function AladinMap(
         })
       },
       zoomIn() {
-        aladinRef.current?.increaseZoom()
+        const a = aladinRef.current
+        if (!a) return
+        a.increaseZoom()
+        const f = a.getFov?.()
+        if (Array.isArray(f) && f[0] < MIN_FOV_DEG) a.setFoV(MIN_FOV_DEG)
       },
       zoomOut() {
         aladinRef.current?.decreaseZoom()

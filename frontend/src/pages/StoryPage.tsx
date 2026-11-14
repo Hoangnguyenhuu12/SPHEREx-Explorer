@@ -192,7 +192,7 @@ export default function StoryPage() {
             <h3 className="chapter__sub">Inside The Eyes</h3>
             <ul className="plain-list">
               <li>
-                A real sky map (Aladin Lite with the DSS2 colour survey), with an RA/Dec grid, a horizon to give a sense of
+                A real sky map (Aladin Lite with the SPHEREx DR1 all-sky cube), with an RA/Dec grid, a horizon to give a sense of
                 standing on Earth, and an optional view of the sky turning as the Earth rotates. <Status kind="built" />
               </li>
               <li>
@@ -300,7 +300,7 @@ export default function StoryPage() {
             <h3 className="chapter__sub">Other sources</h3>
             <ul className="plain-list">
               <li>Target positions and motions: SIMBAD (CDS), epoch J2000.</li>
-              <li>Background sky map: Digitized Sky Survey (DSS2 colour), served as HiPS by CDS and mirrors, shown with Aladin Lite.</li>
+              <li>Background sky map: SPHEREx DR1 all-sky data cube, served as HiPS by Caltech/IPAC (IRSA) and shown with Aladin Lite; DSS2 colour from CDS is the fallback when IRSA is unreachable.</li>
               <li>Catalogue stars on the map: ESA Gaia DR3 via VizieR.</li>
               <li>Earth imagery on the “Where are you” page: NASA Blue Marble.</li>
             </ul>

@@ -12,7 +12,8 @@ import { useOverlay } from '../shared/layout/overlay'
 import { formatDecDms, formatRaHms } from '../features/target-search/coordinates'
 import { usePlayer } from '../features/blink/player'
 import { useFrameSession } from '../features/blink/useFrameSession'
-import { AladinMap, SURVEY, type SkyMapHandle } from '../features/sky-map/AladinMap'
+import { AladinMap, SURVEY, type SkyMapHandle, type SurveyInfo } from '../features/sky-map/AladinMap'
+import { mapPosition } from '../shared/config/epoch'
 import { TargetPopup } from '../features/target-details/TargetPopup'
 import type { ViewerToggles } from '../features/target-details/ObservationViewer'
 import { TargetSearch } from '../features/target-search/TargetSearch'
@@ -77,8 +78,13 @@ export default function TheEyesPage() {
     return null
   }, [target, rq, resolved.data])
 
+  // The map shows the SPHEREx DR1 sky, so centre it where the target is in that epoch. The frames
+  // request keeps J2000 coordinates: the backend moves the star to each observation date itself.
+  const mapCoords = useMemo(() => (target ? mapPosition(target) : coords), [target, coords])
+
   const title = target?.name ?? (rq.kind === 'name' && resolved.data ? resolved.data.name : coords ? 'Custom position' : '')
   const detector = sel.detector || target?.recommendedDetector || 6
+  const [survey, setSurvey] = useState<SurveyInfo>(SURVEY)
 
   const framesParams = useMemo(
     () =>
@@ -107,8 +113,8 @@ export default function TheEyesPage() {
     lastQ.current = sel.q
     setSkyMotion(false)
     open('target')
-    mapRef.current?.focus(coords.ra, coords.dec, 0.6)
-  }, [coords, sel.q, open])
+    if (mapCoords) mapRef.current?.focus(mapCoords.ra, mapCoords.dec, 0.6)
+  }, [coords, mapCoords, sel.q, open])
 
   const commit = useCallback(
     (next: Partial<Selection>, replace = false) => {
@@ -123,7 +129,8 @@ export default function TheEyesPage() {
       const t = TARGET_BY_KEY.get(key)!
       if (sel.q === key) {
         open('target')
-        mapRef.current?.focus(t.raDeg, t.decDeg, 0.6)
+        const p = mapPosition(t)
+        mapRef.current?.focus(p.ra, p.dec, 0.6)
         return
       }
       commit({ q: key, detector: 0, fovArcmin: null })
@@ -175,8 +182,8 @@ export default function TheEyesPage() {
 
   const center = useCallback(() => {
     setSkyMotion(false)
-    if (coords) mapRef.current?.focus(coords.ra, coords.dec, 0.6)
-  }, [coords])
+    if (mapCoords) mapRef.current?.focus(mapCoords.ra, mapCoords.dec, 0.6)
+  }, [mapCoords])
 
   const popupOpen = overlay === 'target' && !!coords
 
@@ -263,7 +270,7 @@ export default function TheEyesPage() {
       <main id="sky" className="eyes__stage" ref={stageRef}>
         <AladinMap
           ref={mapRef}
-          initial={coords ? { ra: coords.ra, dec: coords.dec, fovDeg: 0.6 } : { ra: 266.4, dec: -12, fovDeg: DEFAULT_MAP_FOV_DEG }}
+          initial={mapCoords ? { ra: mapCoords.ra, dec: mapCoords.dec, fovDeg: 0.6 } : { ra: 266.4, dec: -12, fovDeg: DEFAULT_MAP_FOV_DEG }}
           selectedKey={target?.key ?? null}
           onTargetSelected={selectTarget}
           onFovChanged={setMapFovDeg}
@@ -273,6 +280,8 @@ export default function TheEyesPage() {
             close('navigation')
             setSource(s)
           }}
+          detector={detector}
+          onSurvey={setSurvey}
         />
 
         {mapStatus.s !== 'ready' && (
@@ -411,7 +420,8 @@ export default function TheEyesPage() {
       <CompactFooter>
         <span className="sep">·</span>
         <span>
-          Sky survey: {SURVEY.label} ({SURVEY.credit})
+          Sky survey: {survey.label}
+          {survey.cube ? `, detector D${detector}` : ''} ({survey.credit})
         </span>
         <span className="sep">·</span>
         <span className={config.useMock ? 'demo-tag' : undefined}>{dataLabel}</span>
