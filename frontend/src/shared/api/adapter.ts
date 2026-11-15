@@ -33,7 +33,7 @@ export interface ObservationApi {
   image(url: string, signal?: AbortSignal): Promise<ImageBitmap>
   photometry(q: TargetQuery, signal?: AbortSignal): Promise<PhotometryResponse>
   astrometry(q: TargetQuery, signal?: AbortSignal): Promise<AstrometryResponse>
-  spectrum(q: { ra: number; dec: number; targetKey?: string }, signal?: AbortSignal): Promise<SpectrumResponse>
+  spectrum(q: { ra: number; dec: number; detector?: number; targetKey?: string }, signal?: AbortSignal): Promise<SpectrumResponse>
   flags(frameId: string, signal?: AbortSignal): Promise<FlagsResponse>
   hipsLayers(signal?: AbortSignal): Promise<HipsLayersResponse>
   skyArchiveGaia(targetKey: string, signal?: AbortSignal): Promise<SkyArchiveGaiaResponse>

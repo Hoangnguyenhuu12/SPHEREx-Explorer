@@ -211,9 +211,9 @@ export function SiteHeader({ variant = 'default', children }: { variant?: Header
           (children ?? (
             <>
               <span className="site-header__spacer" />
-              <Link to={PATHS.explorer} className="btn btn-secondary">
+              <Link to={PATHS.explorer} className="btn btn-secondary" aria-label="Open The Eyes">
                 <Eye aria-hidden />
-                Open The Eyes
+                <span className="hide-narrow">Open The Eyes</span>
               </Link>
             </>
           ))

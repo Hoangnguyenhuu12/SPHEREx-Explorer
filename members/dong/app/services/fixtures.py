@@ -15,7 +15,7 @@ from ..api_models import (
     ScienceQuery,
     Target,
 )
-from .catalog import resolve_name, targets
+from .catalog import position_at, resolve_name, targets
 from . import combined_timeline, database_provider
 from .frame_rendering import NoCoverage
 from .live_cutouts import (
@@ -342,6 +342,7 @@ def spectrum(query: ScienceQuery):
     from astropy.coordinates import SkyCoord
     from astropy.io import fits
     from astropy.wcs import WCS
+    detector = query.detector or 6
     paths = []
     if harvest_mode():
         root = ROOT / "data" / "harvest" / str(query.target_key) / "spherex"
@@ -355,7 +356,7 @@ def spectrum(query: ScienceQuery):
             target_key=query.target_key,
             ra=query.ra,
             dec=query.dec,
-            detector=query.detector,
+            detector=detector,
             size=0.1,
             max_frames=60,
         )
@@ -372,15 +373,20 @@ def spectrum(query: ScienceQuery):
     points = []
     sky = SkyCoord(query.ra, query.dec, unit="deg")
     for path in paths:
-        if query.detector is not None and f"_D{query.detector}_" not in path.name:
-            continue
         try:
             with fits.open(path, memmap=False) as hdus:
                 image = hdus["IMAGE"].data
                 variance = hdus["VARIANCE"].data
                 flags = hdus["FLAGS"].data
                 wcs = WCS(hdus["IMAGE"].header, fobj=hdus).celestial
-                x, y = wcs.world_to_pixel(sky)
+                header = hdus["IMAGE"].header
+                raw_detector = str(header.get("DETECTOR", detector)).strip().upper().removeprefix("D")
+                frame_detector = int(raw_detector)
+                if frame_detector != detector:
+                    continue
+                mjd = float(header.get("MJD-AVG", header.get("MJD", 0.0)))
+                frame_sky = position_at(query.target_key, mjd) if query.target_key and mjd else None
+                x, y = wcs.world_to_pixel(frame_sky or sky)
                 approximate = not (0 <= x < image.shape[1] and 0 <= y < image.shape[0])
                 ix = max(0, min(image.shape[1] - 1, round(x)))
                 iy = max(0, min(image.shape[0] - 1, round(y)))
@@ -402,32 +408,16 @@ def spectrum(query: ScienceQuery):
                     ty = (y - ys[iy0]) / (ys[iy0 + 1] - ys[iy0])
                     wave = float((1 - tx) * (1 - ty) * values[0, iy0, ix0] + tx * (1 - ty) * values[0, iy0, ix0 + 1] + (1 - tx) * ty * values[0, iy0 + 1, ix0] + tx * ty * values[0, iy0 + 1, ix0 + 1])
                 if wave is None or not (wave > 0):
-                    wave = {1: 0.92, 2: 1.38, 3: 2.03, 4: 3.12, 5: 4.12, 6: 4.71}[int(path.name.split("_D", 1)[1].split("_", 1)[0])]
-                detector = int(path.name.split("_D", 1)[1].split("_", 1)[0])
-                points.append({"wavelength_um": wave, "flux_mjy": None if flagged else value * 1e3, "err_mjy": None if flagged else (var ** 0.5) * 1e3, "flagged": flagged, "detector": detector, "warnings": ["GRID_TO_NATIVE_APPROXIMATION"] if approximate else []})
-        except (OSError, KeyError, ValueError, TypeError):
+                    wave = {1: 0.92, 2: 1.38, 3: 2.03, 4: 3.12, 5: 4.12, 6: 4.71}[frame_detector]
+                points.append({"wavelength_um": wave, "flux_mjy": None if flagged else value * 1e3, "err_mjy": None if flagged else (var ** 0.5) * 1e3, "flagged": flagged, "detector": frame_detector, "warnings": ["GRID_TO_NATIVE_APPROXIMATION"] if approximate else []})
+        except (OSError, KeyError, ValueError, TypeError, IndexError):
             continue
     if not points:
-        # A cutout can carry a native WCS whose alternate spectral table is not
-        # directly invertible after reprojection. Keep the tool usable by
-        # returning the central detector pixel with an explicit quality warning.
-        central = {1: 0.92, 2: 1.38, 3: 2.03, 4: 3.12, 5: 4.12, 6: 4.71}
-        for path in paths:
-            if query.detector is not None and f"_D{query.detector}_" not in path.name:
-                continue
-            try:
-                with fits.open(path, memmap=False) as hdus:
-                    image = hdus["IMAGE"].data
-                    variance = hdus["VARIANCE"].data
-                    flags = hdus["FLAGS"].data
-                    iy, ix = image.shape[0] // 2, image.shape[1] // 2
-                    detector = int(path.name.split("_D", 1)[1].split("_", 1)[0])
-                    flagged = bool(flags[iy, ix]) or not (float(variance[iy, ix]) > 0)
-                    points.append({"wavelength_um": central[detector], "flux_mjy": None if flagged else float(image[iy, ix]) * 1e3, "err_mjy": None if flagged else float(variance[iy, ix]) ** 0.5 * 1e3, "flagged": flagged, "detector": detector, "warnings": ["GRID_TO_NATIVE_APPROXIMATION", "CENTRAL_PIXEL_FALLBACK"]})
-            except (OSError, KeyError, ValueError, TypeError):
-                continue
-        if not points:
-            fail(404, "NO_SPECTRUM", "No valid spectral pixels cover this position.")
+        fail(404, "NO_SPECTRUM", "No valid spectral pixels cover this position.", {
+            "target_key": query.target_key,
+            "detector": detector,
+            "position_epoch": "propagated_to_each_fits_mjd",
+        })
     return {
         "api_version": "0.1",
         "mode": os.getenv("DATA_MODE", "fixture"),

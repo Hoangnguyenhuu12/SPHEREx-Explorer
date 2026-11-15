@@ -82,6 +82,17 @@ select {
   padding-inline: var(--gutter);
 }
 
+/* Label that collapses to its icon on narrow phones (the link keeps an aria-label). */
+@media (max-width: 440px) {
+  .hide-narrow {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+  }
+}
 .sr-only {
   position: absolute;
   width: 1px;
