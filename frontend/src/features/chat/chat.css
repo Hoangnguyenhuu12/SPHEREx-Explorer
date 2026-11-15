@@ -1,0 +1,320 @@
+/* Star guide chat (features/chat). Design: docs/ui-design/STAR_CHAT_UI_PLAN.md.
+   Uses the shared tokens, .btn, .icon-btn, .chip and .input.
+   Pages can set --chat-bottom (launcher offset) and --chat-top (room kept under the header) on body. */
+.star-chat {
+  position: fixed;
+  right: var(--space-4);
+  bottom: var(--chat-bottom, var(--space-4));
+  /* Above the header and nav drawer, below target popups (300), dialogs (400) and route transitions (500). */
+  z-index: 250;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-2);
+}
+/* The guided tour of The Eyes is the help on screen: no second helper on top of it. */
+body:has(.tour) .star-chat {
+  display: none;
+}
+
+.star-chat .star-chat__fab {
+  width: 52px;
+  height: 52px;
+  padding: 0;
+  border-radius: 999px;
+  box-shadow: 0 6px 20px rgb(0 0 0 / 0.45);
+}
+.star-chat .star-chat__fab svg {
+  width: 22px;
+  height: 22px;
+}
+
+.star-chat__panel {
+  width: min(380px, calc(100vw - 2 * var(--space-4)));
+  height: min(560px, calc(100dvh - var(--chat-top, var(--header-h)) - var(--chat-bottom, var(--space-4)) - 52px - 2 * var(--space-4)));
+  min-height: 280px;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  color: var(--fg);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  box-shadow: 0 12px 40px rgb(0 0 0 / 0.5);
+  overflow: hidden;
+  transform-origin: bottom right;
+  animation: star-chat-in var(--dur-panel) var(--ease-out);
+}
+@keyframes star-chat-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+.star-chat__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: 56px;
+  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-4);
+  border-bottom: 1px solid var(--line);
+}
+.star-chat__heading {
+  flex: 1;
+  min-width: 0;
+}
+.star-chat__title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 18px;
+  line-height: 24px;
+  color: var(--heading);
+}
+.star-chat__title svg {
+  width: 16px;
+  height: 16px;
+  stroke-width: 1.75;
+}
+.star-chat__sub,
+.star-chat__label,
+.star-chat__tag,
+.star-chat__foot {
+  margin: 0;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--muted);
+}
+
+.star-chat__list {
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.star-chat__msg {
+  margin: 0;
+  font-size: 14px;
+  line-height: 20px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.star-chat__msg--assistant,
+.star-chat__msg--user {
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius);
+  max-width: 88%;
+}
+.star-chat__msg--assistant {
+  align-self: flex-start;
+  background: var(--surface-2);
+}
+.star-chat__msg--user {
+  align-self: flex-end;
+  background: var(--primary);
+  color: var(--on-primary);
+}
+
+/* Assistant answer: source tag, bubble, optional action. */
+.star-chat__answer {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+}
+.star-chat__answer .star-chat__msg--assistant {
+  max-width: 100%;
+}
+.star-chat__tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.star-chat__tag svg {
+  width: 14px;
+  height: 14px;
+  color: var(--blue);
+}
+.star-chat__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--olive);
+}
+.star-chat__open {
+  margin-top: var(--space-1);
+}
+
+/* Refusals and errors: no bubble, a left rule says which one it is. */
+.star-chat__notice {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-1) 0 var(--space-1) var(--space-3);
+  border-left: 3px solid var(--line-strong);
+  border-radius: 0;
+}
+.star-chat__notice > svg {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  color: var(--muted);
+}
+.star-chat__notice--notice .star-chat__msg {
+  color: var(--muted);
+}
+.star-chat__notice--error {
+  border-left-color: var(--danger);
+}
+.star-chat__notice--error > svg {
+  color: var(--danger);
+}
+.star-chat__retry {
+  margin-top: var(--space-1);
+  margin-left: calc(-1 * var(--space-2));
+}
+
+/* Typing indicator: three dots; still text with reduced motion. */
+.star-chat__typing {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: 14px;
+}
+.star-chat__dots {
+  display: inline-flex;
+  gap: 4px;
+}
+.star-chat__dots i {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--muted);
+  animation: star-chat-dot 1.2s ease-in-out infinite;
+}
+.star-chat__dots i:nth-child(2) {
+  animation-delay: 0.15s;
+}
+.star-chat__dots i:nth-child(3) {
+  animation-delay: 0.3s;
+}
+@keyframes star-chat-dot {
+  0%,
+  60%,
+  100% {
+    opacity: 0.3;
+  }
+  30% {
+    opacity: 1;
+  }
+}
+
+.star-chat__faq {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.star-chat__faq .chip-list {
+  flex-direction: column;
+  align-items: flex-start;
+}
+.star-chat__faq .chip {
+  white-space: normal;
+  text-align: left;
+  padding-block: var(--space-1);
+}
+.star-chat__faq .star-chat__chip--current {
+  border-color: var(--primary);
+}
+
+.star-chat__form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  border-top: 1px solid var(--line);
+}
+.star-chat__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+.star-chat__row .input {
+  flex: 1;
+  min-width: 0;
+}
+.star-chat__send:not(:disabled) {
+  color: var(--primary);
+}
+.star-chat__foot {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding-inline: var(--space-1);
+}
+.star-chat__count--warn {
+  color: var(--warn);
+}
+
+/* Phones (and The Eyes below 1100 px): a bottom sheet over a dimmed page. */
+.star-chat__backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgb(0 0 0 / 0.5);
+}
+.star-chat--sheet .star-chat__fab {
+  width: 48px;
+  height: 48px;
+}
+.star-chat--sheet .star-chat__panel {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100vw;
+  height: 85dvh;
+  min-height: 0;
+  border-width: 1px 0 0;
+  border-radius: var(--radius) var(--radius) 0 0;
+  transform-origin: bottom center;
+  animation-name: star-chat-sheet-in;
+}
+@keyframes star-chat-sheet-in {
+  from {
+    transform: translateY(24px);
+    opacity: 0;
+  }
+}
+.star-chat--sheet .star-chat__form {
+  padding-bottom: calc(var(--space-2) + env(safe-area-inset-bottom));
+}
+/* The open sheet has its own close button: the launcher would sit on top of the composer. */
+.star-chat--sheet:has(.star-chat__panel) .star-chat__fab {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .star-chat__panel,
+  .star-chat--sheet .star-chat__panel {
+    animation: star-chat-fade 120ms linear;
+  }
+  .star-chat__dots {
+    display: none;
+  }
+}
+@keyframes star-chat-fade {
+  from {
+    opacity: 0;
+  }
+}

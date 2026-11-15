@@ -1,6 +1,12 @@
 :root {
   --dock-h: 52px;
 }
+/* Star guide chat (features/chat): sit above the compact footer and the dock, and keep the
+   Tutorial toggle in the top-right corner of the map uncovered. */
+body:has(.eyes) {
+  --chat-bottom: calc(var(--eyes-footer-h) + var(--dock-h) + 2 * var(--space-3));
+  --chat-top: calc(var(--eyes-header-h) + 44px + 2 * var(--space-3));
+}
 .eyes {
   height: 100vh;
   display: grid;

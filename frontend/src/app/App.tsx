@@ -5,6 +5,7 @@ import { AuthProvider } from '../features/auth/session'
 import { TransitionHost } from '../features/route-transition/TransitionHost'
 import { OverlayProvider } from '../shared/layout/overlay'
 import { PATHS } from './config'
+import { StarChat } from '../features/chat/StarChat'
 
 const LandingPage = lazy(() => import('../pages/LandingPage'))
 const StoryPage = lazy(() => import('../pages/StoryPage'))
@@ -34,6 +35,7 @@ function Root() {
           <Suspense fallback={<div className="route-loading" role="status">Loading…</div>}>
             <Outlet />
           </Suspense>
+          <StarChat />
         </TransitionHost>
       </OverlayProvider>
     </AuthProvider>
