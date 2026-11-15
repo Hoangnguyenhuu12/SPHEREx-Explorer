@@ -274,3 +274,16 @@ CI/CD (`.github/workflows/ci.yml`):
 New schema changes go in a new file `supabase/migrations/<UTC yyyymmddhhmmss>_<name>.sql`.
 Never edit or rename a migration that a project has already applied: the file name
 must match the version recorded in `supabase_migrations.schema_migrations`.
+
+### Hybrid coordinate lookup
+
+Set `DATA_MODE=hybrid` with the astronomy archive settings used by database
+mode. Catalog targets keep the existing database playback, including the
+combined timeline when selected. Requests with only RA/Dec, without
+`target_key`, use SIA2 and IRSA cutouts. The requested detector and cutout size
+are passed to the existing live pipeline.
+
+For local development, set the astronomy project's `SUPABASE_URL` and
+`SUPABASE_ANON_KEY` in the backend env file, then run
+`python scripts/run_hybrid_api.py --env-file <path-to-env>`. Use the existing
+`SUPABASE_SCHEMA` setting if the archive schema differs from `sky_archive`.

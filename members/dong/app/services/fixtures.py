@@ -21,6 +21,7 @@ from .frame_rendering import NoCoverage
 from .live_cutouts import (
     cached_result,
     harvest_mode,
+    hybrid_mode,
     load_cutouts,
     load_database_spherex_frames,
     workspace,
@@ -66,7 +67,7 @@ def real_mode():
 
 
 def live_mode():
-    return os.getenv("DATA_MODE", "live") in {"live", "harvest", "database"}
+    return os.getenv("DATA_MODE", "live") in {"live", "harvest", "database", "hybrid"}
 
 
 def archive_cutouts(query, directory):
@@ -96,11 +97,12 @@ def target(query):
 
 def health():
     if database_provider.enabled():
+        mode = "hybrid" if hybrid_mode() else "database"
         try:
             database_provider.health()
-            result = {"api_version": "0.1", "status": "ok", "mode": "database", "fixture_targets": [], "irsa_reachable": False}
+            result = {"api_version": "0.1", "status": "ok", "mode": mode, "fixture_targets": [], "irsa_reachable": None if hybrid_mode() else False}
         except database_provider.DatabaseError:
-            result = {"api_version": "0.1", "status": "degraded", "mode": "database", "fixture_targets": [], "irsa_reachable": False}
+            result = {"api_version": "0.1", "status": "degraded", "mode": mode, "fixture_targets": [], "irsa_reachable": None if hybrid_mode() else False}
     elif harvest_mode():
         result = {"api_version": "0.1", "status": "ok", "mode": "harvest", "fixture_targets": [], "irsa_reachable": False}
     elif real_mode():
@@ -141,7 +143,7 @@ def frames(query: FramesQuery, response=None):
             return combined_timeline.frames(query, requested_target)
         except (OSError, ValueError, KeyError, TypeError):
             fail(503, 'TIMELINE_UNAVAILABLE', 'The prebuilt combined timeline for this target is unavailable.')
-    if database_provider.enabled():
+    if database_provider.enabled() and (not hybrid_mode() or query.target_key is not None):
         db_spherex = load_database_spherex_frames(query, requested_target)
         if db_spherex is not None:
             if response is not None:

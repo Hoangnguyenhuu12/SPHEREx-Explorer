@@ -36,10 +36,20 @@ def database_mode():
     return os.getenv("DATA_MODE", "fixture") == "database"
 
 
+def hybrid_mode():
+    return os.getenv("DATA_MODE") == "hybrid"
+
+
+def uses_database_cutouts(query):
+    return database_mode() or (hybrid_mode() and query.target_key is not None)
+
+
 def cached_result(operation, query, build):
     root = Path(os.getenv("DATA_DIR", "data")) / "cache" / "api-0.1-live"
     # Cache visit-grouped results separately from the previous exposure-level renderer.
     key = ("v4-visits", os.getenv("DATA_MODE", "fixture"), operation, collections_for_live(), query.model_dump_json())
+    if hybrid_mode() and operation == "frames":
+        key += ("catalog-or-coordinate-v1",)
     with Cache(str(root), size_limit=256 * 1024 * 1024, timeout=2) as cache:
         value = cache.get(key, retry=True)
         if value is not None:
@@ -58,7 +68,7 @@ def cached_result(operation, query, build):
 def load_cutouts(query, directory):
     if harvest_mode():
         return load_harvest_cutouts(query)
-    if database_mode():
+    if uses_database_cutouts(query):
         return load_database_cutouts(query)
     size = getattr(query, "size", 0.1)
     predicted = position_at(query.target_key, 61100)
