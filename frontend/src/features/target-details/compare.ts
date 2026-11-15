@@ -14,9 +14,6 @@ export interface CompareMeasurement {
   markB: CompareMarkInfo | null
   angularOffsetArcsec: number | null
   formattedOffset: string | null
-  predA: { ra: number; dec: number } | null
-  predB: { ra: number; dec: number } | null
-  catalogOffsetArcsec: number | null
   qualityLimitations: string[]
 }
 
@@ -43,17 +40,6 @@ export function computeCompareMeasurement(params: {
   if (infoA?.sky && infoB?.sky) {
     angularOffsetArcsec = sphericalAngularDistanceArcsec(infoA.sky.ra, infoA.sky.dec, infoB.sky.ra, infoB.sky.dec)
   }
-
-  const predA =
-    hasWcs && frameA?.predicted_px
-      ? safePixelToSky(grid, frameA.predicted_px[0], frameA.predicted_px[1])
-      : null
-  const predB =
-    hasWcs && frameB?.predicted_px
-      ? safePixelToSky(grid, frameB.predicted_px[0], frameB.predicted_px[1])
-      : null
-  const catalogOffsetArcsec =
-    predA && predB ? sphericalAngularDistanceArcsec(predA.ra, predA.dec, predB.ra, predB.dec) : null
 
   const qualityLimitations: string[] = []
   if (!hasWcs) {
@@ -108,9 +94,6 @@ export function computeCompareMeasurement(params: {
     markB: infoB,
     angularOffsetArcsec,
     formattedOffset: angularOffsetArcsec != null ? formatAngularArcsec(angularOffsetArcsec) : null,
-    predA,
-    predB,
-    catalogOffsetArcsec,
     qualityLimitations,
   }
 }
@@ -126,7 +109,6 @@ export function buildComparisonShareUrl(params: {
   markA: [number, number] | null
   markB: [number, number] | null
   gaia: boolean
-  pred: boolean
   fovArcmin: number | null
 }): string {
   const band = params.frameA
@@ -146,7 +128,6 @@ export function buildComparisonShareUrl(params: {
     markA: params.markA ?? undefined,
     markB: params.markB ?? undefined,
     gaia: params.gaia,
-    pred: params.pred,
   }
   return `${params.origin}${params.pathname}${serializeSelection(sel)}`
 }

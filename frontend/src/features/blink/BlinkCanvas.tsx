@@ -1,4 +1,5 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react'
+import { nearestStar } from './star-selection'
 import {
   centreOn,
   fitViewport,
@@ -19,11 +20,12 @@ export interface BlinkCanvasHandle {
   zoomOut: () => void
   fit: () => void
   setFov: (arcmin: number) => void
+  centerOnPixel: (px: [number, number]) => void
 }
 
 export interface TrailPoint {
   px: [number, number]
-  kind: 'measured' | 'predicted'
+  kind: 'measured'
   active: boolean
 }
 
@@ -32,14 +34,10 @@ export interface GaiaOverlayMarker {
   sourceId: string
   propagated: boolean
   gMag?: number | null
+  catalogRa?: number
+  catalogDec?: number
   dxPx?: number
   dyPx?: number
-}
-
-export interface SpotFeedbackOverlay {
-  clickPx: [number, number]
-  targetPx: [number, number] | null
-  hit: boolean
 }
 
 export interface RulerOverlay {
@@ -53,12 +51,11 @@ interface Props {
   gridW: number
   gridH: number
   pixArcsec: number
-  crosshair: [number, number] | null
-  showCrosshair: boolean
   flagsOverlay?: HTMLImageElement | null
   trail?: TrailPoint[]
   gaiaMarkers?: GaiaOverlayMarker[]
-  spotFeedback?: SpotFeedbackOverlay | null
+  selectedSourceId?: string | null
+  onStarSelect?: (star: GaiaOverlayMarker | null) => void
   ruler?: RulerOverlay | null
   stretch?: 'default' | 'high-contrast' | 'invert'
   clickMode?: boolean
@@ -90,12 +87,11 @@ export const BlinkCanvas = forwardRef<BlinkCanvasHandle, Props>(function BlinkCa
     gridW,
     gridH,
     pixArcsec,
-    crosshair,
-    showCrosshair,
     flagsOverlay,
     trail,
     gaiaMarkers,
-    spotFeedback,
+    selectedSourceId,
+    onStarSelect,
     ruler,
     stretch = 'default',
     clickMode,
@@ -159,14 +155,12 @@ export const BlinkCanvas = forwardRef<BlinkCanvasHandle, Props>(function BlinkCa
         ctx.stroke()
         ctx.restore()
       }
-      line(pts('predicted'), '#E948AC', [5, 4])
       line(pts('measured'), '#2F9DD0', [])
       for (const p of trail) {
         const s = pixelCentreToScreen(v, p.px)
         ctx.beginPath()
-        ctx.fillStyle = p.kind === 'measured' ? '#2F9DD0' : '#E948AC'
-        if (p.kind === 'measured') ctx.arc(s.x, s.y, p.active ? 5 : 3, 0, Math.PI * 2)
-        else ctx.rect(s.x - (p.active ? 4 : 2.5), s.y - (p.active ? 4 : 2.5), p.active ? 8 : 5, p.active ? 8 : 5)
+        ctx.fillStyle = '#2F9DD0'
+        ctx.arc(s.x, s.y, p.active ? 5 : 3, 0, Math.PI * 2)
         ctx.fill()
       }
     }
@@ -174,14 +168,15 @@ export const BlinkCanvas = forwardRef<BlinkCanvasHandle, Props>(function BlinkCa
     // 1. Gaia DR3 reference stars: cyan hollow circles (+ optional motion vector in science mode)
     if (gaiaMarkers && gaiaMarkers.length) {
       const r = Math.max(5, Math.min(8, v.scale * 1.4))
-      gaiaMarkers.forEach((m, idx) => {
+      gaiaMarkers.forEach((m) => {
         const s = pixelCentreToScreen(v, m.px)
+        const selected = m.sourceId === selectedSourceId
         ctx.save()
-        ctx.strokeStyle = m.propagated ? '#2F9DD0' : '#9CA3AF'
-        ctx.lineWidth = 1.6
+        ctx.strokeStyle = selected ? '#34D399' : m.propagated ? '#2F9DD0' : '#9CA3AF'
+        ctx.lineWidth = selected ? 3 : 1.6
         if (!m.propagated) ctx.setLineDash([2, 2])
         ctx.beginPath()
-        ctx.arc(s.x, s.y, r, 0, Math.PI * 2)
+        ctx.arc(s.x, s.y, selected ? r + 4 : r, 0, Math.PI * 2)
         ctx.stroke()
         if (m.propagated && (m.dxPx || m.dyPx)) {
           const end = pixelCentreToScreen(v, [m.px[0] + (m.dxPx ?? 0), m.px[1] + (m.dyPx ?? 0)])
@@ -191,32 +186,10 @@ export const BlinkCanvas = forwardRef<BlinkCanvasHandle, Props>(function BlinkCa
           ctx.stroke()
         }
         ctx.restore()
-        if (idx === 0 || v.scale >= 2.2) {
-          drawTag(ctx, s.x + r + 4, s.y, 'Gaia', m.propagated ? '#7CCDF2' : '#C9C2B7')
+        if (selected) {
+          drawTag(ctx, s.x + r + 8, s.y, `Selected · …${m.sourceId.slice(-6)}`, '#34D399')
         }
       })
-    }
-
-    // 2. Predicted target position: yellow crosshair (+)
-    if (showCrosshair && crosshair) {
-      const s = pixelCentreToScreen(v, crosshair)
-      const gap = Math.max(6, v.scale * 1.5)
-      const len = gap + 12
-      ctx.save()
-      ctx.strokeStyle = '#F4EF83'
-      ctx.lineWidth = 1.75
-      ctx.beginPath()
-      ctx.moveTo(s.x - len, s.y)
-      ctx.lineTo(s.x - gap, s.y)
-      ctx.moveTo(s.x + gap, s.y)
-      ctx.lineTo(s.x + len, s.y)
-      ctx.moveTo(s.x, s.y - len)
-      ctx.lineTo(s.x, s.y - gap)
-      ctx.moveTo(s.x, s.y + gap)
-      ctx.lineTo(s.x, s.y + len)
-      ctx.stroke()
-      ctx.restore()
-      drawTag(ctx, s.x + len + 4, s.y - 6, 'Pred', '#F4EF83')
     }
 
     // 3. User's own pick: pink diamond (◇)
@@ -241,21 +214,6 @@ export const BlinkCanvas = forwardRef<BlinkCanvasHandle, Props>(function BlinkCa
       drawTag(ctx, s.x + r + 4, s.y + 8, pickedLabel, '#FF8AD0')
     }
 
-    // 4. Spot-the-star challenge feedback ring
-    if (spotFeedback) {
-      const s = pixelCentreToScreen(v, spotFeedback.clickPx)
-      const r = Math.max(10, Math.min(16, v.scale * 2.2))
-      const color = spotFeedback.hit ? '#34D399' : '#FBBF24'
-      ctx.save()
-      ctx.strokeStyle = color
-      ctx.lineWidth = 2.2
-      ctx.beginPath()
-      ctx.arc(s.x, s.y, r, 0, Math.PI * 2)
-      ctx.stroke()
-      ctx.restore()
-      drawTag(ctx, s.x + r + 5, s.y, spotFeedback.hit ? '✓ Found!' : 'Try closer', color)
-    }
-
     // 5. Astrometry ruler measurement overlay (A -> B)
     if (ruler) {
       const s1 = pixelCentreToScreen(v, ruler.p1)
@@ -278,7 +236,7 @@ export const BlinkCanvas = forwardRef<BlinkCanvasHandle, Props>(function BlinkCa
       drawTag(ctx, s1.x + 6, s1.y - 8, 'A', '#FDE68A')
       drawTag(ctx, s2.x + 6, s2.y + 8, `B · ${ruler.label}`, '#FBBF24')
     }
-  }, [bitmap, gridW, gridH, flagsOverlay, trail, gaiaMarkers, showCrosshair, crosshair, picked, pickedLabel, spotFeedback, ruler, stretch])
+  }, [bitmap, gridW, gridH, flagsOverlay, trail, gaiaMarkers, selectedSourceId, picked, pickedLabel, ruler, stretch])
 
   const drawRef = useRef(draw)
   drawRef.current = draw
@@ -375,6 +333,10 @@ export const BlinkCanvas = forwardRef<BlinkCanvasHandle, Props>(function BlinkCa
         if (v) setView(zoomAt(v, 1 / 1.5, sizeRef.current.w / 2, sizeRef.current.h / 2))
       },
       fit,
+      centerOnPixel(px) {
+        const v = viewRef.current
+        if (v) setView(centreOn(px[0] + 0.5, px[1] + 0.5, v.scale, sizeRef.current.w, sizeRef.current.h))
+      },
       setFov(arcmin) {
         const v = viewRef.current
         if (!v) return
@@ -421,8 +383,13 @@ export const BlinkCanvas = forwardRef<BlinkCanvasHandle, Props>(function BlinkCa
     const d = dragRef.current
     dragRef.current = null
     const v = viewRef.current
-    if (!d || d.moved || !v || !clickMode || !onPixelClick) return
+    if (!d || d.moved || !v) return
     const r = canvasRef.current!.getBoundingClientRect()
+    if (bitmap && onStarSelect) {
+      onStarSelect(nearestStar(gaiaMarkers ?? [], v, e.clientX - r.left, e.clientY - r.top))
+      return
+    }
+    if (!clickMode || !onPixelClick) return
     const p = screenToImage(v, e.clientX - r.left, e.clientY - r.top)
     const x = Math.floor(p.x)
     const y = Math.floor(p.y)
@@ -443,6 +410,10 @@ export const BlinkCanvas = forwardRef<BlinkCanvasHandle, Props>(function BlinkCa
       '-': () => setView(zoomAt(v, 1 / 1.5, sizeRef.current.w / 2, sizeRef.current.h / 2)),
       '0': fit,
       Enter: () => {
+        if (bitmap && onStarSelect) {
+          onStarSelect(nearestStar(gaiaMarkers ?? [], v, sizeRef.current.w / 2, sizeRef.current.h / 2))
+          return
+        }
         if (!clickMode || !onPixelClick) return
         const p = screenToImage(v, sizeRef.current.w / 2, sizeRef.current.h / 2)
         const x = Math.floor(p.x)
@@ -459,7 +430,7 @@ export const BlinkCanvas = forwardRef<BlinkCanvasHandle, Props>(function BlinkCa
   }
 
   return (
-    <div ref={boxRef} className={`blink-canvas${clickMode ? ' is-picking' : ''}`}>
+    <div ref={boxRef} className={`blink-canvas${clickMode || onStarSelect ? ' is-picking' : ''}`}>
       <canvas
         ref={canvasRef}
         tabIndex={0}

@@ -24,7 +24,7 @@ import { HelpDialog, Tutorial } from './eyes/Help'
 import { Horizon } from '../features/sky-map/Horizon'
 import './eyes/eyes.css'
 
-const DEFAULT_TOGGLES: ViewerToggles = { mode: 'original', crosshair: true, flags: false, trail: false, pick: true, gaiaOverlays: true }
+const DEFAULT_TOGGLES: ViewerToggles = { mode: 'original', flags: false, trail: false, pick: true, gaiaOverlays: true }
 const COMBINED_TARGETS = new Set<TargetKey>(['wise0855', 'epsindib', 'barnard', 'rwaur', 'rdra'])
 const DEFAULT_MAP_FOV_DEG = 90
 const zoomFormat = new Intl.NumberFormat('en', { style: 'percent', maximumFractionDigits: 0 })
@@ -79,7 +79,6 @@ export default function TheEyesPage() {
   }, [])
   const [toggles, setTogglesState] = useState<ViewerToggles>(() => ({
     ...DEFAULT_TOGGLES,
-    crosshair: sel.pred !== undefined ? sel.pred : !(sel.compare || (rq.kind === 'target' && rq.key === 'wise0855')),
     gaiaOverlays: sel.gaia !== undefined ? sel.gaia : true,
   }))
 
@@ -137,7 +136,7 @@ export default function TheEyesPage() {
 
   // Selection change → back to the original image, no stale tool state.
   useEffect(() => {
-    setTogglesState((t) => ({ ...DEFAULT_TOGGLES, crosshair: t.crosshair, gaiaOverlays: t.gaiaOverlays }))
+    setTogglesState((t) => ({ ...DEFAULT_TOGGLES, gaiaOverlays: t.gaiaOverlays }))
   }, [framesParams])
 
   // Open details for a selection that arrives from the URL (deep link / Back).
@@ -148,12 +147,11 @@ export default function TheEyesPage() {
     setSkyMotion(false)
     setTogglesState({
       ...DEFAULT_TOGGLES,
-      crosshair: sel.pred !== undefined ? sel.pred : !(sel.compare || target?.key === 'wise0855'),
       gaiaOverlays: sel.gaia !== undefined ? sel.gaia : true,
     })
     open('target')
     if (mapCoords) mapRef.current?.focus(mapCoords.ra, mapCoords.dec, 0.6)
-  }, [coords, mapCoords, sel.q, sel.compare, sel.pred, sel.gaia, target?.key, open])
+  }, [coords, mapCoords, sel.q, sel.compare, sel.gaia, target?.key, open])
 
   const commit = useCallback(
     (next: Partial<Selection>, replace = false) => {
@@ -168,7 +166,6 @@ export default function TheEyesPage() {
       setTogglesState((t) => ({ ...t, ...patch }))
       const urlPatch: Partial<Selection> = {}
       if (patch.gaiaOverlays !== undefined) urlPatch.gaia = patch.gaiaOverlays
-      if (patch.crosshair !== undefined) urlPatch.pred = patch.crosshair
       if (Object.keys(urlPatch).length > 0 && (sel.compare || target?.key === 'wise0855' || sel.frameA || sel.frameB || sel.markA || sel.markB)) {
         commit(urlPatch, true)
       }
@@ -224,7 +221,6 @@ export default function TheEyesPage() {
           markA: undefined,
           markB: undefined,
           gaia: undefined,
-          pred: undefined,
         },
       )
     },
@@ -245,7 +241,6 @@ export default function TheEyesPage() {
         markA: undefined,
         markB: undefined,
         gaia: undefined,
-        pred: undefined,
       }),
     [commit],
   )

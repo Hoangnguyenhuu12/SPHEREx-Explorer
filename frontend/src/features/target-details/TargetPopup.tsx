@@ -156,6 +156,8 @@ export function TargetPopup(p: Props) {
         sourceId: o.source_id,
         propagated: o.motion_status === 'propagated_pm',
         gMag: o.g_mag,
+        catalogRa: o.catalog_ra_deg,
+        catalogDec: o.catalog_dec_deg,
       }))
     },
     [overlays, gridW, gridH],
@@ -203,6 +205,8 @@ export function TargetPopup(p: Props) {
       sourceId: o.source_id,
       propagated: o.motion_status === 'propagated_pm',
       gMag: o.g_mag,
+      catalogRa: o.catalog_ra_deg,
+      catalogDec: o.catalog_dec_deg,
     }))
     return {
       gaiaMarkers: markers,
@@ -234,9 +238,7 @@ export function TargetPopup(p: Props) {
     const out: TrailPoint[] = []
     for (const pt of astro.data.points) {
       const active = Math.abs((frame?.mjd ?? -1) - pt.mjd) < 2
-      const pred = pt.predicted_px ?? (pt.predicted ? skyToPixel(data.grid, pt.predicted.ra, pt.predicted.dec) : null)
       const meas = pt.measured_px ?? (pt.measured ? skyToPixel(data.grid, pt.measured.ra, pt.measured.dec) : null)
-      if (pred) out.push({ px: [pred[0], pred[1]], kind: 'predicted', active })
       if (meas) out.push({ px: [meas[0], meas[1]], kind: 'measured', active })
     }
     return out

@@ -185,7 +185,7 @@ const PUBLISHED: SeedPost[] = [
   {
     author: 'seed_linh',
     title: 'How do I tell a moving star from noise in the difference view?',
-    body: "I opened Barnard's Star in D6 and switched to the difference view. I see a bright spot next to a dark spot near the crosshair, but there are also small speckles everywhere.\n\nIs the bright-and-dark pair the star moving, or could it be noise? What should I look for?",
+    body: "I opened Barnard's Star in D6 and switched to the difference view. I see a bright spot next to a dark spot in the image, but there are also small speckles everywhere.\n\nIs the bright-and-dark pair the star moving, or could it be noise? What should I look for?",
     tags: ['questions', 'moving-stars'],
     links: ['/the-eyes?q=barnard&det=6'],
     day: 6,
@@ -201,7 +201,7 @@ const PUBLISHED: SeedPost[] = [
   {
     author: 'seed_omar',
     title: 'Why does WISE 0855 only show up in the longer-wavelength detectors?',
-    body: 'I could barely see anything at WISE 0855 in D1–D3, but D6 shows a faint dot near the crosshair.\n\nFrom what I read, it is a very cold brown dwarf, so most of its light comes out at longer infrared wavelengths. Does that match what others see?',
+    body: 'I could barely see anything at WISE 0855 in D1–D3, but D6 shows a faint dot in the image.\n\nFrom what I read, it is a very cold brown dwarf, so most of its light comes out at longer infrared wavelengths. Does that match what others see?',
     tags: ['brown-dwarfs', 'questions'],
     links: ['/the-eyes?q=wise0855&det=6'],
     day: 4,
@@ -210,7 +210,7 @@ const PUBLISHED: SeedPost[] = [
   {
     author: 'seed_ana',
     title: 'Tip: zoom in before you press play',
-    body: 'The full cutout is 10 arcminutes wide, so a star that moves by one pixel is easy to miss.\n\n- Zoom to about 2 arcminutes around the crosshair\n- Turn on the difference view\n- Play at 1× and watch for a pair that stays in place\n\nIt made the motion much easier to spot for me.',
+    body: 'The full cutout is 10 arcminutes wide, so a star that moves by one pixel is easy to miss.\n\n- Zoom to about 2 arcminutes around the star\n- Turn on the difference view\n- Play at 1× and watch for a pair that stays in place\n\nIt made the motion much easier to spot for me.',
     tags: ['observing-tips', 'image-analysis'],
     day: 3,
   },

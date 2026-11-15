@@ -3,7 +3,6 @@ import {
   buildForumCandidatePrefill,
   buildObservationsCsv,
   buildPythonSnippet,
-  evaluateSpotChallenge,
   measureAngularOffset,
   readExperienceMode,
 } from '../features/experience-mode/mode'
@@ -23,17 +22,6 @@ describe('experience mode & science/explore utilities', () => {
     expect(readExperienceMode('')).toBe('explore')
     expect(readExperienceMode('?mode=science')).toBe('science')
     expect(readExperienceMode('?mode=explore')).toBe('explore')
-  })
-
-  it('evaluates Spot-the-Star challenge hits and misses', () => {
-    const hit = evaluateSpotChallenge([125, 125], [123, 124], 2.75, 7)
-    expect(hit).not.toBeNull()
-    expect(hit!.hit).toBe(true)
-    expect(hit!.distanceArcsec).toBeCloseTo(Math.hypot(2, 1) * 2.75, 3)
-
-    const miss = evaluateSpotChallenge([150, 150], [120, 120], 2.75, 7)
-    expect(miss!.hit).toBe(false)
-    expect(miss!.distancePx).toBeGreaterThan(7)
   })
 
   it('computes angular separation, position angle, and proper motion on the TAN grid', () => {
@@ -78,6 +66,7 @@ describe('experience mode & science/explore utilities', () => {
     const lines = csv.split('\n')
     expect(lines).toHaveLength(2)
     expect(lines[0]).toContain('frame_index,id,mission,release')
+    expect(lines[0]).not.toContain('predicted')
     expect(lines[1]).toContain('1,wise0855-001,unWISE,neo1,W2,55320.5')
 
     const py = buildPythonSnippet({

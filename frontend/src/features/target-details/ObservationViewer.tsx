@@ -3,7 +3,6 @@ import {
   Check,
   Columns2,
   Copy,
-  Crosshair,
   Expand,
   Layers,
   Loader2,
@@ -30,7 +29,6 @@ import type { FrameSession } from '../blink/useFrameSession'
 import type { SyncedView } from '../blink/viewport'
 import { formatDecDms, formatRaHms } from '../target-search/coordinates'
 import {
-  evaluateSpotChallenge,
   measureAngularOffset,
   type CanvasStretch,
   type ExperienceMode,
@@ -52,7 +50,6 @@ export type ImageMode = 'original' | 'difference'
 
 export interface ViewerToggles {
   mode: ImageMode
-  crosshair: boolean
   flags: boolean
   trail: boolean
   pick: boolean
@@ -153,6 +150,8 @@ export function ObservationViewer(props: Props) {
   const [localMarkA, setLocalMarkA] = useState<[number, number] | null>(null)
   const [localMarkB, setLocalMarkB] = useState<[number, number] | null>(null)
   const [copiedLink, setCopiedLink] = useState(false)
+  const [identifyStars, setIdentifyStars] = useState(true)
+  const [starSelection, setStarSelection] = useState<{ key: string; star: GaiaOverlayMarker | null } | null>(null)
   const experienceMode = props.experienceMode ?? 'explore'
 
   const isWideViewport = useSyncExternalStore(subscribeWideViewport, getWideViewport, () => false)
@@ -257,9 +256,21 @@ export function ObservationViewer(props: Props) {
   }
 
   const markersFor = (frameIdx: number): GaiaOverlayMarker[] | undefined => {
-    if (!combined || !toggles.gaiaOverlays) return undefined
+    if (!toggles.gaiaOverlays) return undefined
     if (props.getGaiaMarkers) return props.getGaiaMarkers(frameIdx)
     return props.gaiaMarkers
+  }
+
+  const catalogAvailable = Boolean(props.gaiaOverlayMeta)
+  const starFrameIndex = inCompare ? activeFlipIndex : displayIndex
+  const visibleStars = markersFor(starFrameIndex) ?? []
+  const selection = starSelection?.key === seqKey ? starSelection : null
+  const selectedStar = selection?.star ?? null
+  const currentStar = selectedStar ? visibleStars.find((s) => s.sourceId === selectedStar.sourceId) : null
+  const selectStar = (star: GaiaOverlayMarker | null, slot?: 'A' | 'B') => {
+    setStarSelection({ key: seqKey, star })
+    if (slot) setActiveSlot(slot)
+    dispatch({ type: 'pause' })
   }
 
   const setCompareSlotIndex = (slot: 'A' | 'B', nextIdx: number) => {
@@ -302,7 +313,6 @@ export function ObservationViewer(props: Props) {
       markA,
       markB,
       gaia: toggles.gaiaOverlays,
-      pred: toggles.crosshair,
       fovArcmin: visibleFov ?? props.fovArcmin,
     })
   }, [
@@ -317,7 +327,6 @@ export function ObservationViewer(props: Props) {
     markA,
     markB,
     toggles.gaiaOverlays,
-    toggles.crosshair,
     visibleFov,
     props.fovArcmin,
   ])
@@ -362,10 +371,6 @@ export function ObservationViewer(props: Props) {
     const fDemo = data.mode === 'mock' || f?.data_mode === 'fixture'
     const cSlot = opts?.compareSlot
     const slotPicked = cSlot === 'A' ? markA : cSlot === 'B' ? markB : props.picked
-    const spotCheck =
-      experienceMode === 'explore' && slotPicked && f?.predicted_px
-        ? evaluateSpotChallenge(slotPicked, f.predicted_px, data.grid.pixscale_arcsec)
-        : null
     const rulerOverlay: RulerOverlay | null = rulerMeasurement
       ? {
           p1: rulerMeasurement.p1,
@@ -408,20 +413,13 @@ export function ObservationViewer(props: Props) {
         gridW={data.grid.width}
         gridH={data.grid.height}
         pixArcsec={data.grid.pixscale_arcsec}
-        crosshair={f?.predicted_px ?? null}
-        showCrosshair={toggles.crosshair}
         flagsOverlay={toggles.flags ? props.flagsOverlay : null}
         trail={toggles.trail ? props.trail : undefined}
         gaiaMarkers={markersFor(frameIdx)}
-        spotFeedback={
-          spotCheck && slotPicked
-            ? {
-                clickPx: slotPicked,
-                targetPx: f?.predicted_px ?? null,
-                hit: spotCheck.hit,
-              }
-            : null
-        }
+        selectedSourceId={selectedStar?.sourceId}
+        onStarSelect={identifyStars && catalogAvailable && toggles.gaiaOverlays && !rulerActive && !markingSlot && !isDiff && (markersFor(frameIdx)?.length ?? 0) > 0
+          ? (star) => selectStar(star, cSlot)
+          : undefined}
         ruler={experienceMode === 'science' && rulerActive ? rulerOverlay : null}
         stretch={experienceMode === 'science' ? stretch : 'default'}
         clickMode={toggles.pick || rulerActive || (Boolean(cSlot) && markingSlot === cSlot)}
@@ -1040,23 +1038,6 @@ export function ObservationViewer(props: Props) {
                     : 'Not marked'}
                 </dd>
               </div>
-              {(compareMeasurement.predA || compareMeasurement.predB) && (
-                <div>
-                  <dt>Catalog predicted (+)</dt>
-                  <dd className="num">
-                    {compareMeasurement.predA
-                      ? `A: ${compareMeasurement.predA.ra.toFixed(5)}°, ${compareMeasurement.predA.dec >= 0 ? '+' : ''}${compareMeasurement.predA.dec.toFixed(5)}°`
-                      : 'A: —'}
-                    {' · '}
-                    {compareMeasurement.predB
-                      ? `B: ${compareMeasurement.predB.ra.toFixed(5)}°, ${compareMeasurement.predB.dec >= 0 ? '+' : ''}${compareMeasurement.predB.dec.toFixed(5)}°`
-                      : 'B: —'}
-                    {compareMeasurement.catalogOffsetArcsec != null
-                      ? ` (catalog Δ ≈ ${compareMeasurement.catalogOffsetArcsec.toFixed(1)}″)`
-                      : ''}
-                  </dd>
-                </div>
-              )}
             </dl>
 
             {compareMeasurement.qualityLimitations.length > 0 && (
@@ -1113,7 +1094,7 @@ export function ObservationViewer(props: Props) {
         </>
       )}
 
-      {/* Guiding question, prediction reveal & Gaia overlay legend */}
+      {/* Guiding question & Gaia overlay legend */}
       <div className="viewer-prompt">
         <p className="viewer-prompt__question">
           {props.target?.change === 'brightness'
@@ -1122,22 +1103,12 @@ export function ObservationViewer(props: Props) {
         </p>
         <p className="caption">
           {inCompare
-            ? 'Use “Mark position in A” and “Mark position in B” (or click directly on each image), check the estimated shift in arcseconds, then reveal the catalog prediction to cross-check.'
-            : 'Watch the surrounding field stars stay nearly fixed, click to mark what moves, then check the predicted position.'}
+            ? 'Use “Mark position in A” and “Mark position in B” (or click directly on each image), check the estimated shift in arcseconds.'
+            : 'Watch the surrounding field stars stay nearly fixed, click to mark what moves across observation dates.'}
         </p>
 
         <div className="viewer-prompt__actions">
-          <button
-            type="button"
-            className="btn btn-secondary btn--compact"
-            aria-pressed={toggles.crosshair}
-            onClick={() => setToggles({ crosshair: !toggles.crosshair })}
-          >
-            <Crosshair aria-hidden />
-            <span>Show predicted position</span>
-          </button>
-
-          {combined && (
+          {catalogAvailable && (
             <button
               type="button"
               className="btn btn-secondary btn--compact"
@@ -1212,28 +1183,51 @@ export function ObservationViewer(props: Props) {
           )}
         </div>
 
-        {experienceMode === 'explore' && (() => {
-          const checkPick = inCompare ? (activeSlot === 'A' ? markA : markB) ?? props.picked : props.picked
-          if (!checkPick || !data || !frame?.predicted_px) return null
-          const check = evaluateSpotChallenge(checkPick, frame.predicted_px, data.grid.pixscale_arcsec)
-          if (!check) return null
-          return (
-            <div className="notice" role="status">
-              <div>
-                <strong>
-                  {check.hit
-                    ? `Bullseye! You spotted ${targetName} (${check.distanceArcsec.toFixed(1)}″ from catalog prediction).`
-                    : `Close! Your mark is ${check.distanceArcsec.toFixed(1)}″ (${check.distancePx.toFixed(1)} px) from the predicted target.`}
-                </strong>
-                <p className="caption">
-                  {check.hit
-                    ? (props.target?.funFact ?? 'Notice how the surrounding Gaia stars stay put while the target shifts or changes across epochs.')
-                    : 'Flip between Date A and Date B (or press Play) to watch which dot shifts relative to the surrounding stars, or click “Show predicted position”.'}
-                </p>
+        {catalogAvailable && toggles.gaiaOverlays && (
+          <div className="star-picker" aria-label="Identify catalog stars">
+            <label className="check">
+              <input type="checkbox" checked={identifyStars} onChange={(e) => setIdentifyStars(e.target.checked)} />
+              Select a star on the image
+            </label>
+            <p className="caption">Click a blue circle or choose a star below. Turn off star selection to mark freely. Catalog positions do not confirm a detection in this image.</p>
+            {props.gaiaOverlayMeta?.loading ? <p role="status">Loading star catalog…</p>
+              : props.gaiaOverlayMeta?.error ? <p role="status">Star identification is unavailable because the catalog could not be loaded.</p>
+              : visibleStars.length === 0 ? <p role="status">No selectable catalog stars in this frame.</p>
+              : (
+                <label className="star-picker__select">
+                  <span className="sr-only">Choose catalog star</span>
+                  <select className="select" aria-label="Choose catalog star" value={currentStar?.sourceId ?? ''}
+                    onChange={(e) => selectStar(visibleStars.find((s) => s.sourceId === e.target.value) ?? null)}>
+                    <option value="">Choose a star ({visibleStars.length})</option>
+                    {visibleStars.map((s) => <option key={s.sourceId} value={s.sourceId}>
+                      {demo ? 'Demo star' : 'Gaia DR3'} {s.sourceId}{s.gMag != null ? ` · G ${s.gMag.toFixed(1)}` : ''}
+                    </option>)}
+                  </select>
+                </label>
+              )}
+            {selection && !selectedStar && <p className="caption" role="status">No catalog star selected. Choose a marked circle; unmarked points have no identification here.</p>}
+            {selectedStar && (
+              <div className="star-picker__details" role="status">
+                <strong>{demo ? 'Selected demo star' : 'Selected Gaia DR3 star'}</strong>
+                <span className="num star-picker__id">{selectedStar.sourceId}</span>
+                {selectedStar.catalogRa != null && selectedStar.catalogDec != null && <span className="caption num">
+                  Catalog RA {selectedStar.catalogRa.toFixed(6)}° · Dec {selectedStar.catalogDec.toFixed(6)}°
+                </span>}
+                <span className="caption">G magnitude: {selectedStar.gMag?.toFixed(2) ?? 'Unavailable'}</span>
+                {!currentStar && <span className="caption">This star is not among the displayed markers for this frame.</span>}
+                <div className="viewer-prompt__actions">
+                  <button type="button" className="btn btn-secondary btn--compact" disabled={!currentStar}
+                    onClick={() => {
+                      if (!currentStar) return
+                      const ref = sideBySide && activeSlot === 'B' ? canvasBRef : canvasRef
+                      ref.current?.centerOnPixel(currentStar.px)
+                    }}>Center on selected star</button>
+                  <button type="button" className="btn btn-secondary btn--compact" onClick={() => setStarSelection(null)}>Clear selection</button>
+                </div>
               </div>
-            </div>
-          )
-        })()}
+            )}
+          </div>
+        )}
 
         {experienceMode === 'science' && rulerActive && (
           <div className="notice" role="status">
@@ -1263,11 +1257,7 @@ export function ObservationViewer(props: Props) {
         )}
 
         <ul className="marker-legend" aria-label="Image marker symbols">
-          <li>
-            <span className="marker-sym marker-sym--pred" aria-hidden>+</span>
-            <span>Predicted {targetName} ({toggles.crosshair ? 'shown' : 'hidden'})</span>
-          </li>
-          {combined && (
+          {catalogAvailable && (
             <li>
               <span className="marker-sym marker-sym--gaia" aria-hidden>○</span>
               <span>Gaia DR3 reference star ({toggles.gaiaOverlays ? 'shown' : 'hidden'})</span>
@@ -1283,7 +1273,7 @@ export function ObservationViewer(props: Props) {
           </li>
         </ul>
 
-        {combined && toggles.gaiaOverlays && (
+        {catalogAvailable && toggles.gaiaOverlays && (
           <p className="caption viewer-gaia-note">
             {props.gaiaOverlayMeta?.loading ? (
               'Loading Gaia DR3 reference positions…'
@@ -1291,7 +1281,7 @@ export function ObservationViewer(props: Props) {
               'Gaia DR3 frame overlays from sky_archive are unavailable.'
             ) : (
               <>
-                <strong>Gaia DR3 positions predicted for this observation date</strong>
+                <strong>Gaia DR3 reference positions adjusted to this observation date</strong>
                 {props.gaiaOverlayMeta
                   ? ` · showing ${props.gaiaOverlayMeta.selectedCount} recognizable reference stars (${props.gaiaOverlayMeta.totalInFrame} catalog stars in frame).`
                   : '.'}

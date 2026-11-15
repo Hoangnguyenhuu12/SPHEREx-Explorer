@@ -1,5 +1,5 @@
 import { Canvas, useFrame, useLoader, useThree } from '@react-three/fiber'
-import { Suspense, useCallback, useEffect, useMemo, useRef, type RefObject } from 'react'
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import * as THREE from 'three'
 import { mulberry32 } from '../../shared/api/mock/synth'
 import {
@@ -71,15 +71,17 @@ interface Live extends SceneLive {
   layout: Layout
 }
 
-function createLive(): Live {
+function createLive(initialView: SceneView = 'earth'): Live {
+  const initialT = initialView === 'solar' ? 1 : 0
+  const initialLayout = layout(initialT, EARTH_START_ANGLE)
   return {
-    t: 0,
-    eased: 0,
+    t: initialT,
+    eased: initialT,
     earthAngle: EARTH_START_ANGLE,
-    layout: layout(0, EARTH_START_ANGLE),
-    light: LIGHT_DIR.clone(),
+    layout: initialLayout,
+    light: sunlightDirection(initialT, initialLayout, LIGHT_DIR),
     referenceLight: LIGHT_DIR,
-    craftBoost: 1,
+    craftBoost: initialLayout.craftBoost,
   }
 }
 
@@ -490,7 +492,7 @@ const ARIA: Record<SceneView, string> = {
 
 export default function EarthScene(props: Props) {
   const registry = useMemo(() => new Map<BodyName, THREE.Object3D>(), [])
-  const live = useMemo(() => createLive(), [])
+  const [live] = useState(() => createLive(props.view))
   const sunGroup = useRef<THREE.Group>(null)
   const earthGroup = useRef<THREE.Group>(null)
   const dirLight = useRef<THREE.DirectionalLight>(null)
@@ -520,7 +522,7 @@ export default function EarthScene(props: Props) {
     <Canvas
       className="earth-canvas"
       dpr={[1, 2]}
-      camera={{ position: [0, 0, 4.6], fov: 32, near: 0.1, far: 100 }}
+      camera={{ position: [live.layout.camera.x, live.layout.camera.y, live.layout.camera.z], fov: 32, near: 0.1, far: 100 }}
       gl={{ antialias: true, alpha: true, powerPreference: 'default' }}
       frameloop="always"
       role="img"
@@ -544,7 +546,7 @@ export default function EarthScene(props: Props) {
       <pointLight ref={pointLight} position={SUN_POS_EARTH_VIEW} intensity={6} distance={30} color="#ffd9a0" />
       <SolarLight live={live} />
       <primitive object={orbitLine} />
-      <group ref={setSunGroup} position={SUN_POS_EARTH_VIEW}>
+      <group ref={setSunGroup} position={live.layout.sunPos}>
         <Sun paused={still} onSunClick={props.onSunClick} onHover={props.onHover} />
       </group>
       <group ref={setEarthGroup}>

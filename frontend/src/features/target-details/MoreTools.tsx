@@ -147,7 +147,7 @@ function WiseReference({ target }: { target: TargetInfo }) {
     <div className="wise-reference">
       <p className="caption">AllWISE coadds · WISE/IPAC · {images[0].start.slice(0, 10)} to {images[0].end.slice(0, 10)} UTC. Independently stretched; brightness is not directly comparable with SPHEREx.</p>
       {images.some((image) => image.coverage.length !== 2 || image.coverage.some((point) => !point.inside)) && (
-        <p className="notice notice--warn">The predicted target position falls outside at least one image at an observation date. These images show the surrounding field only.</p>
+        <p className="notice notice--warn">Target coverage is incomplete for at least one observation date. These images show the surrounding field only.</p>
       )}
       <div className="wise-reference__images">
         {images.map((image) => (

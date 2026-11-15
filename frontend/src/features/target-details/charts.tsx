@@ -104,7 +104,7 @@ interface XYPoint {
   x: number
   y: number
   err?: number
-  kind: 'measured' | 'predicted'
+  kind: 'measured'
   active?: boolean
   label: string
 }
@@ -136,20 +136,13 @@ export function OffsetChart({ points, title }: { points: XYPoint[]; title: strin
         <text x={cx - r - 4} y={cy + 4} textAnchor="end" className="chart-tick">E</text>
         <line x1={cx + r - tick * k} x2={cx + r} y1={cy + r - 6} y2={cy + r - 6} className="chart-scale" />
         <text x={cx + r - (tick * k) / 2} y={cy + r + 8} textAnchor="middle" className="chart-tick">{tick}″</text>
-        <polyline points={line('predicted')} className="chart-line is-predicted" />
         <polyline points={line('measured')} className="chart-line" />
         {points.map((p, i) => (
           <g key={i}>
             {p.err && p.kind === 'measured' ? <circle cx={sx(p.x)} cy={sy(p.y)} r={p.err * k} className="chart-errcircle" /> : null}
-            {p.kind === 'measured' ? (
-              <circle cx={sx(p.x)} cy={sy(p.y)} r={p.active ? 6 : 4} className={`chart-dot${p.active ? ' is-active' : ''}`}>
-                <title>{p.label}</title>
-              </circle>
-            ) : (
-              <rect x={sx(p.x) - 4} y={sy(p.y) - 4} width={8} height={8} className={`chart-pred${p.active ? ' is-active' : ''}`}>
-                <title>{p.label}</title>
-              </rect>
-            )}
+            <circle cx={sx(p.x)} cy={sy(p.y)} r={p.active ? 6 : 4} className={`chart-dot${p.active ? ' is-active' : ''}`}>
+              <title>{p.label}</title>
+            </circle>
           </g>
         ))}
       </svg>
