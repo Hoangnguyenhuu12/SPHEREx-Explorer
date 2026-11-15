@@ -36,6 +36,12 @@ export function describeError(error: unknown): ErrorCopy {
         body: 'SPHEREx has no released images for this position and detector yet. Try another detector or target.',
         retry: false,
       }
+    case 'NO_SPECTRUM':
+      return {
+        title: 'No measured spectrum here',
+        body: 'No SPHEREx FITS spectrum covers this position, so nothing is plotted. Pick another point or target.',
+        retry: false,
+      }
     case 'FRAME_NOT_FOUND':
       return { title: 'Images expired', body: 'The image service restarted. Reload the observations.', retry: true }
     case 'TIMELINE_UNAVAILABLE':

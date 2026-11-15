@@ -16,7 +16,8 @@ export default function WhereAreYouPage() {
   const [userPaused, setUserPaused] = useState(false)
   const [hover, setHover] = useState(false)
   const [earthReady, setEarthReady] = useState(false)
-  const [view, setView] = useState<SceneView>('earth')
+  // Open on the whole Solar System first; Earth and the SPHEREx orbit are one click away.
+  const [view, setView] = useState<SceneView>('solar')
   const onReady = useCallback(() => setEarthReady(true), [])
   const sunRef = useRef<HTMLSpanElement>(null)
   const earthRef = useRef<HTMLSpanElement>(null)
@@ -68,7 +69,7 @@ export default function WhereAreYouPage() {
           <div className={`where__earth${hover ? ' is-hover' : ''}`}>
             {gl ? (
               <>
-                {!earthReady && <img className="where__static" src="/textures/earth-static.png" alt="" width={392} height={392} />}
+                {!earthReady && !solar && <img className="where__static" src="/textures/earth-static.png" alt="" width={392} height={392} />}
                 <Suspense fallback={null}>
                   <EarthScene
                     view={view}

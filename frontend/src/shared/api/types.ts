@@ -245,6 +245,7 @@ export type ErrorCode =
   | 'BAD_PARAM'
   | 'UNKNOWN_TARGET'
   | 'NO_FRAMES'
+  | 'NO_SPECTRUM'
   | 'FRAME_NOT_FOUND'
   | 'TIMELINE_UNAVAILABLE'
   | 'UPSTREAM_ERROR'
