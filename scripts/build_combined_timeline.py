@@ -641,6 +641,7 @@ def main():
             f"Mission gap preserved ({gap_days:.1f} days between last unWISE epoch and SPHEREx D6). "
             f"No cross-mission flux/PSF/photometric matching applied; demonstration of motion only.{sat_note}"
         ),
+        Time.now().utc.isot + "Z",
     )
 
     manifest = {
@@ -663,6 +664,7 @@ def main():
         "mjd_min", "mjd_max", "mission_gap_days", "gaia_propagation_model",
         "annual_parallax_included", "observer_ephemeris_included",
         "target_astrometry_source", "assets", "upload_status", "notes",
+        "updated_at",
     )
     fr_cols = (
         "sequence_id", "frame_index", "mission", "release", "source_product_id",

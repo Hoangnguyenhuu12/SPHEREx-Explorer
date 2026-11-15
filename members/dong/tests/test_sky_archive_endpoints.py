@@ -181,7 +181,7 @@ def test_combined_timeline_uses_db_in_database_mode_and_falls_back(offline_clien
     monkeypatch.setattr(
         database_provider,
         "combined_timeline_frames",
-        lambda _seq: [
+        lambda _seq, *, version=None: [
             {
                 "frame_index": 1,
                 "mission": "unWISE",
@@ -335,7 +335,7 @@ def test_multi_target_combined_timeline_and_saturation_warning(offline_client, m
     monkeypatch.setattr(
         database_provider,
         "combined_timeline_frames",
-        lambda _seq: [
+        lambda _seq, *, version=None: [
             {
                 "frame_index": 1,
                 "mission": "unWISE",
@@ -408,7 +408,7 @@ def test_combined_timeline_uses_storage_url_when_local_file_absent(offline_clien
     monkeypatch.setattr(
         database_provider,
         "combined_timeline_frames",
-        lambda _seq: [
+        lambda _seq, *, version=None: [
             {
                 "frame_index": 1,
                 "mission": "unWISE",
@@ -562,6 +562,7 @@ def test_spherex_only_all_30_target_detector_combinations_and_saturation_fallbac
                 "report": {
                     "kind": kind,
                     "release": "dr1",
+                    "grid_wcs": {"CRVAL1": 135.125, "CRVAL2": -7.425},
                     "inputs": [
                         {
                             "obs_id": "2025W35_1A_0001_1",
@@ -601,7 +602,7 @@ def test_spherex_only_all_30_target_detector_combinations_and_saturation_fallbac
     monkeypatch.setattr(
         database_provider,
         "combined_timeline_frames",
-        lambda seq_id: [
+        lambda seq_id, *, version=None: [
             {
                 "frame_index": 1,
                 "mission": "unWISE",
@@ -632,6 +633,8 @@ def test_spherex_only_all_30_target_detector_combinations_and_saturation_fallbac
             body = res.json()
             assert body["detector"] == det
             assert len(body["frames"]) == 2
+            assert body["grid"]["center_ra"] == 135.125
+            assert body["grid"]["center_dec"] == -7.425
             assert body["frames"][0]["mission"] == "SPHEREx"
             assert body["frames"][0]["band_or_detector"] == f"D{det}"
             assert body["frames"][0]["png"].startswith(

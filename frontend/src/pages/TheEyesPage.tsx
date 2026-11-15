@@ -134,12 +134,10 @@ export default function TheEyesPage() {
     [coords, detector, target?.key, timeline],
   )
   const session = useFrameSession(framesParams)
-  const { state: player, dispatch, reset } = usePlayer()
-
-  // New sequence → reset the single player clock.
-  useEffect(() => {
-    reset(session.data?.frames.length ?? 0)
-  }, [session.data, reset])
+  const { state: player, dispatch } = usePlayer(
+    session.data,
+    toggles.mode === 'difference' ? session.diffs : session.originals,
+  )
 
   // Selection change → back to the original image, no stale tool state.
   useEffect(() => {

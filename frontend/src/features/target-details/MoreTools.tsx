@@ -1,6 +1,6 @@
 import { useQueries, useQuery } from '@tanstack/react-query'
 import { AlertTriangle, Check, Copy, Loader2 } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { config, PATHS } from '../../app/config'
 import { api } from '../../shared/api'
@@ -15,6 +15,7 @@ import type { GaiaStatusInfo, SurveyInfo } from '../sky-map/AladinMap'
 import { formatDecDms, formatRaHms } from '../target-search/coordinates'
 import { DemoTag } from './SciencePanels'
 import { formatUtcDate } from './format'
+import { selectRgbFrames } from './rgbFrames'
 
 interface Props {
   target: TargetInfo | null
@@ -23,6 +24,7 @@ interface Props {
   picked?: { ra: number; dec: number; x: number; y: number } | null
   rulerMeasurement?: RulerMeasurement | null
   data: FramesResponse | null
+  originals: (ImageBitmap | null)[]
   activeIndex: number
   gaia: boolean
   setGaia: (v: boolean) => void
@@ -162,8 +164,9 @@ function WiseReference({ target }: { target: TargetInfo }) {
   )
 }
 
-function RgbView({ target, coords, data, activeIndex }: Pick<Props, 'target' | 'coords' | 'data' | 'activeIndex'>) {
+function RgbView({ target, coords, data, originals, activeIndex }: Pick<Props, 'target' | 'coords' | 'data' | 'originals' | 'activeIndex'>) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const pixels = useRef(new Map<string, Uint8ClampedArray<ArrayBuffer>>())
   const params = (d: number) => ({ ra: coords.ra, dec: coords.dec, detector: d, size: config.cutoutSizeDeg, maxFrames: config.maxFrames, targetKey: target?.key })
   const results = useQueries({
     queries: [RGB_DETECTORS.r, RGB_DETECTORS.g, RGB_DETECTORS.b].map((d) => ({
@@ -173,79 +176,98 @@ function RgbView({ target, coords, data, activeIndex }: Pick<Props, 'target' | '
       retry: false,
     })),
   })
-  const [state, setState] = useState<{ status: 'loading' | 'ready' | 'error' | 'incompatible'; date?: string; error?: unknown }>({ status: 'loading' })
-  const all = results.map((r) => r.data)
+  const [r, g, b] = results.map((result) => result.data)
   const err = results.find((r) => r.isError)?.error
   const activeMjd = data?.frames[activeIndex]?.mjd
+  const selection = useMemo(() => r && g && b ? selectRgbFrames(r, g, b, activeMjd) : null, [r, g, b, activeMjd])
+  const red = selection?.status === 'ready' ? selection.red.png : null
+  const green = selection?.status === 'ready' ? selection.green.png : null
+  const blue = selection?.status === 'ready' ? selection.blue.png : null
+  const width = selection?.status === 'ready' ? selection.grid.width : 0
+  const height = selection?.status === 'ready' ? selection.grid.height : 0
+  const selectionKey = JSON.stringify([red, green, blue, width, height])
+  const [rendered, setRendered] = useState<{ key: string; error?: unknown } | null>(null)
+  const findOriginal = useEffectEvent((url: string) => {
+    const index = data?.frames.findIndex((frame) => frame.png === url) ?? -1
+    return index >= 0 ? originals[index] ?? null : null
+  })
 
   useEffect(() => {
-    if (err) {
-      setState({ status: 'error', error: err })
-      return
-    }
-    if (all.some((d) => !d)) return
-    const seqs = all as FramesResponse[]
-    const g0 = seqs[0].grid
-    if (seqs.some((s) => s.grid.width !== g0.width || s.grid.height !== g0.height || s.grid.center_ra !== g0.center_ra)) {
-      setState({ status: 'incompatible' })
-      return
-    }
-    // Same sky pass: nearest frame to the active observation date in each detector.
-    const pick = (s: FramesResponse) =>
-      s.frames.reduce((best, f) => (activeMjd == null || Math.abs(f.mjd - activeMjd) < Math.abs(best.mjd - activeMjd) ? f : best), s.frames[0])
-    const frames = seqs.map(pick)
+    if (!red || !green || !blue) return
     const ctrl = new AbortController()
-    Promise.all(frames.map((f) => api.image(f.png, ctrl.signal)))
-      .then((bitmaps) => {
+    const scratch = document.createElement('canvas')
+    scratch.width = width
+    scratch.height = height
+    const scratchContext = scratch.getContext('2d')!
+    const read = async (url: string) => {
+      const key = JSON.stringify([url, width, height])
+      const saved = pixels.current.get(key)
+      if (saved) return saved
+      const original = findOriginal(url)
+      const bitmap = original ?? await api.image(url, ctrl.signal)
+      try {
+        if (ctrl.signal.aborted) throw ctrl.signal.reason
+        if (bitmap.width !== width || bitmap.height !== height) throw new Error('Frame dimensions do not match its sky grid')
+        scratchContext.clearRect(0, 0, width, height)
+        scratchContext.drawImage(bitmap, 0, 0)
+        const rgba = scratchContext.getImageData(0, 0, width, height).data
+        const channel = new Uint8ClampedArray(width * height)
+        for (let i = 0; i < channel.length; i++) channel[i] = rgba[i * 4]
+        pixels.current.set(key, channel)
+        if (pixels.current.size > 12) pixels.current.delete(pixels.current.keys().next().value!)
+        return channel
+      } finally {
+        if (!original) bitmap.close()
+      }
+    }
+    Promise.all([read(red), read(green), read(blue)])
+      .then(([r, g, b]) => {
         const c = canvasRef.current
-        if (!c) return
-        const w = g0.width
-        const h = g0.height
-        const tmp = new OffscreenCanvas(w, h)
-        const tctx = tmp.getContext('2d')!
-        const chans = bitmaps.map((b) => {
-          tctx.clearRect(0, 0, w, h)
-          tctx.drawImage(b, 0, 0)
-          return tctx.getImageData(0, 0, w, h).data
-        })
-        const out = new ImageData(w, h)
-        for (let i = 0; i < w * h; i++) {
-          out.data[i * 4] = chans[0][i * 4]
-          out.data[i * 4 + 1] = chans[1][i * 4]
-          out.data[i * 4 + 2] = chans[2][i * 4]
+        if (!c || ctrl.signal.aborted) return
+        const out = new ImageData(width, height)
+        for (let i = 0; i < r.length; i++) {
+          out.data[i * 4] = r[i]
+          out.data[i * 4 + 1] = g[i]
+          out.data[i * 4 + 2] = b[i]
           out.data[i * 4 + 3] = 255
         }
-        c.width = w
-        c.height = h
+        c.width = width
+        c.height = height
         c.getContext('2d')!.putImageData(out, 0, 0)
-        bitmaps.forEach((b) => b.close())
-        setState({ status: 'ready', date: formatUtcDate(frames[0].iso) })
+        setRendered({ key: selectionKey })
       })
       .catch((e) => {
-        if (!ctrl.signal.aborted) setState({ status: 'error', error: e })
+        if (!ctrl.signal.aborted) setRendered({ key: selectionKey, error: e })
+        ctrl.abort()
       })
     return () => ctrl.abort()
-    // oxlint-disable-next-line react/exhaustive-deps
-  }, [all[0], all[1], all[2], err, activeMjd])
+  }, [red, green, blue, width, height, selectionKey])
+
+  const current = rendered?.key === selectionKey ? rendered : null
+  const error = err ?? current?.error
+  const visible = selection?.status === 'ready' && Boolean(current) && !error
+  const loading = !error && (!selection || (selection.status === 'ready' && !visible))
 
   return (
     <div className="rgb">
       <div className="panel-head">
         <p className="caption">
           False-color view · red D{RGB_DETECTORS.r}, green D{RGB_DETECTORS.g}, blue D{RGB_DETECTORS.b}
-          {state.date ? ` · ${state.date}` : ''}
+          {visible && selection.status === 'ready' ? ` · ${formatUtcDate(selection.red.iso)}` : ''}
         </p>
-        <DemoTag mode={all[0]?.mode} />
+        <DemoTag mode={r?.mode} />
       </div>
       <div className="rgb__frame">
-        <canvas ref={canvasRef} aria-label="False-color composite of three SPHEREx detectors" role="img" />
-        {state.status === 'loading' && (
+        <canvas ref={canvasRef} hidden={!visible} aria-label="False-color composite of three SPHEREx detectors" role="img" />
+        {loading && (
           <p className="panel-status" role="status">
             <Loader2 className="spin" size={16} aria-hidden /> Loading three detectors…
           </p>
         )}
-        {state.status === 'error' && <p className="caption">{describeError(state.error).title}. False-color needs all three detectors.</p>}
-        {state.status === 'incompatible' && <p className="caption">The three detectors are not on the same image grid, so they cannot be combined.</p>}
+        {error != null && <p className="caption">{describeError(error).title}. False-color needs all three detectors.</p>}
+        {selection?.status === 'incompatible' && <p className="caption">The three detectors are not on the same image grid, so they cannot be combined.</p>}
+        {selection?.status === 'missing' && <p className="caption">No observations are available in at least one of the three detectors.</p>}
+        {selection?.status === 'different-epochs' && <p className="caption">The nearest observations span more than two days. Choose another date to compare the three detectors.</p>}
       </div>
       <p className="caption">Colours are assigned, not seen: infrared light is mapped to red, green and blue to compare channels.</p>
     </div>
@@ -328,7 +350,7 @@ export function MoreTools(p: Props) {
       <section className="tool">
         <h4>False-color view</h4>
         {rgbOn ? (
-          <RgbView target={p.target} coords={p.coords} data={p.data} activeIndex={p.activeIndex} />
+          <RgbView target={p.target} coords={p.coords} data={p.data} originals={p.originals} activeIndex={p.activeIndex} />
         ) : (
           <button type="button" className="btn btn-secondary" onClick={() => setRgbOn(true)}>
             Combine three detectors

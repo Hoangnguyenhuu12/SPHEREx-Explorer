@@ -158,6 +158,9 @@ export interface SpectrumPoint {
 export interface SpectrumResponse {
   position: { ra: number; dec: number }
   points: SpectrumPoint[]
+  sample_kind?: 'band_flux' | 'spectral_flux'
+  wavelength_source?: string
+  is_continuous_spectrum?: boolean
   warnings?: string[]
   mode?: DataMode
 }
@@ -246,6 +249,7 @@ export type ErrorCode =
   | 'UNKNOWN_TARGET'
   | 'NO_FRAMES'
   | 'NO_SPECTRUM'
+  | 'SPECTRUM_ASSET_UNAVAILABLE'
   | 'FRAME_NOT_FOUND'
   | 'TIMELINE_UNAVAILABLE'
   | 'UPSTREAM_ERROR'

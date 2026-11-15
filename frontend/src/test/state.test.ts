@@ -4,7 +4,10 @@ import { overlayReducer } from '../shared/layout/overlay'
 import { parseSelection, resolveQuery, serializeSelection } from '../features/target-search/explorer-url'
 
 describe('playerReducer', () => {
-  const four: PlayerState = playerReducer(initialPlayer, { type: 'reset', count: 4 })
+  const four: PlayerState = playerReducer(
+    playerReducer(initialPlayer, { type: 'reset', count: 4 }),
+    { type: 'availability', readyIndices: [0, 1, 2, 3] },
+  )
   it('resets to the first frame, paused', () => {
     expect(four).toMatchObject({ count: 4, index: 0, playing: false })
   })
@@ -28,7 +31,12 @@ describe('playerReducer', () => {
   })
   it('a new sequence resets a running player', () => {
     const running = { ...four, index: 2, playing: true }
-    expect(playerReducer(running, { type: 'reset', count: 3 })).toMatchObject({ index: 0, playing: false, count: 3 })
+    expect(playerReducer(running, { type: 'reset', count: 3 })).toMatchObject({ index: 0, playing: false, count: 3, readyIndices: [] })
+  })
+  it('ticks past missing images without changing their timeline indices', () => {
+    const playing = { ...four, index: 0, playing: true, readyIndices: [0, 3] }
+    expect(playerReducer(playing, { type: 'tick' }).index).toBe(3)
+    expect(playerReducer({ ...playing, index: 3 }, { type: 'tick' }).index).toBe(0)
   })
 })
 

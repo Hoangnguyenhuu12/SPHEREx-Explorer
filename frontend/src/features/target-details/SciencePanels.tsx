@@ -436,7 +436,7 @@ export function DataPanel({
       <details className="detail-block" open={spectrumOpen} onToggle={(event) => onSpectrumOpenChange(event.currentTarget.open)}>
         <summary className="detail-summary">Spectrum (D1–D6 measured flux)</summary>
         <div className="detail-block__inner">
-          <SpectrumResult
+          {spectrumOpen && <SpectrumResult
             position={
               picked ?? {
                 ra: coords.ra,
@@ -445,9 +445,10 @@ export function DataPanel({
                 y: Math.floor((data?.grid.height ?? 0) / 2),
               }
             }
-            target={target}
-            detector={detector}
-          />
+            target={picked && f?.predicted_px
+              ? Math.hypot(picked.x - f.predicted_px[0], picked.y - f.predicted_px[1]) <= 3 ? target : null
+              : target}
+          />}
         </div>
       </details>
     </div>
@@ -477,10 +478,10 @@ export function useFlagsOverlay(frameId: string | null, enabled: boolean): HTMLI
   return img
 }
 
-export function SpectrumResult({ position, target, detector }: { position: { ra: number; dec: number; x: number; y: number } | null; target: TargetInfo | null; detector: number }) {
+export function SpectrumResult({ position, target }: { position: { ra: number; dec: number; x: number; y: number } | null; target: TargetInfo | null }) {
   const q = useQuery({
-    queryKey: ['spectrum', config.useMock, position?.ra ?? null, position?.dec ?? null],
-    queryFn: ({ signal }) => api.spectrum({ ra: position!.ra, dec: position!.dec, detector, targetKey: target?.key }, signal),
+    queryKey: ['spectrum', config.useMock, target?.key ?? null, position?.ra ?? null, position?.dec ?? null],
+    queryFn: ({ signal }) => api.spectrum({ ra: position!.ra, dec: position!.dec, targetKey: target?.key }, signal),
     enabled: !!position,
     retry: (count, err) => !(err instanceof ApiError && err.code === 'NO_SPECTRUM') && count < 2,
     staleTime: Infinity,
@@ -499,9 +500,12 @@ export function SpectrumResult({ position, target, detector }: { position: { ra:
       ) : q.isError && !(q.error instanceof ApiError && q.error.code === 'NO_SPECTRUM') ? (
         <Failed error={q.error} />
       ) : q.isError || (q.data?.points.length ?? 0) === 0 ? (
-        <p className="caption">No measured spectral samples cover this position. No stellar properties are reported.</p>
+        <p className="caption">{q.error instanceof ApiError && q.error.code === 'SPECTRUM_ASSET_UNAVAILABLE'
+          ? 'The archive has metadata for this observation, but no readable FITS file is available.'
+          : 'No measured spectral samples cover this position. No stellar properties are reported.'}</p>
       ) : (
         <>
+          <h5>{q.data?.is_continuous_spectrum ? 'Measured spectral flux' : 'Measured SPHEREx band flux'}</h5>
           <ErrorBarChart
             points={(q.data?.points ?? []).map((p) => ({
               x: p.wavelength_um,
@@ -513,18 +517,23 @@ export function SpectrumResult({ position, target, detector }: { position: { ra:
             xLabel="Wavelength (µm)"
             yLabel="Flux (mJy)"
             formatX={(x) => x.toFixed(1)}
-            title="Spectrum at the selected point"
+            title={q.data?.is_continuous_spectrum ? 'Spectrum at the selected point' : 'SPHEREx band flux at the selected point'}
           />
           <p className="caption">
-            These are measured SPHEREx flux samples from the selected position. The viewer does not infer a stellar class, temperature, distance, or planet from this chart. Use the target catalog and the cited archive products for any physical interpretation.
+            {q.data?.is_continuous_spectrum
+              ? 'These are measured spectral samples from the selected position.'
+              : 'These are aperture-measured SPHEREx detector-band fluxes. They are not a continuous spectrum and do not measure a temperature by themselves.'}{' '}
+            The viewer does not infer a stellar class, distance, or planet from this chart. Use the target catalog and cited archive products for physical interpretation.
           </p>
+          <p className="caption">Wavelength source: {q.data?.wavelength_source ?? 'FITS metadata'} · Flux unit: mJy · {q.data?.points.length ?? 0} measured point(s).</p>
           {target ? (
             <>
+              <p className="caption">Catalog facts below come from the named target record. They are not inferred from this measured flux chart.</p>
               <dl className="facts">
                 <div><dt>Catalog object classification</dt><dd>{target.kind}</dd></div>
                 <div><dt>Catalog distance</dt><dd>{target.distance}</dd></div>
                 <div><dt>Catalog notes</dt><dd>{target.temperatureAnalogy}</dd></div>
-                <div><dt>Catalog source</dt><dd>Team target catalog, linked from the target record</dd></div>
+                <div><dt>Catalog source</dt><dd><a href={`https://simbad.cds.unistra.fr/simbad/sim-id?Ident=${encodeURIComponent(target.simbadId)}`}>Team target notes · SIMBAD identification</a></dd></div>
               </dl>
               {target.kind.toLowerCase().includes('brown dwarf') && (
                 <p className="caption">

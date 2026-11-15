@@ -3,9 +3,10 @@
 import logging
 import os
 import re
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import Future, ThreadPoolExecutor, wait
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from threading import Lock
 from time import monotonic
 from urllib.parse import urlsplit
 
@@ -19,6 +20,44 @@ from .catalog import position_at
 from .observed_frames import Cutout
 
 logger = logging.getLogger("uvicorn.error")
+_inflight = {}
+_inflight_lock = Lock()
+
+
+def _cached_build(cache, key, build, ttl, deadline=None):
+    value = cache.get(key, retry=True)
+    if value is not None:
+        return value, "HIT"
+
+    # One builder per key in this worker. DiskCache shares completed values
+    # across workers; the in-flight result and its errors stay in this process.
+    identity = (cache.directory, key)
+    with _inflight_lock:
+        pending = _inflight.get(identity)
+        leader = pending is None
+        if leader:
+            pending = _inflight[identity] = Future()
+    if not leader:
+        if deadline is not None and not wait((pending,), timeout=max(0, deadline - monotonic())).done:
+            raise irsa.UpstreamTimeout("IRSA request deadline exceeded")
+        return pending.result(), "HIT"
+
+    try:
+        # A previous builder may have published between our miss and claim.
+        value = cache.get(key, retry=True)
+        status = "HIT"
+        if value is None:
+            value = build()
+            cache.set(key, value, expire=ttl(value), retry=True)
+            status = "MISS"
+        pending.set_result(value)
+        return value, status
+    except BaseException as exc:
+        pending.set_exception(exc)
+        raise
+    finally:
+        with _inflight_lock:
+            del _inflight[identity]
 
 
 def collections_for_live():
@@ -50,19 +89,52 @@ def cached_result(operation, query, build):
     key = ("v4-visits", os.getenv("DATA_MODE", "fixture"), operation, collections_for_live(), query.model_dump_json())
     if hybrid_mode() and operation == "frames":
         key += ("catalog-or-coordinate-v1",)
-    with Cache(str(root), size_limit=256 * 1024 * 1024, timeout=2) as cache:
-        value = cache.get(key, retry=True)
-        if value is not None:
-            return value, "HIT"
-        value = build()
+
+    def result_ttl(value):
         # Shorter TTL for incomplete/empty results so newly available data
         # or a recovered archive can be picked up on a later request.
         if operation == "frames":
             partial = "FEW_FRAMES" in value[0]["warnings"]
         else:
             partial = not value["points"]
-        cache.set(key, value, expire=60 if partial else 900, retry=True)
-        return value, "MISS"
+        return 60 if partial else 900
+
+    with Cache(str(root), size_limit=256 * 1024 * 1024, timeout=2) as cache:
+        return _cached_build(cache, key, build, result_ttl)
+
+
+def _find_images(cache, ra, dec, collection, detector, radius, deadline):
+    key = ("sia2-v1", collection, float(ra), float(dec), detector, radius)
+
+    def discover():
+        return irsa.find_images(
+            ra, dec, collection, detector, search_radius_deg=radius,
+            timeout_s=12, retries=1, deadline=deadline, tap_fallback=False,
+        )
+
+    return _cached_build(cache, key, discover, lambda rows: 300 if rows else 30, deadline)
+
+
+def _download_cutout(cache, collection, row, ra, dec, size, path, deadline):
+    # The cutout URL includes the center and side at IRSA's wire precision.
+    # Exact geometry lets every reader use the original WCS and pixel data.
+    key = (
+        "fits-v1", collection, row.get("obs_publisher_did"), row["obs_id"],
+        row["energy_bandpassname"], float(row["t_min"]),
+        irsa.make_cutout_url(row["access_url"], ra, dec, size),
+    )
+
+    def download():
+        irsa.download_cutout(
+            row["access_url"], ra, dec, size, path, expected_obs_id=row["obs_id"],
+            timeout_s=irsa._remaining_timeout(12, deadline), retries=1,
+        )
+        return path.read_bytes()
+
+    content, status = _cached_build(cache, key, download, lambda _: 3600, deadline)
+    if status == "HIT":
+        # Readers own their copy even if the cache entry expires or is evicted.
+        path.write_bytes(content)
 
 
 def load_cutouts(query, directory):
@@ -72,6 +144,20 @@ def load_cutouts(query, directory):
         database_cutouts = load_database_cutouts(query)
         if database_cutouts or database_mode():
             return database_cutouts
+    return load_irsa_cutouts(query, directory)
+
+
+def load_irsa_cutouts(query, directory):
+    """Public IRSA path (also used by the spectrum service), backed by the shared cache."""
+    root = Path(os.getenv("DATA_DIR", "data")) / "cache" / "api-0.1-irsa"
+    # LRU reads hold a SQLite transaction while loading the bytes. This keeps
+    # eviction from trying to unlink a value that a Windows reader has open.
+    with Cache(str(root), size_limit=512 * 1024 * 1024, timeout=2,
+               eviction_policy="least-recently-used") as cache:
+        return _load_irsa_cutouts(query, directory, cache)
+
+
+def _load_irsa_cutouts(query, directory, cache):
     size = getattr(query, "size", 0.1)
     predicted = position_at(query.target_key, 61100)
     ra, dec = (predicted.ra.deg, predicted.dec.deg) if predicted is not None else (query.ra, query.dec)
@@ -84,19 +170,16 @@ def load_cutouts(query, directory):
         try:
             # Cutouts are centered on the requested position. Searching the
             # entire display FOV finds edge-only exposures that cannot serve it.
-            rows = irsa.find_images(
-                ra, dec, collection, query.detector,
-                search_radius_deg=0.02 if predicted is not None else 1 / 3600,
-                timeout_s=12, retries=1, deadline=deadline, tap_fallback=False,
-            )
+            radius = 0.02 if predicted is not None else 1 / 3600
+            rows, status = _find_images(cache, ra, dec, collection, query.detector, radius, deadline)
         except irsa.UpstreamError as exc:
             discovery_errors.append(exc)
             logger.warning("IRSA discovery collection=%s result=%s duration_ms=%.0f",
                            collection, type(exc).__name__, (monotonic() - started) * 1000)
             continue
         successful_search = True
-        logger.info("IRSA discovery collection=%s rows=%d duration_ms=%.0f",
-                    collection, len(rows), (monotonic() - started) * 1000)
+        logger.info("IRSA discovery collection=%s rows=%d cache=%s duration_ms=%.0f",
+                    collection, len(rows), status, (monotonic() - started) * 1000)
         if rows:
             break
     else:
@@ -120,10 +203,7 @@ def load_cutouts(query, directory):
         position = position_at(query.target_key, mjd)
         x, y = (position.ra.deg, position.dec.deg) if position is not None else (ra, dec)
         path = Path(directory) / f"{index}.fits"
-        irsa.download_cutout(
-            row["access_url"], x, y, size, path, expected_obs_id=row["obs_id"],
-            timeout_s=irsa._remaining_timeout(12, deadline), retries=1,
-        )
+        _download_cutout(cache, collection, row, x, y, size, path, deadline)
         stat = path.stat()
         return Cutout(
             path, row["obs_id"], int(row["energy_bandpassname"].rsplit("D", 1)[1]),
@@ -132,17 +212,18 @@ def load_cutouts(query, directory):
         )
 
     def download_visit(item):
-        index, candidates = item
-        failure = None
-        for row in candidates[:2]:
-            try:
-                return download(index, row), None
-            except irsa.UpstreamTimeout as exc:
-                return None, exc
-            except (requests.RequestException, ValueError) as exc:
-                if not (isinstance(exc, ValueError) and str(exc).startswith("HTTP 422")):
-                    failure = exc
-        return None, failure
+        with cache:  # Close the worker thread's SQLite connection.
+            index, candidates = item
+            failure = None
+            for row in candidates[:2]:
+                try:
+                    return download(index, row), None
+                except irsa.UpstreamTimeout as exc:
+                    return None, exc
+                except (requests.RequestException, ValueError) as exc:
+                    if not (isinstance(exc, ValueError) and str(exc).startswith("HTTP 422")):
+                        failure = exc
+            return None, failure
 
     started = monotonic()
     with ThreadPoolExecutor(max_workers=4) as pool:
@@ -166,7 +247,7 @@ def load_harvest_cutouts(query):
     result = []
     for path in root.glob("*.fits"):
         match = re.search(r"_D([1-6])_", path.name)
-        if match is None or int(match.group(1)) != query.detector:
+        if match is None or (query.detector is not None and int(match.group(1)) != query.detector):
             continue
         try:
             from astropy.io import fits
@@ -176,7 +257,7 @@ def load_harvest_cutouts(query):
                 mjd = float(header["MJD-AVG"])
         except (OSError, KeyError, TypeError, ValueError):
             continue
-        result.append(Cutout(path.resolve(), obs_id, query.detector, mjd, "qr3", "", path.stat().st_size, path.stat().st_mtime_ns))
+        result.append(Cutout(path.resolve(), obs_id, int(match.group(1)), mjd, "qr3", "", path.stat().st_size, path.stat().st_mtime_ns))
     result.sort(key=lambda item: item.mjd)
     max_frames = getattr(query, "max_frames", 60)
     if len(result) > max_frames:
@@ -262,7 +343,8 @@ def load_database_spherex_frames(query, target):
                 )
             )
         seq = valid_seqs[0]
-        inputs = (seq.get("report") or {}).get("inputs") or []
+        report = seq.get("report") or {}
+        inputs = report.get("inputs") or []
         assets = seq.get("assets") or {}
         asset_frames = assets.get("frames") or []
         asset_diffs = assets.get("diffs") or []
@@ -272,14 +354,15 @@ def load_database_spherex_frames(query, target):
         h = int(seq.get("grid_height") or 47)
         scale = float(seq.get("pixel_scale_arcsec") or 6.15)
 
-        mid_mjd = (float(inputs[0]["mjd"]) + float(inputs[-1]["mjd"])) / 2.0
-        pos = position_at(target_key, mid_mjd)
-        if pos is not None:
-            center_ra = round(float(pos.ra.deg), 6)
-            center_dec = round(float(pos.dec.deg), 6)
+        grid_wcs = report.get("grid_wcs") or {}
+        if grid_wcs.get("CRVAL1") is not None and grid_wcs.get("CRVAL2") is not None:
+            center_ra = float(grid_wcs["CRVAL1"])
+            center_dec = float(grid_wcs["CRVAL2"])
         else:
-            center_ra = round(float(target.ra), 6)
-            center_dec = round(float(target.dec), 6)
+            mid_mjd = (float(inputs[0]["mjd"]) + float(inputs[-1]["mjd"])) / 2.0
+            pos = position_at(target_key, mid_mjd)
+            center_ra = round(float(pos.ra.deg if pos is not None else target.ra), 6)
+            center_dec = round(float(pos.dec.deg if pos is not None else target.dec), 6)
 
         grid = Grid(
             width=w,
@@ -290,7 +373,7 @@ def load_database_spherex_frames(query, target):
             center_dec=center_dec,
         )
 
-        norm_raw = seq.get("norm") or (seq.get("report") or {}).get("norm") or {}
+        norm_raw = seq.get("norm") or report.get("norm") or {}
         vmin = float(norm_raw.get("vmin", 0.0))
         vmax = float(norm_raw.get("vmax", 1.0))
         if vmin >= vmax:
@@ -333,7 +416,7 @@ def load_database_spherex_frames(query, target):
                     iso=iso,
                     wavelength_um=wave,
                     bandwidth_um=bw,
-                    release=str(dbf.get("release") or (seq.get("report") or {}).get("release") or "dr1"),
+                    release=str(dbf.get("release") or report.get("release") or "dr1"),
                     survey=1,
                     bad_pixel_frac=0.0 if usable_flag else None,
                     predicted_px=pred_px,
@@ -458,7 +541,7 @@ def load_database_cutouts(query):
             Cutout(
                 path.resolve(),
                 str(row.get("obs_id", path.stem)),
-                int(query.detector),
+                int(row.get("detector") or query.detector),
                 float(row.get("observed_mjd")),
                 str(row.get("release") or "dr1"),
                 str(row.get("cutout_sha256") or ""),
@@ -466,13 +549,13 @@ def load_database_cutouts(query):
                 path.stat().st_mtime_ns,
             )
         )
-    if result or db_frames:
+    if result:
         result.sort(key=lambda item: item.mjd)
         return tuple(result[: getattr(query, "max_frames", 60)])
 
     for product in database_provider.products_for_target(query.target_key):
         match = re.search(r"D([1-6])", str(product.get("band") or ""), re.IGNORECASE)
-        if match is None or int(match.group(1)) != query.detector:
+        if match is None or (query.detector is not None and int(match.group(1)) != query.detector):
             continue
         metadata = product.get("metadata") or {}
         relative = product.get("local_file") or metadata.get("relative_path") or metadata.get("fits_path")
@@ -484,7 +567,7 @@ def load_database_cutouts(query):
             path = data_dir.joinpath(*path.parts[1:]) if path.parts[0] == "data" else data_dir / path
         if not path.is_file():
             continue
-        result.append(Cutout(path.resolve(), str(product.get("obs_id", path.stem)), query.detector, float(product.get("mjd_start")), str(product.get("collection", "")).removeprefix("spherex_"), "", path.stat().st_size, path.stat().st_mtime_ns))
+        result.append(Cutout(path.resolve(), str(product.get("obs_id", path.stem)), int(match.group(1)), float(product.get("mjd_start")), str(product.get("collection", "")).removeprefix("spherex_"), "", path.stat().st_size, path.stat().st_mtime_ns))
     result.sort(key=lambda item: item.mjd)
     return tuple(result[:getattr(query, "max_frames", 60)])
 

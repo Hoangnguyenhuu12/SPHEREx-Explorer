@@ -18,7 +18,7 @@ import {
   Sparkles,
   X,
 } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type Dispatch } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type Dispatch } from 'react'
 import { createPortal } from 'react-dom'
 import { Link } from 'react-router'
 import { PATHS } from '../../app/config'
@@ -26,7 +26,7 @@ import { describeError } from '../../shared/api/errors'
 import { DETECTORS, type TargetInfo } from '../../shared/config/targets'
 import { useGuide } from '../guide/guide-state'
 import { BlinkCanvas, type BlinkCanvasHandle, type GaiaOverlayMarker, type RulerOverlay, type TrailPoint } from '../blink/BlinkCanvas'
-import { SPEEDS, type PlayerAction, type PlayerState } from '../blink/player'
+import { canStep, SPEEDS, type PlayerAction, type PlayerState } from '../blink/player'
 import type { FrameSession } from '../blink/useFrameSession'
 import type { SyncedView } from '../blink/viewport'
 import { formatDecDms, formatRaHms } from '../target-search/coordinates'
@@ -239,21 +239,30 @@ export function ObservationViewer(props: Props) {
   const frame = frames[displayIndex] ?? null
 
   const elapsed = useElapsed(session.startedAt, session.status === 'fetching')
-  const isDiff = differenceAllowed && !inCompare && toggles.mode === 'difference'
+  const hasDiffs = useMemo(() => frames.some((f) => Boolean(f.diff_png)), [frames])
+  const isDiff = differenceAllowed && hasDiffs && !inCompare && toggles.mode === 'difference'
   const demo = data?.mode === 'mock' || frame?.data_mode === 'fixture'
   const ready = session.status === 'ready'
-  const canPlay = ready && session.originals.filter(Boolean).length >= 2
+  const canPlay = player.readyIndices.length >= 2
+  const canSeek = hasMultipleFrames && session.status !== 'fetching'
+  const secondaryCompareIndex = activeSlot === 'A' ? indexB : indexA
+  const { prioritizeFrames, ensureDiffs } = session
+
+  useLayoutEffect(() => {
+    // Commit the visible dates before the session starts its background downloads.
+    prioritizeFrames(inCompare ? [activeFlipIndex, secondaryCompareIndex] : [displayIndex])
+  }, [prioritizeFrames, inCompare, activeFlipIndex, secondaryCompareIndex, displayIndex])
 
   useEffect(() => {
-    if (isDiff) session.ensureDiffs()
-  }, [isDiff, session])
+    if (isDiff) ensureDiffs()
+  }, [isDiff, ensureDiffs])
 
   // Keep Original A/B as default whenever two frames differ in mission or band.
   useEffect(() => {
-    if (!differenceAllowed && toggles.mode === 'difference') {
+    if ((!differenceAllowed || (data && !hasDiffs)) && toggles.mode === 'difference') {
       setToggles({ mode: 'original' })
     }
-  }, [differenceAllowed, toggles.mode, setToggles])
+  }, [data, differenceAllowed, hasDiffs, toggles.mode, setToggles])
 
   const onFov = (a: number, byUser: boolean) => {
     setVisibleFov(a)
@@ -355,7 +364,7 @@ export function ObservationViewer(props: Props) {
   }
 
   const switchToMode = (next: 'compare' | 'timeline') => {
-    if (next === 'compare' && player.playing) dispatch({ type: 'toggle' })
+    if (next === 'compare' && player.playing) dispatch({ type: 'pause' })
     if (next === 'timeline') {
       dispatch({ type: 'seek', index: activeFlipIndex })
       setMarkingSlot(null)
@@ -442,7 +451,9 @@ export function ObservationViewer(props: Props) {
   }
 
   const renderFrameState = (frameIdx: number) => {
-    const slotFailed = session.failed.includes(frameIdx)
+    const slotFailed = isDiff
+      ? !frames[frameIdx]?.diff_png || session.diffStatus === 'ready' || session.diffStatus === 'error'
+      : session.failed.includes(frameIdx)
     const slotBitmap = isDiff && !inCompare ? (session.diffs[frameIdx] ?? null) : (session.originals[frameIdx] ?? null)
     if (session.status === 'fetching')
       return (
@@ -453,16 +464,6 @@ export function ObservationViewer(props: Props) {
           <button type="button" className="btn btn-secondary" onClick={session.cancel}>
             Cancel
           </button>
-        </div>
-      )
-    if ((session.status === 'decoding' || session.status === 'ready') && !slotBitmap && !slotFailed && session.total > 0)
-      return (
-        <div className="viewer-state" role="status">
-          <Loader2 className="spin" aria-hidden />
-          <p>
-            Loading images <span className="num">{session.loaded}</span> / <span className="num">{session.total}</span>
-          </p>
-          <progress max={session.total} value={session.loaded} />
         </div>
       )
     if (session.status === 'error') {
@@ -488,21 +489,31 @@ export function ObservationViewer(props: Props) {
           <p className="caption">Choose another detector in the Details tab below.</p>
         </div>
       )
-    if (slotFailed)
+    if (!slotBitmap && slotFailed)
       return (
         <div className="viewer-state" role="alert">
           <AlertTriangle className="is-warn" aria-hidden />
-          <p>Observation {frameIdx + 1} could not be loaded.</p>
+          <p>{isDiff ? 'Difference image' : 'Observation'} {frameIdx + 1} could not be loaded.</p>
           <button type="button" className="btn btn-secondary" onClick={session.retry}>
             <RotateCw aria-hidden /> Reload observations
           </button>
         </div>
       )
-    if (ready && isDiff && session.diffStatus === 'loading')
+    if (!slotBitmap && isDiff)
       return (
         <div className="viewer-state viewer-state--soft" role="status">
           <Loader2 className="spin" aria-hidden />
           <p>Loading difference images…</p>
+        </div>
+      )
+    if (!slotBitmap && session.status === 'decoding')
+      return (
+        <div className="viewer-state" role="status">
+          <Loader2 className="spin" aria-hidden />
+          <p>
+            Loading images <span className="num">{session.loaded}</span> / <span className="num">{session.total}</span>
+          </p>
+          <progress max={session.total} value={session.loaded} aria-label="Observation images loaded" />
         </div>
       )
     return null
@@ -560,7 +571,7 @@ export function ObservationViewer(props: Props) {
       </div>
 
       <div className="viewer-player" data-tour={idSuffix === 'main' ? 'player' : undefined}>
-        <button type="button" className="icon-btn" aria-label="Previous observation" disabled={!canPlay} onClick={() => dispatch({ type: 'prev' })}>
+        <button type="button" className="icon-btn" aria-label="Previous observation" disabled={!canStep(player)} onClick={() => dispatch({ type: 'prev' })}>
           <SkipBack aria-hidden />
         </button>
         <button
@@ -573,7 +584,7 @@ export function ObservationViewer(props: Props) {
         >
           {player.playing ? <Pause aria-hidden /> : <Play aria-hidden />}
         </button>
-        <button type="button" className="icon-btn" aria-label="Next observation" disabled={!canPlay} onClick={() => dispatch({ type: 'next' })}>
+        <button type="button" className="icon-btn" aria-label="Next observation" disabled={!canStep(player)} onClick={() => dispatch({ type: 'next' })}>
           <SkipForward aria-hidden />
         </button>
         <div className="viewer-scrub">
@@ -583,7 +594,7 @@ export function ObservationViewer(props: Props) {
             max={Math.max(0, session.total - 1)}
             step={1}
             value={player.index}
-            disabled={!canPlay}
+            disabled={!canSeek}
             aria-label="Observation date"
             aria-valuetext={frame ? `${formatUtcDate(frame.iso)}, observation ${player.index + 1} of ${session.total}` : undefined}
             onChange={(e) => dispatch({ type: 'seek', index: Number(e.target.value) })}
@@ -629,7 +640,7 @@ export function ObservationViewer(props: Props) {
           <button
             type="button"
             aria-pressed={isDiff}
-            disabled={!differenceAllowed || !ready || session.total < 2}
+            disabled={!differenceAllowed || !hasDiffs || !canSeek}
             title={
               !differenceAllowed
                 ? 'Original A/B is the default when observations come from different missions or bands'

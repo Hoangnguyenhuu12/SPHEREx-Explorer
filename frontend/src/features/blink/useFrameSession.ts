@@ -2,7 +2,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { config } from '../../app/config'
 import { api } from '../../shared/api'
-import { ApiError, isAbort } from '../../shared/api/errors'
+import { ApiError } from '../../shared/api/errors'
 import type { FramesParams, FramesResponse } from '../../shared/api/types'
 
 /**
@@ -24,6 +24,7 @@ export interface FrameSession {
   startedAt: number | null
   cancel: () => void
   retry: () => void
+  prioritizeFrames: (indices: readonly number[]) => void
   ensureDiffs: () => void
   diffStatus: 'idle' | 'loading' | 'ready' | 'error'
 }
@@ -35,30 +36,30 @@ export function framesQueryKey(p: FramesParams) {
 async function decodeAll(
   urls: (string | null)[],
   signal: AbortSignal,
+  priorities: () => readonly number[],
   onEach: (i: number, bmp: ImageBitmap | null, err?: unknown) => void,
 ): Promise<void> {
-  let next = 0
+  const pending = new Set(urls.flatMap((url, i) => url === null ? [] : [i]))
   const worker = async () => {
-    while (next < urls.length) {
-      const i = next++
-      if (signal.aborted) return
+    while (pending.size > 0 && !signal.aborted) {
+      const i = priorities().find((index) => pending.has(index)) ?? pending.values().next().value!
+      pending.delete(i)
+      let bmp: ImageBitmap
       try {
-        const url = urls[i]
-        if (url === null) continue
-        const bmp = await api.image(url, signal)
-        if (signal.aborted) {
-          bmp.close()
-          return
-        }
-        onEach(i, bmp)
+        bmp = await api.image(urls[i]!, signal)
       } catch (err) {
-        if (signal.aborted || isAbort(err)) return
-        onEach(i, null, err)
+        if (!signal.aborted) onEach(i, null, err)
+        continue
       }
+      if (signal.aborted) bmp.close()
+      else onEach(i, bmp)
     }
   }
-  await Promise.all(Array.from({ length: Math.min(config.imageConcurrency, urls.length) }, worker))
+  await Promise.all(Array.from({ length: Math.min(config.imageConcurrency, pending.size) }, worker))
 }
+
+const EMPTY_BITMAPS: (ImageBitmap | null)[] = []
+const EMPTY_INDICES: number[] = []
 
 function closeAll(list: (ImageBitmap | null)[]) {
   for (const b of list) b?.close()
@@ -88,6 +89,7 @@ export function useFrameSession(params: FramesParams | null): FrameSession {
   const generation = useRef(0)
   const ctrlRef = useRef<AbortController | null>(null)
   const diffBitmaps = useRef<(ImageBitmap | null)[]>([])
+  const framePriority = useRef<{ data: FramesResponse; indices: readonly number[] } | null>(null)
   const recovered = useRef(false)
   const keyString = JSON.stringify(key)
 
@@ -98,6 +100,12 @@ export function useFrameSession(params: FramesParams | null): FrameSession {
   }, [keyString]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const data = query.data ?? null
+  const prioritizeFrames = useCallback((indices: readonly number[]) => {
+    if (data) framePriority.current = { data, indices }
+  }, [data])
+  const priorities = useCallback(() => (
+    framePriority.current?.data === data ? framePriority.current.indices : EMPTY_INDICES
+  ), [data])
 
   useEffect(() => {
     const gen = ++generation.current
@@ -119,6 +127,7 @@ export function useFrameSession(params: FramesParams | null): FrameSession {
     decodeAll(
       data.frames.map((f) => f.png),
       ctrl.signal,
+      priorities,
       (i, bmp, err) => {
         if (gen !== generation.current) {
           bmp?.close()
@@ -154,34 +163,36 @@ export function useFrameSession(params: FramesParams | null): FrameSession {
   }, [data]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const ensureDiffs = useCallback(() => {
-    if (!data || imageOwner !== data || diffStatus !== 'idle' || !data.frames.some((f) => f.diff_png)) return
+    if (!data || imageOwner !== data || diffBitmaps.current.length > 0 || !data.frames.some((f) => f.diff_png)) return
     const gen = generation.current
     const ctrl = ctrlRef.current
-    if (!ctrl) return
+    if (!ctrl || ctrl.signal.aborted) return
     setDiffStatus('loading')
     const local: (ImageBitmap | null)[] = new Array(data.frames.length).fill(null)
+    diffBitmaps.current = local
     let anyFail = false
     decodeAll(
       data.frames.map((f) => f.diff_png),
       ctrl.signal,
+      priorities,
       (i, bmp) => {
         if (gen !== generation.current) {
           bmp?.close()
           return
         }
-        if (bmp) local[i] = bmp
-        else anyFail = true
+        if (bmp) {
+          local[i] = bmp
+          setDiffs([...local])
+        } else {
+          anyFail = true
+        }
       },
     ).then(() => {
-      if (gen !== generation.current || ctrl.signal.aborted) {
-        closeAll(local)
-        return
-      }
-      setDiffs(local)
-      diffBitmaps.current = local
+      if (gen !== generation.current || ctrl.signal.aborted) return
       setDiffStatus(anyFail ? 'error' : 'ready')
     })
-  }, [data, imageOwner, diffStatus])
+    // State setters are stable; listing them lets the React Compiler keep this memoization.
+  }, [data, imageOwner, priorities, setDiffs, setDiffStatus])
 
   const cancel = useCallback(() => {
     void qc.cancelQueries({ queryKey: key, exact: true })
@@ -206,16 +217,17 @@ export function useFrameSession(params: FramesParams | null): FrameSession {
   return {
     status,
     data,
-    originals: imageOwner === data ? originals : [],
-    diffs: imageOwner === data ? diffs : [],
-    failed: imageOwner === data ? failed : [],
+    originals: imageOwner === data ? originals : EMPTY_BITMAPS,
+    diffs: imageOwner === data ? diffs : EMPTY_BITMAPS,
+    failed: imageOwner === data ? failed : EMPTY_INDICES,
     loaded: imageOwner === data ? loaded : 0,
     total: data?.frames.length ?? 0,
     error: query.error ?? decodeError,
     startedAt,
     cancel,
     retry,
+    prioritizeFrames,
     ensureDiffs,
-    diffStatus,
+    diffStatus: imageOwner === data ? diffStatus : 'idle',
   }
 }
