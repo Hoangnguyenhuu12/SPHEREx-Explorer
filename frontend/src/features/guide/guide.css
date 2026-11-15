@@ -51,28 +51,54 @@
   pointer-events: none;
 }
 .tour__dim,
-.tour__spot {
+.tour__lit,
+.tour__ring {
   position: fixed;
   pointer-events: none;
 }
 .tour__dim {
   inset: 0;
-  background: rgb(5 5 10 / 0.72);
+  background: rgb(5 5 10 / 0.5);
 }
-.tour__spot {
+/* Everything outside the details panel (or the control itself) is dimmed; the panel stays bright. */
+.tour__lit {
+  border-radius: var(--radius);
+  box-shadow: 0 0 0 9999px rgb(5 5 10 / 0.5);
+}
+.tour__ring {
   border-radius: 10px;
   box-shadow:
     0 0 0 2px var(--primary),
-    0 0 0 9999px rgb(5 5 10 / 0.72);
+    0 0 18px color-mix(in srgb, var(--primary) 55%, transparent);
+  animation: tour-pulse 1.6s ease-in-out infinite;
+}
+.tour__ring.is-done {
+  box-shadow:
+    0 0 0 2px #34d399,
+    0 0 18px rgb(52 211 153 / 0.5);
+  animation: none;
+}
+.tour__lit,
+.tour__ring {
   transition:
     top 260ms cubic-bezier(0.2, 0.7, 0.2, 1),
     left 260ms cubic-bezier(0.2, 0.7, 0.2, 1),
     width 260ms cubic-bezier(0.2, 0.7, 0.2, 1),
     height 260ms cubic-bezier(0.2, 0.7, 0.2, 1);
 }
-.tour__block {
-  position: fixed;
-  pointer-events: auto;
+@keyframes tour-pulse {
+  50% {
+    box-shadow:
+      0 0 0 4px var(--primary),
+      0 0 26px color-mix(in srgb, var(--primary) 70%, transparent);
+  }
+}
+.tour__done {
+  color: #34d399;
+  font-weight: 700;
+}
+.tour__next--ready {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 40%, transparent);
 }
 .tour__card {
   position: fixed;
@@ -90,9 +116,11 @@
     top 260ms cubic-bezier(0.2, 0.7, 0.2, 1),
     left 260ms cubic-bezier(0.2, 0.7, 0.2, 1);
 }
-.tour--still .tour__spot,
+.tour--still .tour__lit,
+.tour--still .tour__ring,
 .tour--still .tour__card {
   transition: none;
+  animation: none;
 }
 .tour__arrow {
   position: absolute;

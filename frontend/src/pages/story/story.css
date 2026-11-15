@@ -166,6 +166,50 @@
   max-width: 560px;
   height: auto;
 }
+.diagram-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  max-width: 560px;
+}
+.diagram-choice button {
+  min-height: 36px;
+}
+.diagram-slider {
+  display: grid;
+  gap: var(--space-1);
+  width: 100%;
+  font-size: 14px;
+}
+.diagram-slider input {
+  width: 100%;
+  accent-color: var(--primary);
+}
+.diagram-info {
+  margin: 0;
+}
+.diagram-hint {
+  color: var(--muted);
+}
+.diagram-hit {
+  cursor: pointer;
+}
+.diagram-hit:focus-visible {
+  outline: 2px solid var(--primary);
+}
+.diagram-anim {
+  transition:
+    r 240ms ease,
+    opacity 240ms ease,
+    cx 300ms ease,
+    cy 300ms ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  .diagram-anim {
+    transition: none;
+  }
+}
 .diagram-label {
   fill: var(--muted);
   font-family: var(--font-body);

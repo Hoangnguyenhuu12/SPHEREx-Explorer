@@ -3,7 +3,8 @@
  * (CSS variables are applied through `style`, since SVG presentation attributes cannot read them).
  * Every number here is already stated on the page or in shared/config/targets.ts.
  */
-import type { CSSProperties, ReactNode } from 'react'
+import { useEffect, useState, type CSSProperties, type ReactNode } from 'react'
+import { useReducedMotion } from 'motion/react'
 
 const ink: CSSProperties = { fill: 'var(--fg)' }
 const muted: CSSProperties = { fill: 'var(--muted)' }
@@ -14,11 +15,14 @@ function Figure({
   label,
   note,
   height = 220,
+  controls,
   children,
 }: {
   label: string
   note: ReactNode
   height?: number
+  /** Buttons or a slider under the drawing that change it. */
+  controls?: ReactNode
   children: ReactNode
 }) {
   return (
@@ -26,6 +30,7 @@ function Figure({
       <svg viewBox={`0 0 560 ${height}`} role="img" aria-label={label}>
         {children}
       </svg>
+      {controls && <div className="diagram-controls">{controls}</div>}
       <figcaption className="diagram-note">
         <strong>Note:</strong> {note}
       </figcaption>
@@ -33,15 +38,68 @@ function Figure({
   )
 }
 
+function Choice<T extends string | number>({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string
+  value: T
+  options: { value: T; label: string }[]
+  onChange: (v: T) => void
+}) {
+  return (
+    <div className="segmented diagram-choice" role="group" aria-label={label}>
+      {options.map((o) => (
+        <button key={String(o.value)} type="button" aria-pressed={value === o.value} onClick={() => onChange(o.value)}>
+          {o.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+/** Steps through `count` states on a timer while playing; never plays under reduced motion. */
+function useStepper(count: number, ms: number) {
+  const reduce = useReducedMotion()
+  const [i, setI] = useState(0)
+  const [playing, setPlaying] = useState(false)
+  useEffect(() => {
+    if (!playing || reduce) return
+    const t = window.setInterval(() => setI((v) => (v + 1) % count), ms)
+    return () => window.clearInterval(t)
+  }, [playing, reduce, count, ms])
+  const pick = (v: number) => {
+    setPlaying(false)
+    setI(v)
+  }
+  return { i, pick, playing: playing && !reduce, setPlaying, canPlay: !reduce }
+}
+
 /** One detector with a filter whose colour changes along it; a star crossing it is seen in many colours. */
 export function ColourDiagram() {
   const stars = [
-    { x: 150, label: 'Exposure 1' },
-    { x: 280, label: 'Exposure 2' },
-    { x: 410, label: 'Exposure 3' },
+    { x: 150, label: 'Exposure 1', colour: 'var(--blue)', um: 'shorter wavelength' },
+    { x: 280, label: 'Exposure 2', colour: 'var(--pink)', um: 'middle wavelength' },
+    { x: 410, label: 'Exposure 3', colour: 'var(--primary)', um: 'longer wavelength' },
   ]
+  const { i, pick, playing, setPlaying, canPlay } = useStepper(stars.length, 1100)
   return (
     <Figure
+      controls={
+        <>
+          <Choice label="Exposure" value={i} options={stars.map((s, k) => ({ value: k, label: s.label }))} onChange={pick} />
+          {canPlay && (
+            <button type="button" className="btn btn-secondary btn--compact" aria-pressed={playing} onClick={() => setPlaying(!playing)}>
+              {playing ? 'Pause' : 'Play the drift'}
+            </button>
+          )}
+          <span className="caption" aria-live="polite">
+            {stars[i].label}: the same star is seen at a <strong style={{ color: stars[i].colour }}>{stars[i].um}</strong>.
+          </span>
+        </>
+      }
       label="Diagram: a SPHEREx detector whose filter changes colour from one side to the other. As the sky drifts, the same star lands on a different colour in each exposure."
       note={
         <>
@@ -69,10 +127,16 @@ export function ColourDiagram() {
       </text>
       <rect x="80" y="44" width="400" height="96" rx="6" fill="url(#lvf)" opacity="0.85" />
       <rect x="80" y="44" width="400" height="96" rx="6" style={line} />
-      {stars.map((s) => (
-        <g key={s.label}>
-          <circle cx={s.x} cy="92" r="9" style={{ fill: 'var(--fg)' }} />
-          <text x={s.x} y="166" textAnchor="middle" className="diagram-label">
+      {stars.map((s, k) => (
+        <g key={s.label} className="diagram-hit" onClick={() => pick(k)}>
+          <circle
+            cx={s.x}
+            cy="92"
+            r={k === i ? 14 : 9}
+            className="diagram-anim"
+            style={{ fill: 'var(--fg)', opacity: k === i ? 1 : 0.3, stroke: k === i ? s.colour : 'none', strokeWidth: 4 }}
+          />
+          <text x={s.x} y="166" textAnchor="middle" className="diagram-label" style={k === i ? heading : undefined}>
             {s.label}
           </text>
         </g>
@@ -99,9 +163,20 @@ export function MotionDiagram() {
     { x: x0 + 1.5 * size + step, label: 'Nov ’25' },
     { x: x0 + 1.5 * size + 2 * step, label: 'May ’26' },
   ]
+  const { i, pick, playing, setPlaying, canPlay } = useStepper(positions.length, 700)
   return (
     <Figure
       height={236}
+      controls={
+        <>
+          <Choice label="Observation date" value={i} options={positions.map((p, k) => ({ value: k, label: p.label }))} onChange={pick} />
+          {canPlay && (
+            <button type="button" className="btn btn-secondary btn--compact" aria-pressed={playing} onClick={() => setPlaying(!playing)}>
+              {playing ? 'Pause' : 'Blink the dates'}
+            </button>
+          )}
+        </>
+      }
       label="Diagram: a grid of SPHEREx pixels with fixed background stars and a nearby star that moves a little to the right every six months."
       note={
         <>
@@ -124,15 +199,16 @@ export function MotionDiagram() {
       ].map(([cx, cy]) => (
         <circle key={`${cx}-${cy}`} cx={cx} cy={cy} r="4" style={muted} />
       ))}
-      {positions.map((p, i) => (
-        <g key={p.label}>
-          <circle cx={p.x} cy={y0 + 1.5 * size} r="8" style={{ fill: 'var(--primary)', opacity: 0.35 + i * 0.32 }} />
+      {positions.map((p, k) => (
+        <g key={p.label} className="diagram-hit" onClick={() => pick(k)}>
+          <circle cx={p.x} cy={y0 + 1.5 * size} r={k === i ? 10 : 6} className="diagram-anim" style={{ fill: 'var(--primary)', opacity: k === i ? 1 : 0.2 }} />
           {/* The steps are drawn to scale, so the middle label goes above the star to keep the three apart. */}
           <text
             x={p.x}
-            y={i === 1 ? y0 + 1.5 * size - 18 : y0 + rows * size + 24}
+            y={k === 1 ? y0 + 1.5 * size - 18 : y0 + rows * size + 24}
             textAnchor="middle"
             className="diagram-label"
+            style={k === i ? heading : undefined}
           >
             {p.label}
           </text>
@@ -150,6 +226,11 @@ export function MotionDiagram() {
 
 /** First date minus later date: a moving star becomes a dark spot and a bright spot. */
 export function DifferenceDiagram() {
+  // How far the star has moved by the later date: 0 = not at all, 1 = the full step drawn here.
+  const [shift, setShift] = useState(1)
+  const lx = 70 + 12 * shift
+  const ly = 82 - 14 * shift
+  const strength = Math.min(1, shift * 1.6)
   const cell = (x: number, label: string, children: ReactNode) => (
     <g transform={`translate(${x} 20)`}>
       <rect x="0" y="0" width="150" height="150" rx="4" fill="#000" stroke="#2A2A38" />
@@ -161,6 +242,15 @@ export function DifferenceDiagram() {
   )
   return (
     <Figure
+      controls={
+        <label className="diagram-slider">
+          <span>How far the star moved</span>
+          <input type="range" min={0} max={1} step={0.05} value={shift} onChange={(e) => setShift(Number(e.target.value))} />
+          <span className="caption" aria-live="polite">
+            {shift === 0 ? 'No motion: the difference is flat grey.' : 'Moved: a dark spot where it was and a bright spot where it is now.'}
+          </span>
+        </label>
+      }
       label="Diagram: first observation, later observation, and their difference showing a dark spot where the star was and a bright spot where it is now"
       note={
         <>
@@ -187,7 +277,7 @@ export function DifferenceDiagram() {
         <>
           <circle cx="40" cy="40" r="5" fill="#FFF3D6" />
           <circle cx="112" cy="104" r="4" fill="#FFF3D6" />
-          <circle cx="82" cy="68" r="7" fill="#F4EF83" />
+          <circle cx={lx} cy={ly} r="7" fill="#F4EF83" />
         </>,
       )}
       <text x="358" y="100" className="diagram-op">
@@ -198,8 +288,8 @@ export function DifferenceDiagram() {
         'Difference',
         <>
           <rect x="0" y="0" width="150" height="150" rx="4" fill="#808080" />
-          <circle cx="70" cy="82" r="7" fill="#1a1a1a" />
-          <circle cx="82" cy="68" r="7" fill="#ffffff" />
+          <circle cx="70" cy="82" r="7" fill="#1a1a1a" opacity={strength} />
+          <circle cx={lx} cy={ly} r="7" fill="#ffffff" opacity={strength} />
         </>,
       )}
     </Figure>
@@ -211,14 +301,20 @@ export function SurveyTimeline() {
   const x = (months: number) => 50 + months * 22 // month 0 = March 2025
   // Launch and survey start are two months apart, so their labels sit on separate rows.
   const marks = [
-    { m: 0, top: 'Launch', bottom: '11 Mar 2025', strong: false, topY: 60, bottomY: 164 },
-    { m: 2, top: 'Survey starts', bottom: '1 May 2025', strong: false, topY: 84, bottomY: 142 },
-    { m: 8, top: 'Map 1', bottom: '≈ Nov 2025', strong: true, topY: 84, bottomY: 142 },
-    { m: 14, top: 'Map 2', bottom: '≈ May 2026', strong: true, topY: 84, bottomY: 142 },
-    { m: 20, top: 'Map 3', bottom: '≈ Nov 2026', strong: true, topY: 84, bottomY: 142 },
+    { m: 0, top: 'Launch', bottom: '11 Mar 2025', strong: false, topY: 60, bottomY: 164, info: 'SPHEREx launched on 11 March 2025.' },
+    { m: 2, top: 'Survey starts', bottom: '1 May 2025', strong: false, topY: 84, bottomY: 142, info: 'Science observations began on 1 May 2025.' },
+    { m: 8, top: 'Map 1', bottom: '≈ Nov 2025', strong: true, topY: 84, bottomY: 142, info: 'The first full map of the sky: every target gets its first date.' },
+    { m: 14, top: 'Map 2', bottom: '≈ May 2026', strong: true, topY: 84, bottomY: 142, info: 'A second date per target, enough to blink and compare.' },
+    { m: 20, top: 'Map 3', bottom: '≈ Nov 2026', strong: true, topY: 84, bottomY: 142, info: 'A year after Map 1, so slow movers like Barnard’s Star shift visibly.' },
   ]
+  const [sel, setSel] = useState(2)
   return (
     <Figure
+      controls={
+        <p className="caption diagram-info" aria-live="polite">
+          <strong>{marks[sel].top}:</strong> {marks[sel].info} <span className="diagram-hint">Click a dot on the timeline.</span>
+        </p>
+      }
       label="Timeline: SPHEREx launched on 11 March 2025, began its survey on 1 May 2025 and completes a full map of the sky about every six months."
       note={
         <>
@@ -229,9 +325,30 @@ export function SurveyTimeline() {
     >
       <line x1={x(0)} x2={x(20) + 20} y1="110" y2="110" style={{ stroke: 'var(--line-strong)', strokeWidth: 2 }} />
       <rect x={x(2)} y="104" width={x(20) - x(2)} height="12" rx="6" style={{ fill: 'var(--blue)', opacity: 0.35 }} />
-      {marks.map((k) => (
-        <g key={k.top}>
-          <circle cx={x(k.m)} cy="110" r={k.strong ? 9 : 6} style={{ fill: k.strong ? 'var(--primary)' : 'var(--fg)' }} />
+      {marks.map((k, idx) => (
+        <g
+          key={k.top}
+          className="diagram-hit"
+          role="button"
+          tabIndex={0}
+          aria-label={`${k.top}, ${k.bottom}`}
+          aria-pressed={sel === idx}
+          onClick={() => setSel(idx)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              setSel(idx)
+            }
+          }}
+        >
+          <circle cx={x(k.m)} cy="110" r="18" fill="transparent" />
+          <circle
+            cx={x(k.m)}
+            cy="110"
+            r={(k.strong ? 9 : 6) + (sel === idx ? 4 : 0)}
+            className="diagram-anim"
+            style={{ fill: k.strong ? 'var(--primary)' : 'var(--fg)', stroke: sel === idx ? 'var(--heading)' : 'none', strokeWidth: 3 }}
+          />
           <text x={x(k.m)} y={k.topY} textAnchor="middle" className="diagram-label" style={k.strong ? heading : ink}>
             {k.top}
           </text>
