@@ -1,0 +1,106 @@
+/* Star guide chat (features/chat). Uses the shared tokens, .btn, .icon-btn, .chip and .input. */
+.star-chat {
+  position: fixed;
+  right: var(--space-4);
+  bottom: var(--space-4);
+  z-index: 900;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-2);
+}
+.star-chat .star-chat__fab {
+  width: 52px;
+  height: 52px;
+  padding: 0;
+  border-radius: 999px;
+  box-shadow: 0 6px 20px rgb(0 0 0 / 0.45);
+}
+.star-chat .star-chat__fab svg {
+  width: 22px;
+  height: 22px;
+}
+.star-chat__panel {
+  width: min(380px, calc(100vw - 2 * var(--space-4)));
+  height: min(520px, calc(100dvh - 100px));
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  color: var(--fg);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  box-shadow: 0 12px 40px rgb(0 0 0 / 0.5);
+  overflow: hidden;
+}
+.star-chat__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-4);
+  border-bottom: 1px solid var(--line);
+}
+.star-chat__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 18px;
+  color: var(--heading);
+}
+.star-chat__list {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.star-chat__msg {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius);
+  max-width: 88%;
+  font-size: 14px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.star-chat__msg--assistant {
+  align-self: flex-start;
+  background: var(--surface-2);
+}
+.star-chat__msg--user {
+  align-self: flex-end;
+  background: var(--primary);
+  color: var(--on-primary);
+}
+.star-chat__typing {
+  color: var(--muted);
+}
+.star-chat__faq {
+  margin-top: var(--space-1);
+}
+.star-chat__faq .chip {
+  white-space: normal;
+  text-align: left;
+  padding-block: var(--space-1);
+}
+.star-chat__form {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  border-top: 1px solid var(--line);
+}
+.star-chat__form .input {
+  flex: 1;
+  min-width: 0;
+}
+.star-chat__send:not(:disabled) {
+  color: var(--primary);
+}
+/* The Eyes keeps its toolbar and credits along the bottom edge: sit above them. */
+body:has(.eyes) .star-chat {
+  bottom: 132px;
+}
+body:has(.eyes) .star-chat__panel {
+  height: min(480px, calc(100dvh - 260px));
+}

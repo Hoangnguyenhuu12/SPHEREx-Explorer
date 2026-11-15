@@ -11,8 +11,14 @@ const supabaseUrl = (import.meta.env.VITE_SUPABASE_URL ?? '').trim().replace(/\/
 /** Public anon/publishable key only. Never the service_role key. */
 const supabaseAnonKey = (import.meta.env.VITE_SUPABASE_ANON_KEY ?? '').trim()
 
+/** Star guide chat (Supabase Edge Function `star-chat`). Public URL; the AI key stays server-side. */
+const starChatUrl = (
+  import.meta.env.VITE_STAR_CHAT_URL ?? 'https://gprawwpsgvhfzwyfoout.supabase.co/functions/v1/star-chat'
+).trim()
+
 export const config = {
   apiBaseUrl,
+  starChatUrl,
   supabaseUrl,
   supabaseAnonKey,
   /**
