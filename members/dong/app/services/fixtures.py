@@ -15,7 +15,7 @@ from ..api_models import (
     ScienceQuery,
     Target,
 )
-from .catalog import resolve_name, targets
+from .catalog import position_at, resolve_name, targets
 from . import combined_timeline, database_provider
 from .frame_rendering import NoCoverage
 from .live_cutouts import (
