@@ -195,6 +195,9 @@
   gap: var(--space-1);
   border-bottom: 1px solid var(--line);
   margin-top: var(--space-2);
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
 }
 .tabs button {
   height: 40px;

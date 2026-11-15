@@ -18,7 +18,13 @@ from ..api_models import (
 from .catalog import resolve_name, targets
 from . import combined_timeline, database_provider
 from .frame_rendering import NoCoverage
-from .live_cutouts import cached_result, harvest_mode, load_cutouts, workspace
+from .live_cutouts import (
+    cached_result,
+    harvest_mode,
+    load_cutouts,
+    load_database_spherex_frames,
+    workspace,
+)
 from .observed_frames import matching_cutouts, render_cached
 from .observed_science import measure
 from shared.pipeline.irsa import UpstreamError, UpstreamTimeout
@@ -129,12 +135,18 @@ def resolve(query: ResolveQuery):
 def frames(query: FramesQuery, response=None):
     requested_target = Target.model_validate(target(query))
     if query.timeline == 'combined':
-        if query.target_key != 'wise0855' or query.detector != 6:
-            fail(400, 'BAD_PARAM', 'The combined timeline is available for WISE 0855 and D6.')
+        if query.target_key not in combined_timeline.KNOWN_TIMELINE_TARGETS or query.detector != 6:
+            fail(400, 'BAD_PARAM', 'The combined timeline is available for D6 on the five challenge targets.')
         try:
             return combined_timeline.frames(query, requested_target)
         except (OSError, ValueError, KeyError, TypeError):
-            fail(503, 'TIMELINE_UNAVAILABLE', 'The prebuilt WISE 0855 timeline is unavailable.')
+            fail(503, 'TIMELINE_UNAVAILABLE', 'The prebuilt combined timeline for this target is unavailable.')
+    if database_provider.enabled():
+        db_spherex = load_database_spherex_frames(query, requested_target)
+        if db_spherex is not None:
+            if response is not None:
+                response.headers["X-Cache"] = "MISS"
+            return db_spherex
     if live_mode():
         def build():
             with workspace() as directory:

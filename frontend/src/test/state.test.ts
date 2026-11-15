@@ -61,6 +61,33 @@ describe('explorer URL codec', () => {
     const r = resolveQuery(q)
     expect(r.kind === 'coords' && r.coords.dec).toBeCloseTo(-0.5, 9)
   })
+  it('parses and serializes compare=1 when set', () => {
+    const s = { q: 'wise0855', detector: 0, fovArcmin: null, compare: true }
+    expect(serializeSelection(s)).toBe('?q=wise0855&compare=1')
+    expect(parseSelection(serializeSelection(s))).toEqual(s)
+  })
+  it('preserves legacy URLs and round-trips full comparison share state', () => {
+    expect(parseSelection('?q=wise0855&det=6')).toEqual({
+      q: 'wise0855',
+      detector: 6,
+      fovArcmin: null,
+    })
+    const rich = {
+      q: 'wise0855',
+      detector: 6,
+      fovArcmin: 3.5,
+      compare: true,
+      seq: 'combined' as const,
+      band: 'W2',
+      frameA: 'wise0855-65fb266ac45d40b26d40416d',
+      frameB: 'wise0855-78f2a5ab5dcacebe6e68b8be',
+      markA: [29.4, 53.9] as [number, number],
+      markB: [70.6, 50.5] as [number, number],
+      gaia: true,
+      pred: false,
+    }
+    expect(parseSelection(serializeSelection(rich))).toEqual(rich)
+  })
   it('classifies queries', () => {
     expect(resolveQuery('rdra').kind).toBe('target')
     expect(resolveQuery('Vega').kind).toBe('name')

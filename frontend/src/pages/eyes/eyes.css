@@ -358,3 +358,31 @@ kbd {
   color: var(--muted);
   text-align: center;
 }
+@media (max-width: 720px) {
+  .eyes {
+    grid-template-rows: auto 1fr var(--eyes-footer-h);
+    max-width: 100vw;
+  }
+  .site-header--eyes {
+    height: auto;
+    max-width: 100vw;
+    overflow: hidden;
+    padding-block: var(--space-2);
+  }
+  .site-header--eyes .site-header__inner {
+    height: auto;
+    min-width: 0;
+    max-width: 100%;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    padding-inline: var(--space-2);
+  }
+  .site-header--eyes .search {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+  .site-footer--compact {
+    max-width: 100vw;
+    min-width: 0;
+  }
+}

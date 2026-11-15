@@ -75,10 +75,25 @@ function EditorForm({ data, onReload }: { data: EditorData | null; onReload?: ()
   const { ensure, dialog: nameDialog } = useEnsureDisplayName()
   const [clientKey] = useState(() => crypto.randomUUID())
   const [postId, setPostId] = useState<string | null>(data?.postId ?? null)
-  const [content, setContent] = useState<PostContent>(data?.content ?? EMPTY)
+  const routeState = location.state as {
+    flash?: string
+    prefill?: { title?: string; body?: string; links?: (string | { label: string; url: string })[] }
+  } | null
+  const [content, setContent] = useState<PostContent>(() => {
+    if (data?.content) return data.content
+    if (routeState?.prefill) {
+      return {
+        title: routeState.prefill.title ?? '',
+        body: routeState.prefill.body ?? '',
+        tagIds: [],
+        links: (routeState.prefill.links ?? []).map((l) => (typeof l === 'string' ? l : l.url)),
+      }
+    }
+    return EMPTY
+  })
   const [tab, setTab] = useState<'write' | 'preview'>('write')
   const [errors, setErrors] = useState<PostErrors>({})
-  const [dirty, setDirty] = useState(false)
+  const [dirty, setDirty] = useState(Boolean(routeState?.prefill))
   const [busy, setBusy] = useState<'save' | 'submit' | null>(null)
   const [serverError, setServerError] = useState<unknown>(null)
   const [savedAt, setSavedAt] = useState<string | null>(null)
@@ -89,7 +104,7 @@ function EditorForm({ data, onReload }: { data: EditorData | null; onReload?: ()
   const guard = useLeaveGuard(dirty && busy === null)
 
   // A message handed over from the previous screen (e.g. "Draft saved" after the first save).
-  const handoff = (location.state as { flash?: string } | null)?.flash
+  const handoff = routeState?.flash
   useEffect(() => {
     if (handoff) flash.show(handoff)
     // eslint-disable-next-line react-hooks/exhaustive-deps
