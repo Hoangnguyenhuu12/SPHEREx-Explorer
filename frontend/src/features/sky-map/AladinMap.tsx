@@ -89,6 +89,9 @@ export const GAIA_RADIUS_DEG = 0.1
  * blocks. Readout 1/tan(fov/2) = 300 → about 30,000%, half of the previous ~60,000% maximum.
  */
 const MIN_FOV_DEG = (2 * Math.atan(1 / 300) * 180) / Math.PI
+/** Sky motion view: the zoom readout shows about 27 % (tan 45° / tan 75° ≈ 0.27 of the default 90° view). */
+const SKY_MOTION_FOV_DEG = 150
+const SKY_MOTION_ZOOM_MS = 1200
 
 async function reachable(base: string, ms: number): Promise<boolean> {
   try {
@@ -529,16 +532,32 @@ export const AladinMap = forwardRef<SkyMapHandle, Props>(function AladinMap(
         }
         if (!on) return
         let last = performance.now()
+        const started = last
+        const f0 = aladinRef.current?.getFov?.()
+        const startFov = Array.isArray(f0) && Number.isFinite(f0[0]) ? f0[0] : SKY_MOTION_FOV_DEG
+        // Zoom out first (to about 27 %), so the whole sky turns slowly instead of racing past a deep zoom.
+        const zoomOut = startFov < SKY_MOTION_FOV_DEG
         const step = (now: number) => {
           const a = aladinRef.current
           if (!a) return
           const dt = Math.min(0.1, (now - last) / 1000)
           last = now
+          if (zoomOut) {
+            const t = Math.min(1, (now - started) / SKY_MOTION_ZOOM_MS)
+            if (t < 1 || now - started < SKY_MOTION_ZOOM_MS + 100) {
+              const e = t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2
+              a.setFoV(startFov + (SKY_MOTION_FOV_DEG - startFov) * e)
+            }
+          }
+          // Keep the on-screen speed steady: if someone zooms in while it turns, turn slower.
+          const f = a.getFov?.()
+          const fov = Array.isArray(f) && Number.isFinite(f[0]) ? f[0] : SKY_MOTION_FOV_DEG
+          const speed = degPerSecond * Math.min(1, fov / SKY_MOTION_FOV_DEG)
           // Aladin returns a typed array [ra, dec].
           const rd = a.getRaDec?.() as ArrayLike<number> | undefined
           if (rd && rd.length >= 2 && Number.isFinite(rd[0])) {
             // Stars rise in the east and set in the west: the view's RA increases with time.
-            a.gotoRaDec((((rd[0] + degPerSecond * dt) % 360) + 360) % 360, rd[1])
+            a.gotoRaDec((((rd[0] + speed * dt) % 360) + 360) % 360, rd[1])
           }
           motionRef.current = requestAnimationFrame(step)
         }

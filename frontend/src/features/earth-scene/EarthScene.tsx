@@ -419,6 +419,10 @@ function Director({
 
     // Camera: blend between the two views; on "Explore", rush towards Earth wherever it is.
     camera.position.copy(l.camera)
+    // Portrait screens are narrow: pull back in the solar view so the orbits fit across.
+    const screenAspect = window.innerWidth / Math.max(1, window.innerHeight)
+    const pullBack = Math.min(1.8, Math.max(1, 1.3 / screenAspect))
+    if (pullBack > 1 && l.solar > 0) camera.position.multiplyScalar(1 + (pullBack - 1) * l.solar)
     if (launching) {
       if (launchStart.current === null) launchStart.current = state.clock.elapsedTime
       const e = Math.min(1, (state.clock.elapsedTime - launchStart.current) / 0.52) ** 3
