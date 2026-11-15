@@ -410,7 +410,7 @@ def spectrum(query: ScienceQuery):
                 if wave is None or not (wave > 0):
                     wave = {1: 0.92, 2: 1.38, 3: 2.03, 4: 3.12, 5: 4.12, 6: 4.71}[frame_detector]
                 points.append({"wavelength_um": wave, "flux_mjy": None if flagged else value * 1e3, "err_mjy": None if flagged else (var ** 0.5) * 1e3, "flagged": flagged, "detector": frame_detector, "warnings": ["GRID_TO_NATIVE_APPROXIMATION"] if approximate else []})
-        except (OSError, KeyError, ValueError, TypeError):
+        except (OSError, KeyError, ValueError, TypeError, IndexError):
             continue
     if not points:
         fail(404, "NO_SPECTRUM", "No valid spectral pixels cover this position.", {
