@@ -11,13 +11,13 @@ interface Streak {
 }
 
 /**
- * The Story page's call to action: a shooting star that leads to "Where are you".
+ * The Story page's call to action: a shooting star that leads to "SPHEREx Orbit".
  * It is a real link, so new-tab clicks and no-JS still work. A plain click fires a star from the
  * button towards the top-right of the screen, then opens the page with the shared route transition.
  */
 export function ShootingStarLink({
   size = 'lg',
-  label = 'Where are you?',
+  label = 'SPHEREx Orbit',
   hint,
 }: {
   size?: 'lg' | 'compact'

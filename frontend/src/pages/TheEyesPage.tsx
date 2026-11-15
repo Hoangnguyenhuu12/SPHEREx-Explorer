@@ -383,6 +383,7 @@ export default function TheEyesPage() {
   )
 
   const tourCombined = canCombine && !spherexOnly
+  const hasGaiaOverlay = tourCombined || Boolean(target?.key)
   const tourSteps = useMemo<TourStep[]>(() => {
     const steps: TourStep[] = [
       {
@@ -414,37 +415,52 @@ export default function TheEyesPage() {
         anchors: ['image'],
         needsTarget: true,
         title: 'Read the image',
-        body: tourCombined ? (
+        body: hasGaiaOverlay ? (
           <>
             <p>
-              <span className="sym-gaia">○ Yellow circles</span> mark Gaia DR3 stars. They barely move, so use them as reference: your target is the one that shifts or
-              changes brightness.
+              <span className="sym-gaia">○ Blue circles</span> mark Gaia DR3 reference stars on this date. They barely move, so use them as reference: your target is
+              the one that shifts or changes brightness.
             </p>
-            <p>The <strong>+</strong> cross is where the target should be. <strong>Try it:</strong> click a star to mark it, or scroll to zoom.</p>
+            <p>
+              <strong>Try it:</strong> click a circle to identify a Gaia star, or turn off <strong>Select a star on the image</strong> below to mark any point yourself,
+              and scroll to zoom.
+            </p>
           </>
         ) : (
-          <p>The <strong>+</strong> cross is where the target should be on this date. <strong>Try it:</strong> click a star to mark it, or scroll to zoom.</p>
+          <p><strong>Try it:</strong> click a star on the image to mark it, or scroll to zoom.</p>
         ),
-        done: 'Marked. Your mark stays while you step through the dates.',
+        done: 'Selected or marked on the image. Scroll or use − / + to inspect the field closely.',
       },
     ]
-    if (tourCombined) {
+    if (canCombine) {
       steps.push({
         anchors: ['source'],
         needsTarget: true,
-        title: 'Hide the yellow circles',
-        body: <p>The circles are drawn into the combined WISE + SPHEREx images. <strong>Try it:</strong> choose <strong>SPHEREx only</strong> to see the images without them.</p>,
-        done: 'Switch back to the combined view any time for the longer WISE time span.',
+        title: 'Switch observation source',
+        body: (
+          <p>
+            <strong>unWISE W2 + SPHEREx D6</strong> spans more than a decade so motion stands out. <strong>Try it:</strong> choose{' '}
+            <strong>SPHEREx only</strong> to compare SPHEREx epochs alone and unlock <strong>Difference</strong>.
+          </p>
+        ),
+        done: 'Switch back to the combined sequence any time for the longer baseline.',
       })
     }
-    steps.push(
-      {
+    if (hasGaiaOverlay) {
+      steps.push({
         anchors: ['markers'],
         needsTarget: true,
         title: 'Markers on or off',
-        body: <p><strong>Try it:</strong> turn <strong>Show predicted position</strong> off, find the target yourself, then turn it back on to check.</p>,
-        done: 'Look at the image: the + cross appears or disappears.',
-      },
+        body: (
+          <p>
+            <strong>Try it:</strong> toggle <strong>Gaia reference stars</strong> off to inspect the raw infrared image, then turn it back on to see the catalog
+            circles.
+          </p>
+        ),
+        done: 'Look at the image: the blue Gaia reference circles appear or disappear.',
+      })
+    }
+    steps.push(
       {
         anchors: ['display', 'view-mode'],
         needsTarget: true,
@@ -464,7 +480,7 @@ export default function TheEyesPage() {
       },
     )
     return steps
-  }, [tourCombined, popupOpen])
+  }, [canCombine, hasGaiaOverlay, popupOpen])
 
   const ensureTourTarget = useCallback(() => {
     if (coords) open('target')
