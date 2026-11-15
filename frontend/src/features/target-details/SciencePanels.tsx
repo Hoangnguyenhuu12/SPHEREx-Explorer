@@ -446,6 +446,7 @@ export function DataPanel({
               }
             }
             target={target}
+            detector={detector}
           />
         </div>
       </details>
@@ -476,10 +477,10 @@ export function useFlagsOverlay(frameId: string | null, enabled: boolean): HTMLI
   return img
 }
 
-export function SpectrumResult({ position, target }: { position: { ra: number; dec: number; x: number; y: number } | null; target: TargetInfo | null }) {
+export function SpectrumResult({ position, target, detector }: { position: { ra: number; dec: number; x: number; y: number } | null; target: TargetInfo | null; detector: number }) {
   const q = useQuery({
     queryKey: ['spectrum', config.useMock, position?.ra ?? null, position?.dec ?? null],
-    queryFn: ({ signal }) => api.spectrum({ ra: position!.ra, dec: position!.dec, targetKey: target?.key }, signal),
+    queryFn: ({ signal }) => api.spectrum({ ra: position!.ra, dec: position!.dec, detector, targetKey: target?.key }, signal),
     enabled: !!position,
     retry: (count, err) => !(err instanceof ApiError && err.code === 'NO_SPECTRUM') && count < 2,
     staleTime: Infinity,

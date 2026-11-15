@@ -114,8 +114,8 @@ export const httpApi: ObservationApi = {
     return res.json()
   },
 
-  async spectrum(q: { ra: number; dec: number; targetKey?: string }, signal) {
-    const res = await request('api/spectrum', { ra: q.ra, dec: q.dec, target_key: q.targetKey }, signal, 70_000)
+  async spectrum(q: { ra: number; dec: number; detector?: number; targetKey?: string }, signal) {
+    const res = await request('api/spectrum', { ra: q.ra, dec: q.dec, detector: q.detector, target_key: q.targetKey }, signal, 70_000)
     return res.json()
   },
 
