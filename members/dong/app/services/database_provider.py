@@ -1,6 +1,9 @@
 """Small Supabase REST adapter for the sky_archive schema."""
 
 import os
+from copy import deepcopy
+from functools import lru_cache
+from time import monotonic
 
 import requests
 import psycopg
@@ -63,6 +66,25 @@ def _get_paginated(table, params=None, page_size=_PAGE_SIZE):
         if len(page) < page_size:
             return rows
         offset += page_size
+
+
+_METADATA_WINDOW_S = 30
+
+
+@lru_cache(maxsize=128)
+def _cached_metadata(scope, window, table, filters, version, paginated):
+    read = _get_paginated if paginated else _get
+    return read(table, dict(filters))
+
+
+def _metadata_rows(table, params, *, version=None, paginated=True):
+    # Bound staleness even when old publishers update individual rows without
+    # bumping a sequence's version. Different request limits share these rows.
+    scope = (os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_SCHEMA"), os.getenv("SUPABASE_ANON_KEY"))
+    window = int(monotonic() // _METADATA_WINDOW_S)
+    rows = _cached_metadata(scope, window, table, tuple(sorted(params.items())), version, paginated)
+    # Callers get their own rows: an in-place edit must never leak into later requests.
+    return deepcopy(rows)
 
 
 def health():
@@ -165,17 +187,27 @@ def gaia_for_target(target_key):
 
 
 def combined_timeline_sequence(sequence_id):
-    rows = _get(
+    rows = _metadata_rows(
         "combined_timeline_sequences",
         {"select": "*", "sequence_id": f"eq.{sequence_id}", "limit": "1"},
+        paginated=False,
     )
     return rows[0] if rows else None
 
 
-def combined_timeline_frames(sequence_id):
-    return _get_paginated(
+def combined_timeline_frames(sequence_id, *, version=None):
+    return _metadata_rows(
         "combined_timeline_frames",
-        {"select": "*", "sequence_id": f"eq.{sequence_id}", "order": "frame_index.asc"},
+        {
+            "select": (
+                "mission,release,source_product_id,band_or_detector,observed_mjd,observed_at,"
+                "wavelength_um,bandwidth_um,quality_label,predicted_x_px,predicted_y_png_px,"
+                "valid_pixel_fraction,local_asset_path,storage_url"
+            ),
+            "sequence_id": f"eq.{sequence_id}",
+            "order": "frame_index.asc",
+        },
+        version=version,
     )
 
 
@@ -220,6 +252,8 @@ def dr1_sequences(target_key=None, detector=None):
         params["target_key"] = f"eq.{target_key}"
     if detector is not None:
         params["detector"] = f"eq.{int(detector)}"
+    if target_key and detector is not None:
+        return _metadata_rows("dr1_sequences", params)
     return _get_paginated("dr1_sequences", params)
 
 
@@ -229,6 +263,8 @@ def dr1_frames(target_key=None, detector=None):
         params["target_key"] = f"eq.{target_key}"
     if detector is not None:
         params["detector"] = f"eq.{int(detector)}"
+    if target_key and detector is not None:
+        return _metadata_rows("dr1_frames", params)
     return _get_paginated("dr1_frames", params)
 
 

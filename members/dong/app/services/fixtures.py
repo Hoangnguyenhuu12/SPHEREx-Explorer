@@ -339,6 +339,13 @@ def spectrum(query: ScienceQuery):
     The endpoint never classifies a source from a sparse spectrum. It returns
     measured points and explicit warnings when the archive cannot provide FITS.
     """
+    if live_mode() and not harvest_mode():
+        with workspace() as directory:
+            return _spectrum(query, directory)
+    return _spectrum(query)
+
+
+def _spectrum(query, directory=None):
     from astropy.coordinates import SkyCoord
     from astropy.io import fits
     from astropy.wcs import WCS
@@ -348,10 +355,8 @@ def spectrum(query: ScienceQuery):
         root = ROOT / "data" / "harvest" / str(query.target_key) / "spherex"
         if root.is_dir():
             paths = sorted(root.glob("*.fits"))
-    elif live_mode():
+    elif directory is not None:
         from types import SimpleNamespace
-        spectrum_dir = ROOT / "data" / "cache" / "spectrum" / str(query.target_key)
-        spectrum_dir.mkdir(parents=True, exist_ok=True)
         request = SimpleNamespace(
             target_key=query.target_key,
             ra=query.ra,
@@ -361,7 +366,7 @@ def spectrum(query: ScienceQuery):
             max_frames=60,
         )
         try:
-            paths = [item.path for item in load_cutouts(request, spectrum_dir)]
+            paths = [item.path for item in load_cutouts(request, directory)]
         except (UpstreamError, UpstreamTimeout, OSError, ValueError):
             paths = []
     if not paths:

@@ -399,6 +399,7 @@ export function TargetPopup(p: Props) {
               picked={picked}
               rulerMeasurement={rulerMeasurement}
               data={data}
+              originals={p.session.originals}
               activeIndex={p.player.index}
               gaia={p.gaia}
               setGaia={p.setGaia}

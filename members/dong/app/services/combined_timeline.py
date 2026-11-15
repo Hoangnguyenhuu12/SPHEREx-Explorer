@@ -126,9 +126,10 @@ def frames(query, target):
     if database_provider.enabled():
         try:
             seq = database_provider.combined_timeline_sequence(seq_id)
-            rows = database_provider.combined_timeline_frames(seq_id) if seq else []
-            if seq and seq.get('target_key') == target_key and rows:
-                return _build_frames_response(seq['grid_wcs'], rows, query, target)
+            if seq and seq.get('target_key') == target_key:
+                rows = database_provider.combined_timeline_frames(seq_id, version=seq.get('updated_at'))
+                if rows:
+                    return _build_frames_response(seq['grid_wcs'], rows, query, target)
         except database_provider.DatabaseError:
             pass
     manifest = json.loads((sequence_directory(target_key, query.detector) / 'sequence_manifest.json').read_text(encoding='utf-8'))
