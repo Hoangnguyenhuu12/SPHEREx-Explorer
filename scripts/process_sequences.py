@@ -188,7 +188,10 @@ def render(out, local, det, kind, grid, shape, chosen):
     return {'norm': {'vmin': lo, 'vmax': hi, 'stretch': 'asinh', 'diff_limit': limit, 'diff_reference': 'frame_01',
                      'png_orientation': 'row0_top_is_max_y', 'missing_rgb': list(MISSING_RGB)},
             'common_coverage_fraction': float(common.mean()), 'common_valid_pixels': int(common.sum()),
-            'grid_shape_yx': list(shape), 'outputs': files}
+            'grid_shape_yx': list(shape),
+            'grid_wcs': {**dict(grid.to_header()), 'width': shape[1], 'height': shape[0],
+                         'pixel_scale_arcsec': 6.15},
+            'outputs': files}
 
 
 def main():
@@ -233,7 +236,8 @@ def main():
                       'inputs': [{'obs_id': i['frame']['obs_id'], 'mjd': i['frame']['mjd'], 'iso_utc': i['frame']['iso_utc'],
                                   'file': i['frame']['file'], 'sha256': i['frame']['sha256'], 'wavelength_um': i['meta']['wave_um'],
                                   'bandwidth_um': i['meta']['bandwidth_um'], 'predicted_pixel_xy_origin_lower': i['xy'],
-                                  'usable_for_candidate': i['frame']['usable_for_candidate']} for i in chosen],
+                                  'usable_for_candidate': i['frame']['usable_for_candidate'],
+                                  'valid_pixel_fraction': float(np.isfinite(i['data']).mean())} for i in chosen],
                       'pixel_scale_arcsec': 6.15, **info,
                       'warnings': (['DISPLAY ONLY: predicted target pixels are saturated or flagged in DR1 and are masked; '
                                     'no photometry, position or variability can be derived.'] if kind == 'display_only' else [])

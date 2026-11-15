@@ -12,15 +12,12 @@ import {
   VIZIER_MIRRORS,
   type GaiaCatalogStar,
 } from './gaia'
+import { discoverSurvey, observeFirstHipsTile, type BackgroundMode } from './survey-discovery'
 import {
   aladinSliceArgument,
-  DSS_SURVEY,
   sliceForDetector,
   SPHEREX_SURVEY,
   spherexSurveyFromHipsLayer,
-  SURVEY_MIRRORS,
-  WISE_MIRRORS,
-  WISE_SURVEY,
   type SurveyInfo,
 } from './surveys'
 import './sky-map.css'
@@ -77,7 +74,7 @@ interface Props {
   /** SPHEREx detector 1–6: the background shows that detector's middle wavelength. */
   detector?: number
   /** Active sky survey choice (`spherex` DR1 cube vs `wise` AllWISE infrared). */
-  backgroundMode?: 'spherex' | 'wise'
+  backgroundMode?: BackgroundMode
   /** Which background survey actually loaded (SPHEREx, WISE, or DSS2 fallback). */
   onSurvey?: (survey: SurveyInfo) => void
 }
@@ -93,47 +90,10 @@ const MIN_FOV_DEG = (2 * Math.atan(1 / 300) * 180) / Math.PI
 const SKY_MOTION_FOV_DEG = 150
 const SKY_MOTION_ZOOM_MS = 1200
 
-async function reachable(base: string, ms: number): Promise<boolean> {
-  try {
-    const ctrl = new AbortController()
-    const t = setTimeout(() => ctrl.abort(), ms)
-    const res = await fetch(`${base}/properties`, { signal: ctrl.signal })
-    clearTimeout(t)
-    return res.ok
-  } catch {
-    return false
-  }
-}
-
-async function loadArchiveSpherexSurvey(): Promise<SurveyInfo> {
-  if (config.useMock) return SPHEREX_SURVEY
-  try {
-    const ctrl = new AbortController()
-    const t = setTimeout(() => ctrl.abort(), 2500)
-    const res = await api.hipsLayers(ctrl.signal)
-    clearTimeout(t)
-    const hit = res.layers.find((l) => l.layer_id === SPHEREX_SURVEY.id) ?? res.layers[0]
-    return spherexSurveyFromHipsLayer(hit, SPHEREX_SURVEY)
-  } catch {
-    return SPHEREX_SURVEY
-  }
-}
-
-async function pickSurvey(mode: 'spherex' | 'wise', archiveSpherex: SurveyInfo): Promise<SurveyInfo> {
-  if (mode === 'wise') {
-    for (const base of WISE_MIRRORS) {
-      if (await reachable(base, 4500)) return { ...WISE_SURVEY, url: base }
-    }
-  } else {
-    if (await reachable(archiveSpherex.url, 6000)) return archiveSpherex
-    if (archiveSpherex.url !== SPHEREX_SURVEY.url && (await reachable(SPHEREX_SURVEY.url, 5000))) {
-      return SPHEREX_SURVEY
-    }
-  }
-  for (const base of SURVEY_MIRRORS) {
-    if (await reachable(base, 4000)) return { ...DSS_SURVEY, url: base }
-  }
-  return { ...DSS_SURVEY, url: SURVEY_MIRRORS[0] }
+async function loadArchiveSpherexSurvey(signal: AbortSignal): Promise<SurveyInfo> {
+  const res = await api.hipsLayers(signal)
+  const hit = res.layers.find((l) => l.layer_id === SPHEREX_SURVEY.id) ?? res.layers[0]
+  return spherexSurveyFromHipsLayer(hit)
 }
 
 async function fetchVizierGaia(ra: number, dec: number, radiusDeg: number): Promise<GaiaCatalogStar[]> {
@@ -205,6 +165,7 @@ export const AladinMap = forwardRef<SkyMapHandle, Props>(function AladinMap(
 ) {
   const hostRef = useRef<HTMLDivElement>(null)
   const aladinRef = useRef<AladinInstance>(null)
+  const startupRef = useRef<Promise<AladinInstance> | null>(null)
   const targetCatRef = useRef<AladinInstance>(null)
   const selectedCatRef = useRef<AladinInstance>(null)
   const gaiaCatRef = useRef<AladinInstance>(null)
@@ -218,8 +179,8 @@ export const AladinMap = forwardRef<SkyMapHandle, Props>(function AladinMap(
   const [ready, setReady] = useState(false)
   const [surveyState, setSurveyState] = useState<SurveyInfo | null>(null)
   const surveyRef = useRef<SurveyInfo | null>(null)
-  const appliedModeRef = useRef<'spherex' | 'wise'>(backgroundMode)
-  const archiveSpherexRef = useRef<SurveyInfo>(SPHEREX_SURVEY)
+  const modeRef = useRef(backgroundMode)
+  modeRef.current = backgroundMode
   onSelectRef.current = onTargetSelected
   const onSourceRef = useRef(onSourceSelected)
   onSourceRef.current = onSourceSelected
@@ -331,19 +292,14 @@ export const AladinMap = forwardRef<SkyMapHandle, Props>(function AladinMap(
     let disposed = false
     const host = hostRef.current
     if (!host) return
+    const startedAt = performance.now()
     onStatus?.('loading')
-    Promise.all([A.init, loadArchiveSpherexSurvey()])
-      .then(async ([, archiveSpherex]) => {
-        archiveSpherexRef.current = archiveSpherex
-        return pickSurvey(backgroundMode, archiveSpherex)
-      })
-      .then((survey) => {
-        if (disposed || !host) return
-        surveyRef.current = survey
-        setSurveyState(survey)
-        onSurveyRef.current?.(survey)
+    startupRef.current = A.init
+      .then(() => {
+        if (disposed) return null
         const aladin = A.aladin(host, {
-          survey: survey.url,
+          // An empty survey list lets Aladin start without requesting its default HiPS.
+          survey: [],
           projection: 'TAN',
           fov: initial.fovDeg,
           target: `${initial.ra} ${initial.dec}`,
@@ -366,6 +322,7 @@ export const AladinMap = forwardRef<SkyMapHandle, Props>(function AladinMap(
           showFov: false,
         })
         aladinRef.current = aladin
+        performance.measure('spherex:sky-map-constructed', { start: startedAt, end: performance.now() })
         let clamping = false
         const reportFov = (fovDeg: number) => {
           if (disposed || !Number.isFinite(fovDeg) || fovDeg <= 0 || fovDeg >= 180) return
@@ -399,8 +356,6 @@ export const AladinMap = forwardRef<SkyMapHandle, Props>(function AladinMap(
         aladin.addCatalog(sel)
         selectedCatRef.current = sel
 
-        // Markers at the stars' positions in the active background survey epoch (not J2000).
-        syncTargetMarkers(survey.epochMjd, selectedKey)
         if (planetsDesiredRef.current.visible) {
           drawPlanetsCatalog(true, planetsDesiredRef.current.epochMjd)
         }
@@ -437,36 +392,40 @@ export const AladinMap = forwardRef<SkyMapHandle, Props>(function AladinMap(
         })
         setReady(true)
         onStatus?.('ready')
+        return aladin
       })
       .catch((err: unknown) => {
         if (!disposed) onStatus?.('error', err instanceof Error ? err.message : 'The sky map could not start.')
+        return null
       })
     return () => {
       disposed = true
       if (motionRef.current !== null) cancelAnimationFrame(motionRef.current)
+      startupRef.current = null
       aladinRef.current = null
-      if (host) host.innerHTML = ''
+      host.innerHTML = ''
     }
     // Initial view only; later moves and survey switches go through dedicated effects and handle.
     // oxlint-disable-next-line react/exhaustive-deps
   }, [])
 
-  // Switch background survey (`spherex` <-> `wise`) on the running Aladin instance without recreating WebGL.
+  // Discover imagery during Aladin startup and reuse the map when the user switches surveys.
   useEffect(() => {
-    const a = aladinRef.current
-    if (!ready || !a) return
-    if (appliedModeRef.current === backgroundMode) return
-    appliedModeRef.current = backgroundMode
-    let cancelled = false
-    void pickSurvey(backgroundMode, archiveSpherexRef.current).then((nextSurvey) => {
-      if (cancelled || !aladinRef.current) return
+    const startup = startupRef.current
+    if (!startup) return
+    const controller = new AbortController()
+    const startedAt = performance.now()
+    const discovery = discoverSurvey(backgroundMode, controller.signal, config.useMock ? undefined : loadArchiveSpherexSurvey)
+    let stopTileObserver: (() => void) | undefined
+    void Promise.all([startup, discovery]).then(([aladin, nextSurvey]) => {
+      if (controller.signal.aborted || modeRef.current !== backgroundMode || !aladin || !nextSurvey) return
       if (surveyRef.current?.url !== nextSurvey.url) {
-        aladinRef.current.setBaseImageLayer(nextSurvey.url)
+        stopTileObserver = observeFirstHipsTile(nextSurvey, startedAt)
+        aladin.setBaseImageLayer(nextSurvey.url)
       }
       surveyRef.current = nextSurvey
       setSurveyState(nextSurvey)
       onSurveyRef.current?.(nextSurvey)
-      syncTargetMarkers(nextSurvey.epochMjd, selectedKey)
       const desired = gaiaDesiredRef.current
       if (desired) {
         const cacheKey = desired.targetKey
@@ -479,9 +438,10 @@ export const AladinMap = forwardRef<SkyMapHandle, Props>(function AladinMap(
       }
     })
     return () => {
-      cancelled = true
+      controller.abort()
+      stopTileObserver?.()
     }
-  }, [ready, backgroundMode, selectedKey, syncTargetMarkers, drawGaiaCatalog])
+  }, [backgroundMode, drawGaiaCatalog])
 
   // Cube background: show the frame for the chosen detector. Aladin picks the cube's first frame when
   // the layer is added, so listen for Aladin's `AL:Layer.added` event instead of timing out on slow loads.
