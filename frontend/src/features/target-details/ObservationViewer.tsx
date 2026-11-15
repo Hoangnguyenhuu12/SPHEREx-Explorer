@@ -24,7 +24,6 @@ import { Link } from 'react-router'
 import { PATHS } from '../../app/config'
 import { describeError } from '../../shared/api/errors'
 import { DETECTORS, type TargetInfo } from '../../shared/config/targets'
-import { GuideNote } from '../guide/guide'
 import { useGuide } from '../guide/guide-state'
 import { BlinkCanvas, type BlinkCanvasHandle, type GaiaOverlayMarker, type RulerOverlay, type TrailPoint } from '../blink/BlinkCanvas'
 import { SPEEDS, type PlayerAction, type PlayerState } from '../blink/player'
@@ -561,7 +560,7 @@ export function ObservationViewer(props: Props) {
         )}
       </div>
 
-      <div className="viewer-player">
+      <div className="viewer-player" data-tour={idSuffix === 'main' ? 'player' : undefined}>
         <button type="button" className="icon-btn" aria-label="Previous observation" disabled={!canPlay} onClick={() => dispatch({ type: 'prev' })}>
           <SkipBack aria-hidden />
         </button>
@@ -612,11 +611,6 @@ export function ObservationViewer(props: Props) {
           </select>
         </label>
       </div>
-      {idSuffix === 'main' && (
-        <GuideNote step={3}>
-          <strong>Step through the dates.</strong> Press Play, drag the slider or use ← →. The date above the image is when this frame was taken.
-        </GuideNote>
-      )}
 
       {frames.length > 0 && (
         <TimelineTrack
@@ -629,7 +623,7 @@ export function ObservationViewer(props: Props) {
       )}
 
       <div className="viewer-tools">
-        <div className="segmented" role="group" aria-label="Image display">
+        <div className="segmented" role="group" aria-label="Image display" data-tour={idSuffix === 'main' ? 'display' : undefined}>
           <button type="button" aria-pressed={!isDiff} onClick={() => setToggles({ mode: 'original' })}>
             Original
           </button>
@@ -650,14 +644,6 @@ export function ObservationViewer(props: Props) {
           </button>
         </div>
       </div>
-      {idSuffix === 'main' && (
-        <GuideNote step={4}>
-          <strong>Spot what changed.</strong> Look for a star that shifts against its neighbours or changes brightness.{' '}
-          {differenceAllowed
-            ? 'Difference subtracts the first date: still stars vanish and a bright–dark pair marks something that moved.'
-            : 'Difference is off for mixed WISE + SPHEREx sequences; use Compare two dates instead.'}
-        </GuideNote>
-      )}
 
       {isDiff ? (
         <p className="caption viewer-legend">
@@ -674,29 +660,11 @@ export function ObservationViewer(props: Props) {
     </>
   )
 
-  const imageNote = (
-    <GuideNote>
-      In the image:{' '}
-      {combined && (
-        <>
-          <span className="sym-pred">○ yellow circles</span> mark Gaia DR3 stars and are drawn into these images; they barely move, so use them as
-          reference. To see the images without them, choose <strong>SPHEREx only</strong> in the source menu above.{' '}
-        </>
-      )}
-      {toggles.crosshair && (
-        <>
-          The <span className="sym-pred">+ cross</span> is where {targetName} should be (switch it with <strong>Show predicted position</strong> below).{' '}
-        </>
-      )}
-      Click to mark a star. Zoom with − / + or the mouse wheel; the square button fits the image.
-    </GuideNote>
-  )
-
   return (
     <section className="viewer" aria-label="Observation viewer">
       {/* Priority bar: Compare / Play / Source timeline switcher */}
       <div className="viewer-priority">
-        <div className="segmented" role="group" aria-label="Comparison view">
+        <div className="segmented" role="group" aria-label="Comparison view" data-tour="view-mode">
           <button
             type="button"
             aria-pressed={viewMode === 'compare'}
@@ -733,7 +701,7 @@ export function ObservationViewer(props: Props) {
         </button>
 
         {props.onDetectorChange && (
-          <div className="segmented segmented--detectors" role="group" aria-label="SPHEREx detector">
+          <div className="segmented segmented--detectors" role="group" aria-label="SPHEREx detector" data-tour="detectors">
             {DETECTORS.map((d) => (
               <button
                 key={d.id}
@@ -749,7 +717,7 @@ export function ObservationViewer(props: Props) {
         )}
 
         {props.timelineControl && (
-          <label className="viewer-source-select">
+          <label className="viewer-source-select" data-tour="source">
             <span className="sr-only">Observation sources</span>
             <select
               className="select select--compact"
@@ -762,19 +730,9 @@ export function ObservationViewer(props: Props) {
           </label>
         )}
       </div>
-      <GuideNote step={2}>
-        <strong>Pick an infrared channel.</strong> D1 is the shortest wavelength (0.75 µm), D6 the longest (5 µm); cold brown dwarfs show best in D5–D6.
-        {props.timelineControl ? ' The source menu adds older WISE images for a longer time span.' : ''} <strong>Timeline</strong> plays every date; <strong>Compare two dates</strong> shows two of them.
-      </GuideNote>
 
       {inCompare ? (
         <div className="compare-block">
-          <GuideNote step={3}>
-            <strong>Pick two dates.</strong> Flip between Date A and Date B, or choose other dates in the menus.
-          </GuideNote>
-          <GuideNote step={4}>
-            <strong>Spot what changed.</strong> Click the star on each image to mark it; the shift is measured below.
-          </GuideNote>
           {ready && (pairResolution.missingA || pairResolution.missingB) && (
             <div className="notice notice--warn" role="alert">
               <div>
@@ -855,7 +813,7 @@ export function ObservationViewer(props: Props) {
           )}
 
           {sideBySide ? (
-            <div className="compare-grid" aria-label="Side-by-side comparison at matched zoom and center">
+            <div className="compare-grid" data-tour="image" aria-label="Side-by-side comparison at matched zoom and center">
               <div className="compare-card">
                 {compareSlotHeader('A', indexA)}
                 <div className={`viewer-frame${markingSlot === 'A' ? ' viewer-frame--marking' : ''}`}>
@@ -904,7 +862,7 @@ export function ObservationViewer(props: Props) {
               </div>
             </div>
           ) : (
-            <div className="compare-single">
+            <div className="compare-single" data-tour="image">
               <div className={`viewer-frame${markingSlot === activeSlot ? ' viewer-frame--marking' : ''}`}>
                 {renderCanvasFor(activeFlipIndex, canvasRef, `Date ${activeSlot}`, { reportFov: true, compareSlot: activeSlot })}
                 {renderFrameState(activeFlipIndex)}
@@ -943,7 +901,6 @@ export function ObservationViewer(props: Props) {
           )}
 
           {/* Mark positions in A / B & Shareable comparison readout */}
-          {data && imageNote}
           <div className="compare-mark-controls" role="group" aria-label="Mark and share comparison">
             <button
               type="button"
@@ -1127,7 +1084,7 @@ export function ObservationViewer(props: Props) {
         </div>
       ) : (
         <>
-          <div className="viewer-frame">
+          <div className="viewer-frame" data-tour="image">
             {renderCanvasFor(displayIndex, canvasRef, `Observation ${displayIndex + 1}`, { reportFov: true })}
             {renderFrameState(displayIndex)}
             {data && (
@@ -1157,7 +1114,6 @@ export function ObservationViewer(props: Props) {
               </button>
             )}
           </div>
-          {data && imageNote}
           {timelineControls('main')}
         </>
       )}
@@ -1175,7 +1131,7 @@ export function ObservationViewer(props: Props) {
             : 'Watch the surrounding field stars stay nearly fixed, click to mark what moves, then check the predicted position.'}
         </p>
 
-        <div className="viewer-prompt__actions">
+        <div className="viewer-prompt__actions" data-tour="markers">
           <button
             type="button"
             className="btn btn-secondary btn--compact"

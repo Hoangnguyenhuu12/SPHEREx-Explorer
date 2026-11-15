@@ -21,7 +21,7 @@ import type { ViewerToggles } from '../features/target-details/ObservationViewer
 import { TargetSearch } from '../features/target-search/TargetSearch'
 import { parseSelection, resolveQuery, serializeSelection, type Selection } from '../features/target-search/explorer-url'
 import { HelpDialog } from './eyes/Help'
-import { GuideNote, GuideToggle } from '../features/guide/guide'
+import { GuideToggle, GuideTour, type TourStep } from '../features/guide/guide'
 import { GuideProvider, readGuide, writeGuide } from '../features/guide/guide-state'
 import { Horizon } from '../features/sky-map/Horizon'
 import './eyes/eyes.css'
@@ -332,7 +332,7 @@ export default function TheEyesPage() {
   // Page shortcuts; never while typing, and the image canvas handles its own keys.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (isTyping(e.target) || e.metaKey || e.ctrlKey || e.altKey || help) return
+      if (isTyping(e.target) || e.metaKey || e.ctrlKey || e.altKey || help || guide) return
       if (document.querySelector('.modal-backdrop')) return
       switch (e.key) {
         case ' ':
@@ -386,6 +386,86 @@ export default function TheEyesPage() {
   const zoomLabel = mapFovDeg === null ? '—' : zoomFormat.format(
     Math.tan(DEFAULT_MAP_FOV_DEG * Math.PI / 360) / Math.tan(mapFovDeg * Math.PI / 360),
   )
+
+  const tourCombined = canCombine && !spherexOnly
+  const tourSteps = useMemo<TourStep[]>(() => {
+    const steps: TourStep[] = [
+      {
+        anchors: ['targets'],
+        title: 'Choose a target',
+        body: (
+          <p>
+            Click one of the five featured stars, or type a star name or RA/Dec and press <strong>Go</strong>.
+            {popupOpen ? '' : ' Press Next and we will open Barnard’s Star for you.'}
+          </p>
+        ),
+      },
+      {
+        anchors: ['detectors'],
+        needsTarget: true,
+        title: 'Pick an infrared channel',
+        body: <p>SPHEREx has six detectors, from D1 (0.75 µm) to D6 (5 µm). Cold objects such as the brown dwarf WISE 0855 show best in D5–D6.</p>,
+      },
+      {
+        anchors: ['player', 'view-mode'],
+        needsTarget: true,
+        title: 'Step through the dates',
+        body: <p>Press <strong>Play</strong> to run the observations like a short film, drag the slider, or use ← →. The date above the image is when that frame was taken.</p>,
+      },
+      {
+        anchors: ['image'],
+        needsTarget: true,
+        title: 'Read the image',
+        body: tourCombined ? (
+          <>
+            <p>
+              <span className="sym-gaia">○ Yellow circles</span> mark Gaia DR3 stars. They barely move, so use them as reference: your target is the one that shifts or changes brightness.
+            </p>
+            <p>The <strong>+</strong> cross is where the target should be on this date. Click the image to mark a star; scroll or use − / + to zoom.</p>
+          </>
+        ) : (
+          <p>The <strong>+</strong> cross is where the target should be on this date. Click the image to mark a star; scroll or use − / + to zoom.</p>
+        ),
+      },
+    ]
+    if (tourCombined) {
+      steps.push({
+        anchors: ['source'],
+        needsTarget: true,
+        title: 'Hide the yellow circles',
+        body: <p>The circles are drawn into the combined WISE + SPHEREx images. Choose <strong>SPHEREx only</strong> here to see the images without them.</p>,
+      })
+    }
+    steps.push(
+      {
+        anchors: ['markers'],
+        needsTarget: true,
+        title: 'Markers on or off',
+        body: <p><strong>Show predicted position</strong> turns the + cross on or off, so you can try to spot the target yourself first.</p>,
+      },
+      {
+        anchors: ['display', 'view-mode'],
+        needsTarget: true,
+        title: 'Spot what changed',
+        body: (
+          <p>
+            <strong>Compare two dates</strong> puts two observations side by side. In Timeline, <strong>Difference</strong> subtracts the first date: still stars vanish and a bright–dark pair marks something that moved.
+          </p>
+        ),
+      },
+      {
+        anchors: ['tour-toggle'],
+        title: 'That’s it',
+        body: <p>Open this tutorial again any time with the <strong>Tutorial</strong> button or the T key.</p>,
+      },
+    )
+    return steps
+  }, [tourCombined, popupOpen])
+
+  const ensureTourTarget = useCallback(() => {
+    if (coords) open('target')
+    else selectTarget('barnard')
+  }, [coords, open, selectTarget])
 
   return (
     <GuideProvider value={guide}>
@@ -680,17 +760,8 @@ export default function TheEyesPage() {
         )}
 
         {!embed && <GuideToggle on={guide} onChange={setGuide} />}
+        {guide && !embed && <GuideTour steps={tourSteps} hasTarget={popupOpen} ensureTarget={ensureTourTarget} onClose={() => setGuide(false)} />}
 
-        {!popupOpen && (
-          <GuideNote step={1} className="guide-float guide-float--start">
-            <strong>Choose a target.</strong> Click one of the featured stars above, search a name or RA/Dec, or click a target marker on the sky. Steps 2–4 appear in the panel that opens.
-          </GuideNote>
-        )}
-        {!popupOpen && (
-          <GuideNote className="guide-float guide-float--dock">
-            Sky map tools: drag to look around, scroll or −/+ to zoom. <strong>Gaia stars</strong> here marks Gaia DR3 stars on the big sky map; the circles inside the image have their own switch.
-          </GuideNote>
-        )}
 
         {popupOpen && coords && (
             <TargetPopup
