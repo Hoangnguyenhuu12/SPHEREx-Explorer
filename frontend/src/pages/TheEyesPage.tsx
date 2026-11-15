@@ -19,7 +19,9 @@ import { TargetPopup } from '../features/target-details/TargetPopup'
 import type { ViewerToggles } from '../features/target-details/ObservationViewer'
 import { TargetSearch } from '../features/target-search/TargetSearch'
 import { parseSelection, resolveQuery, serializeSelection, type Selection } from '../features/target-search/explorer-url'
-import { HelpDialog, Tutorial } from './eyes/Help'
+import { HelpDialog } from './eyes/Help'
+import { GuideNote, GuideToggle } from '../features/guide/guide'
+import { GuideProvider, readGuide, writeGuide } from '../features/guide/guide-state'
 import { Horizon } from '../features/sky-map/Horizon'
 import './eyes/eyes.css'
 
@@ -57,6 +59,11 @@ export default function TheEyesPage() {
   const [gaiaStatus, setGaiaStatus] = useState<GaiaStatusInfo>({ status: 'idle' })
   const [fullscreen, setFullscreen] = useState(false)
   const [help, setHelp] = useState(false)
+  const [guide, setGuideState] = useState(() => !embed && readGuide(location.search))
+  const setGuide = useCallback((on: boolean) => {
+    setGuideState(on)
+    writeGuide(on)
+  }, [])
   const [source, setSource] = useState<SelectedGaiaSource | null>(null)
   const [backgroundMode, setBackgroundMode] = useState<'spherex' | 'wise'>('spherex')
   const [survey, setSurvey] = useState<SurveyInfo>(SURVEY)
@@ -324,11 +331,15 @@ export default function TheEyesPage() {
         case '?':
           setHelp(true)
           break
+        case 't':
+        case 'T':
+          if (!embed) setGuide(!guide)
+          break
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [popupOpen, help, dispatch, center, session.total, toggles.mode, setToggles, overlay, close, reduceMotion, timeline])
+  }, [popupOpen, help, dispatch, center, session.total, toggles.mode, setToggles, overlay, close, reduceMotion, timeline, embed, guide, setGuide])
 
   const shareUrl = typeof window !== 'undefined' ? `${window.location.origin}${PATHS.explorer}${serializeSelection(sel)}` : ''
   const embedUrl = `${shareUrl}${shareUrl.includes('?') ? '&' : '?'}embed=1`
@@ -340,6 +351,7 @@ export default function TheEyesPage() {
   )
 
   return (
+    <GuideProvider value={guide}>
     <div className={`eyes${embed ? ' eyes--embed' : ''}`}>
       <a href="#sky" className="skip-link">
         Skip to sky map
@@ -468,7 +480,18 @@ export default function TheEyesPage() {
           </section>
         )}
 
-        {!embed && <Tutorial hidden={overlay !== 'none'} />}
+        {!embed && <GuideToggle on={guide} onChange={setGuide} />}
+
+        {!popupOpen && (
+          <GuideNote step={1} className="guide-float guide-float--start">
+            <strong>Choose a target.</strong> Click one of the featured stars above, search a name or RA/Dec, or click a target marker on the sky. Steps 2–4 appear in the panel that opens.
+          </GuideNote>
+        )}
+        {!popupOpen && (
+          <GuideNote className="guide-float guide-float--dock">
+            Sky map tools: drag to look around, scroll or −/+ to zoom. <strong>Gaia stars</strong> here marks Gaia DR3 stars on the big sky map; the circles inside the image have their own switch.
+          </GuideNote>
+        )}
 
         {popupOpen && coords && (
             <TargetPopup
@@ -626,5 +649,6 @@ export default function TheEyesPage() {
 
       {help && <HelpDialog onClose={() => setHelp(false)} />}
     </div>
+    </GuideProvider>
   )
 }

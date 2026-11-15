@@ -70,6 +70,8 @@ interface Props {
   label: string
   onFovChange?: (arcmin: number, byUser: boolean) => void
   onPixelClick?: (x: number, y: number) => void
+  /** Tutorial on: spell out what the first Gaia circle and the crosshair mean. */
+  guide?: boolean
 }
 
 function drawTag(ctx: CanvasRenderingContext2D, x: number, y: number, text: string, color: string) {
@@ -107,6 +109,7 @@ export const BlinkCanvas = forwardRef<BlinkCanvasHandle, Props>(function BlinkCa
     label,
     onFovChange,
     onPixelClick,
+    guide = false,
   },
   ref,
 ) {
@@ -174,6 +177,18 @@ export const BlinkCanvas = forwardRef<BlinkCanvasHandle, Props>(function BlinkCa
     // 1. Gaia DR3 reference stars: cyan hollow circles (+ optional motion vector in science mode)
     if (gaiaMarkers && gaiaMarkers.length) {
       const r = Math.max(5, Math.min(8, v.scale * 1.4))
+      // The long guide label reads to the right, so give it to the left-most marker in view.
+      let guideIdx = -1
+      if (guide) {
+        let best = Infinity
+        gaiaMarkers.forEach((m, idx) => {
+          const s = pixelCentreToScreen(v, m.px)
+          if (s.x >= 0 && s.y >= 8 && s.y <= h - 8 && s.x < best) {
+            best = s.x
+            guideIdx = idx
+          }
+        })
+      }
       gaiaMarkers.forEach((m, idx) => {
         const s = pixelCentreToScreen(v, m.px)
         ctx.save()
@@ -191,8 +206,8 @@ export const BlinkCanvas = forwardRef<BlinkCanvasHandle, Props>(function BlinkCa
           ctx.stroke()
         }
         ctx.restore()
-        if (idx === 0 || v.scale >= 2.2) {
-          drawTag(ctx, s.x + r + 4, s.y, 'Gaia', m.propagated ? '#7CCDF2' : '#C9C2B7')
+        if (idx === 0 || idx === guideIdx || v.scale >= 2.2) {
+          drawTag(ctx, s.x + r + 4, s.y, idx === guideIdx ? 'Gaia star: should stay put' : 'Gaia', m.propagated ? '#7CCDF2' : '#C9C2B7')
         }
       })
     }
@@ -216,7 +231,7 @@ export const BlinkCanvas = forwardRef<BlinkCanvasHandle, Props>(function BlinkCa
       ctx.lineTo(s.x, s.y + len)
       ctx.stroke()
       ctx.restore()
-      drawTag(ctx, s.x + len + 4, s.y - 6, 'Pred', '#F4EF83')
+      drawTag(ctx, s.x + len + 4, s.y - 6, guide ? 'Pred: where the target should be' : 'Pred', '#F4EF83')
     }
 
     // 3. User's own pick: pink diamond (◇)
@@ -278,7 +293,7 @@ export const BlinkCanvas = forwardRef<BlinkCanvasHandle, Props>(function BlinkCa
       drawTag(ctx, s1.x + 6, s1.y - 8, 'A', '#FDE68A')
       drawTag(ctx, s2.x + 6, s2.y + 8, `B · ${ruler.label}`, '#FBBF24')
     }
-  }, [bitmap, gridW, gridH, flagsOverlay, trail, gaiaMarkers, showCrosshair, crosshair, picked, pickedLabel, spotFeedback, ruler, stretch])
+  }, [bitmap, gridW, gridH, flagsOverlay, trail, gaiaMarkers, showCrosshair, crosshair, picked, pickedLabel, spotFeedback, ruler, stretch, guide])
 
   const drawRef = useRef(draw)
   drawRef.current = draw
