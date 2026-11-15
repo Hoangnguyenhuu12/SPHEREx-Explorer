@@ -672,26 +672,21 @@ export function ObservationViewer(props: Props) {
     </>
   )
 
-  const gaiaShown = combined && toggles.gaiaOverlays
   const imageNote = (
     <GuideNote>
       In the image:{' '}
-      {gaiaShown && (
+      {combined && (
         <>
-          <span className="sym-gaia">○ blue circles</span> are Gaia DR3 stars placed where they should be on this date; they barely move, so use them as reference.{' '}
+          <span className="sym-pred">○ yellow circles</span> mark Gaia DR3 stars and are drawn into these images; they barely move, so use them as
+          reference. To see the images without them, choose <strong>SPHEREx only</strong> in the source menu above.{' '}
         </>
       )}
       {toggles.crosshair && (
         <>
-          <span className="sym-pred">+ yellow cross</span> is where {targetName} should be.{' '}
+          The <span className="sym-pred">+ cross</span> is where {targetName} should be (switch it with <strong>Show predicted position</strong> below).{' '}
         </>
       )}
-      Click to mark a star. Zoom with − / + or the mouse wheel; the square button fits the image.{' '}
-      {(combined || toggles.crosshair) && (
-        <>
-          Turn markers on or off below with{combined ? <> <strong>Gaia reference stars</strong>{' '}and</> : ''} <strong>Show predicted position</strong>.
-        </>
-      )}
+      Click to mark a star. Zoom with − / + or the mouse wheel; the square button fits the image.
     </GuideNote>
   )
 
