@@ -373,8 +373,6 @@ def spectrum(query: ScienceQuery):
     points = []
     sky = SkyCoord(query.ra, query.dec, unit="deg")
     for path in paths:
-        if f"_D{detector}_" not in path.name:
-            continue
         try:
             with fits.open(path, memmap=False) as hdus:
                 image = hdus["IMAGE"].data
@@ -382,6 +380,10 @@ def spectrum(query: ScienceQuery):
                 flags = hdus["FLAGS"].data
                 wcs = WCS(hdus["IMAGE"].header, fobj=hdus).celestial
                 header = hdus["IMAGE"].header
+                raw_detector = str(header.get("DETECTOR", detector)).strip().upper().removeprefix("D")
+                frame_detector = int(raw_detector)
+                if frame_detector != detector:
+                    continue
                 mjd = float(header.get("MJD-AVG", header.get("MJD", 0.0)))
                 frame_sky = position_at(query.target_key, mjd) if query.target_key and mjd else None
                 x, y = wcs.world_to_pixel(frame_sky or sky)
@@ -406,9 +408,8 @@ def spectrum(query: ScienceQuery):
                     ty = (y - ys[iy0]) / (ys[iy0 + 1] - ys[iy0])
                     wave = float((1 - tx) * (1 - ty) * values[0, iy0, ix0] + tx * (1 - ty) * values[0, iy0, ix0 + 1] + (1 - tx) * ty * values[0, iy0 + 1, ix0] + tx * ty * values[0, iy0 + 1, ix0 + 1])
                 if wave is None or not (wave > 0):
-                    wave = {1: 0.92, 2: 1.38, 3: 2.03, 4: 3.12, 5: 4.12, 6: 4.71}[int(path.name.split("_D", 1)[1].split("_", 1)[0])]
-                detector = int(path.name.split("_D", 1)[1].split("_", 1)[0])
-                points.append({"wavelength_um": wave, "flux_mjy": None if flagged else value * 1e3, "err_mjy": None if flagged else (var ** 0.5) * 1e3, "flagged": flagged, "detector": detector, "warnings": ["GRID_TO_NATIVE_APPROXIMATION"] if approximate else []})
+                    wave = {1: 0.92, 2: 1.38, 3: 2.03, 4: 3.12, 5: 4.12, 6: 4.71}[frame_detector]
+                points.append({"wavelength_um": wave, "flux_mjy": None if flagged else value * 1e3, "err_mjy": None if flagged else (var ** 0.5) * 1e3, "flagged": flagged, "detector": frame_detector, "warnings": ["GRID_TO_NATIVE_APPROXIMATION"] if approximate else []})
         except (OSError, KeyError, ValueError, TypeError):
             continue
     if not points:
