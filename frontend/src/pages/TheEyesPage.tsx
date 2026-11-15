@@ -325,7 +325,7 @@ export default function TheEyesPage() {
   // Page shortcuts; never while typing, and the image canvas handles its own keys.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (isTyping(e.target) || e.metaKey || e.ctrlKey || e.altKey || help || guide) return
+      if (isTyping(e.target) || e.metaKey || e.ctrlKey || e.altKey || help) return
       if (document.querySelector('.modal-backdrop')) return
       switch (e.key) {
         case ' ':
@@ -388,22 +388,25 @@ export default function TheEyesPage() {
         title: 'Choose a target',
         body: (
           <p>
-            Click one of the five featured stars, or type a star name or RA/Dec and press <strong>Go</strong>.
-            {popupOpen ? '' : ' Press Next and we will open Barnard’s Star for you.'}
+            <strong>Try it:</strong> click one of the featured stars, or type a star name or RA/Dec and press <strong>Go</strong>. The tutorial moves on when the
+            star opens{popupOpen ? '' : ' (Next opens Barnard’s Star for you)'}.
           </p>
         ),
+        done: 'Target chosen.',
       },
       {
         anchors: ['detectors'],
         needsTarget: true,
         title: 'Pick an infrared channel',
-        body: <p>SPHEREx has six detectors, from D1 (0.75 µm) to D6 (5 µm). Cold objects such as the brown dwarf WISE 0855 show best in D5–D6.</p>,
+        body: <p><strong>Try it:</strong> click another detector. D1 is the shortest wavelength (0.75 µm), D6 the longest (5 µm); cold brown dwarfs show best in D5–D6.</p>,
+        done: 'The images reload for that detector. D6 is the default for the featured stars.',
       },
       {
         anchors: ['player', 'view-mode'],
         needsTarget: true,
         title: 'Step through the dates',
-        body: <p>Press <strong>Play</strong> to run the observations like a short film, drag the slider, or use ← →. The date above the image is when that frame was taken.</p>,
+        body: <p><strong>Try it:</strong> press <strong>Play</strong>, drag the slider or use ← →. The date above the image is when that frame was taken.</p>,
+        done: 'Watch the image: field stars stay put while a moving target shifts.',
       },
       {
         anchors: ['image'],
@@ -412,13 +415,15 @@ export default function TheEyesPage() {
         body: tourCombined ? (
           <>
             <p>
-              <span className="sym-gaia">○ Yellow circles</span> mark Gaia DR3 stars. They barely move, so use them as reference: your target is the one that shifts or changes brightness.
+              <span className="sym-gaia">○ Yellow circles</span> mark Gaia DR3 stars. They barely move, so use them as reference: your target is the one that shifts or
+              changes brightness.
             </p>
-            <p>The <strong>+</strong> cross is where the target should be on this date. Click the image to mark a star; scroll or use − / + to zoom.</p>
+            <p>The <strong>+</strong> cross is where the target should be. <strong>Try it:</strong> click a star to mark it, or scroll to zoom.</p>
           </>
         ) : (
-          <p>The <strong>+</strong> cross is where the target should be on this date. Click the image to mark a star; scroll or use − / + to zoom.</p>
+          <p>The <strong>+</strong> cross is where the target should be on this date. <strong>Try it:</strong> click a star to mark it, or scroll to zoom.</p>
         ),
+        done: 'Marked. Your mark stays while you step through the dates.',
       },
     ]
     if (tourCombined) {
@@ -426,7 +431,8 @@ export default function TheEyesPage() {
         anchors: ['source'],
         needsTarget: true,
         title: 'Hide the yellow circles',
-        body: <p>The circles are drawn into the combined WISE + SPHEREx images. Choose <strong>SPHEREx only</strong> here to see the images without them.</p>,
+        body: <p>The circles are drawn into the combined WISE + SPHEREx images. <strong>Try it:</strong> choose <strong>SPHEREx only</strong> to see the images without them.</p>,
+        done: 'Switch back to the combined view any time for the longer WISE time span.',
       })
     }
     steps.push(
@@ -434,7 +440,8 @@ export default function TheEyesPage() {
         anchors: ['markers'],
         needsTarget: true,
         title: 'Markers on or off',
-        body: <p><strong>Show predicted position</strong> turns the + cross on or off, so you can try to spot the target yourself first.</p>,
+        body: <p><strong>Try it:</strong> turn <strong>Show predicted position</strong> off, find the target yourself, then turn it back on to check.</p>,
+        done: 'Look at the image: the + cross appears or disappears.',
       },
       {
         anchors: ['display', 'view-mode'],
@@ -442,9 +449,11 @@ export default function TheEyesPage() {
         title: 'Spot what changed',
         body: (
           <p>
-            <strong>Compare two dates</strong> puts two observations side by side. In Timeline, <strong>Difference</strong> subtracts the first date: still stars vanish and a bright–dark pair marks something that moved.
+            <strong>Try it:</strong> <strong>Compare two dates</strong> puts two observations side by side. In Timeline, <strong>Difference</strong> subtracts the first
+            date: still stars vanish and a bright–dark pair marks something that moved.
           </p>
         ),
+        done: 'Compare the result with the original images before you trust a change.',
       },
       {
         anchors: ['tour-toggle'],
@@ -804,7 +813,7 @@ export default function TheEyesPage() {
             />
           )}
         <div className="dock" role="toolbar" aria-label="Sky tools">
-          <div className="dock__switch" role="group" aria-label="Experience mode">
+          <div className="dock__switch dock__switch--mode" role="group" aria-label="Experience mode">
             <button
               type="button"
               className="dock__btn"

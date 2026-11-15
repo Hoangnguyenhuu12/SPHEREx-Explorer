@@ -144,6 +144,11 @@ def load_cutouts(query, directory):
         database_cutouts = load_database_cutouts(query)
         if database_cutouts or database_mode():
             return database_cutouts
+    return load_irsa_cutouts(query, directory)
+
+
+def load_irsa_cutouts(query, directory):
+    """Public IRSA path (also used by the spectrum service), backed by the shared cache."""
     root = Path(os.getenv("DATA_DIR", "data")) / "cache" / "api-0.1-irsa"
     # LRU reads hold a SQLite transaction while loading the bytes. This keeps
     # eviction from trying to unlink a value that a Windows reader has open.
@@ -242,7 +247,7 @@ def load_harvest_cutouts(query):
     result = []
     for path in root.glob("*.fits"):
         match = re.search(r"_D([1-6])_", path.name)
-        if match is None or int(match.group(1)) != query.detector:
+        if match is None or (query.detector is not None and int(match.group(1)) != query.detector):
             continue
         try:
             from astropy.io import fits
@@ -252,7 +257,7 @@ def load_harvest_cutouts(query):
                 mjd = float(header["MJD-AVG"])
         except (OSError, KeyError, TypeError, ValueError):
             continue
-        result.append(Cutout(path.resolve(), obs_id, query.detector, mjd, "qr3", "", path.stat().st_size, path.stat().st_mtime_ns))
+        result.append(Cutout(path.resolve(), obs_id, int(match.group(1)), mjd, "qr3", "", path.stat().st_size, path.stat().st_mtime_ns))
     result.sort(key=lambda item: item.mjd)
     max_frames = getattr(query, "max_frames", 60)
     if len(result) > max_frames:
@@ -536,7 +541,7 @@ def load_database_cutouts(query):
             Cutout(
                 path.resolve(),
                 str(row.get("obs_id", path.stem)),
-                int(query.detector),
+                int(row.get("detector") or query.detector),
                 float(row.get("observed_mjd")),
                 str(row.get("release") or "dr1"),
                 str(row.get("cutout_sha256") or ""),
@@ -544,13 +549,13 @@ def load_database_cutouts(query):
                 path.stat().st_mtime_ns,
             )
         )
-    if result or db_frames:
+    if result:
         result.sort(key=lambda item: item.mjd)
         return tuple(result[: getattr(query, "max_frames", 60)])
 
     for product in database_provider.products_for_target(query.target_key):
         match = re.search(r"D([1-6])", str(product.get("band") or ""), re.IGNORECASE)
-        if match is None or int(match.group(1)) != query.detector:
+        if match is None or (query.detector is not None and int(match.group(1)) != query.detector):
             continue
         metadata = product.get("metadata") or {}
         relative = product.get("local_file") or metadata.get("relative_path") or metadata.get("fits_path")
@@ -562,7 +567,7 @@ def load_database_cutouts(query):
             path = data_dir.joinpath(*path.parts[1:]) if path.parts[0] == "data" else data_dir / path
         if not path.is_file():
             continue
-        result.append(Cutout(path.resolve(), str(product.get("obs_id", path.stem)), query.detector, float(product.get("mjd_start")), str(product.get("collection", "")).removeprefix("spherex_"), "", path.stat().st_size, path.stat().st_mtime_ns))
+        result.append(Cutout(path.resolve(), str(product.get("obs_id", path.stem)), int(match.group(1)), float(product.get("mjd_start")), str(product.get("collection", "")).removeprefix("spherex_"), "", path.stat().st_size, path.stat().st_mtime_ns))
     result.sort(key=lambda item: item.mjd)
     return tuple(result[:getattr(query, "max_frames", 60)])
 

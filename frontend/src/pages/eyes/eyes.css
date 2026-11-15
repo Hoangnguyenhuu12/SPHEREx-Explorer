@@ -311,6 +311,21 @@ kbd {
     overflow: hidden;
     clip-path: inset(50%);
   }
+  /* Text-only buttons (WISE) keep their label, or they would be blank squares. */
+  .dock__btn:not(:has(svg)) {
+    flex: 0 0 auto;
+    padding: 0 var(--space-2);
+  }
+  .dock__btn:not(:has(svg)) span {
+    position: static;
+    width: auto;
+    height: auto;
+    clip-path: none;
+  }
+  /* Explore / Science is also in the target panel; on a phone the dock keeps only the sky tools. */
+  .dock__switch--mode {
+    display: none;
+  }
 }
 .sky-motion-note {
   position: absolute;

@@ -56,7 +56,7 @@ def _load(item):
         header = hdus["IMAGE"].header
         if header.get("DETECTOR") is not None and item.get("detector") is not None:
             supplied_detector = int(str(item["detector"]).split("D")[-1])
-            if supplied_detector != int(header["DETECTOR"]):
+            if supplied_detector != int(str(header["DETECTOR"]).strip().upper().removeprefix("D")):
                 raise ValueError("DETECTOR_METADATA_MISMATCH")
         if u.Unit(header.get("BUNIT", "")) != u.MJy / u.sr:
             raise ValueError("IMAGE BUNIT must be MJy/sr")

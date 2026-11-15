@@ -15,7 +15,7 @@ from ..api_models import (
     ScienceQuery,
     Target,
 )
-from .catalog import resolve_name, targets
+from .catalog import position_at, resolve_name, targets
 from . import combined_timeline, database_provider
 from .frame_rendering import NoCoverage
 from .live_cutouts import (
@@ -28,6 +28,7 @@ from .live_cutouts import (
 )
 from .observed_frames import matching_cutouts, render_cached
 from .observed_science import measure
+from . import spectrum_service
 from shared.pipeline.irsa import UpstreamError, UpstreamTimeout
 
 ROOT = Path(__file__).resolve().parents[4]
@@ -334,103 +335,12 @@ def astrometry(query: ScienceQuery):
 
 
 def spectrum(query: ScienceQuery):
-    """Read measured flux from FITS supplied by harvest, database, or IRSA.
-
-    The endpoint never classifies a source from a sparse spectrum. It returns
-    measured points and explicit warnings when the archive cannot provide FITS.
-    """
-    if live_mode() and not harvest_mode():
-        with workspace() as directory:
-            return _spectrum(query, directory)
-    return _spectrum(query)
-
-
-def _spectrum(query, directory=None):
-    from astropy.coordinates import SkyCoord
-    from astropy.io import fits
-    from astropy.wcs import WCS
-    detector = query.detector or 6
-    paths = []
-    if harvest_mode():
-        root = ROOT / "data" / "harvest" / str(query.target_key) / "spherex"
-        if root.is_dir():
-            paths = sorted(root.glob("*.fits"))
-    elif directory is not None:
-        from types import SimpleNamespace
-        request = SimpleNamespace(
-            target_key=query.target_key,
-            ra=query.ra,
-            dec=query.dec,
-            detector=detector,
-            size=0.1,
-            max_frames=60,
-        )
-        try:
-            paths = [item.path for item in load_cutouts(request, directory)]
-        except (UpstreamError, UpstreamTimeout, OSError, ValueError):
-            paths = []
-    if not paths:
-        fail(404, "NO_SPECTRUM", "No measured FITS spectrum covers this position.", {
-            "target_key": query.target_key,
-            "data_mode": os.getenv("DATA_MODE", "fixture"),
-            "source": "NASA/IPAC IRSA or sky_archive FITS",
-        })
-    points = []
-    sky = SkyCoord(query.ra, query.dec, unit="deg")
-    for path in paths:
-        try:
-            with fits.open(path, memmap=False) as hdus:
-                image = hdus["IMAGE"].data
-                variance = hdus["VARIANCE"].data
-                flags = hdus["FLAGS"].data
-                wcs = WCS(hdus["IMAGE"].header, fobj=hdus).celestial
-                header = hdus["IMAGE"].header
-                raw_detector = str(header.get("DETECTOR", detector)).strip().upper().removeprefix("D")
-                frame_detector = int(raw_detector)
-                if frame_detector != detector:
-                    continue
-                mjd = float(header.get("MJD-AVG", header.get("MJD", 0.0)))
-                frame_sky = position_at(query.target_key, mjd) if query.target_key and mjd else None
-                x, y = wcs.world_to_pixel(frame_sky or sky)
-                approximate = not (0 <= x < image.shape[1] and 0 <= y < image.shape[0])
-                ix = max(0, min(image.shape[1] - 1, round(x)))
-                iy = max(0, min(image.shape[0] - 1, round(y)))
-                value = float(image[iy, ix])
-                var = float(variance[iy, ix])
-                flagged = bool(flags[iy, ix]) or not (value == value and var > 0)
-                wave = None
-                if "WCS-WAVE" in hdus:
-                    table = hdus["WCS-WAVE"].data
-                    xs = table["X"][0].astype(float)
-                    ys = table["Y"][0].astype(float)
-                    image_header = hdus["IMAGE"].header
-                    x = 1 + x - float(image_header.get("CRPIX1A", 1))
-                    y = 1 + y - float(image_header.get("CRPIX2A", 1))
-                    values = table["VALUES"][0]
-                    ix0 = max(0, min(len(xs) - 2, int(__import__("numpy").searchsorted(xs, x) - 1)))
-                    iy0 = max(0, min(len(ys) - 2, int(__import__("numpy").searchsorted(ys, y) - 1)))
-                    tx = (x - xs[ix0]) / (xs[ix0 + 1] - xs[ix0])
-                    ty = (y - ys[iy0]) / (ys[iy0 + 1] - ys[iy0])
-                    wave = float((1 - tx) * (1 - ty) * values[0, iy0, ix0] + tx * (1 - ty) * values[0, iy0, ix0 + 1] + (1 - tx) * ty * values[0, iy0 + 1, ix0] + tx * ty * values[0, iy0 + 1, ix0 + 1])
-                if wave is None or not (wave > 0):
-                    wave = {1: 0.92, 2: 1.38, 3: 2.03, 4: 3.12, 5: 4.12, 6: 4.71}[frame_detector]
-                points.append({"wavelength_um": wave, "flux_mjy": None if flagged else value * 1e3, "err_mjy": None if flagged else (var ** 0.5) * 1e3, "flagged": flagged, "detector": frame_detector, "warnings": ["GRID_TO_NATIVE_APPROXIMATION"] if approximate else []})
-        except (OSError, KeyError, ValueError, TypeError, IndexError):
-            continue
-    if not points:
-        fail(404, "NO_SPECTRUM", "No valid spectral pixels cover this position.", {
-            "target_key": query.target_key,
-            "detector": detector,
-            "position_epoch": "propagated_to_each_fits_mjd",
-        })
-    return {
-        "api_version": "0.1",
-        "mode": os.getenv("DATA_MODE", "fixture"),
-        "position": {"ra": query.ra, "dec": query.dec},
-        "flux_unit": "mJy",
-        "points": sorted(points, key=lambda p: p["wavelength_um"]),
-        "warnings": [
-            "MEASURED_FLUX_ONLY",
-            "NO_AUTOMATIC_STELLAR_CLASSIFICATION",
-        ],
-    }
+    try:
+        result, _ = cached_result("spectrum-aperture-v1", query, lambda: spectrum_service.read(query))
+        return result
+    except spectrum_service.SpectrumError as exc:
+        fail(exc.status, exc.code, str(exc), exc.details)
+    except UpstreamTimeout:
+        fail(504, "UPSTREAM_TIMEOUT", "IRSA did not respond before the deadline.")
+    except (UpstreamError, database_provider.DatabaseError):
+        fail(502, "UPSTREAM_ERROR", "The observation archive could not be read.")

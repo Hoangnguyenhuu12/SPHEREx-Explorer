@@ -26,6 +26,8 @@ export interface TourStep {
   anchors: string[]
   title: string
   body: ReactNode
+  /** Shown once the visitor has clicked the highlighted control. */
+  done?: ReactNode
   /** The step lives in the target panel: open a target first if none is shown. */
   needsTarget?: boolean
 }
@@ -37,8 +39,10 @@ interface Rect {
   height: number
 }
 
+type Side = 'top' | 'bottom' | 'left' | 'right' | 'none'
+
 const PAD = 6
-const GAP = 14
+const GAP = 16
 const EDGE = 12
 
 function findAnchor(anchors: string[]): HTMLElement | null {
@@ -51,14 +55,18 @@ function findAnchor(anchors: string[]): HTMLElement | null {
   return null
 }
 
+const toRect = (r: DOMRect, pad = 0): Rect => ({ top: r.top - pad, left: r.left - pad, width: r.width + 2 * pad, height: r.height + 2 * pad })
+
 function sameRect(a: Rect | null, b: Rect | null): boolean {
   if (!a || !b) return a === b
   return Math.abs(a.top - b.top) < 0.5 && Math.abs(a.left - b.left) < 0.5 && Math.abs(a.width - b.width) < 0.5 && Math.abs(a.height - b.height) < 0.5
 }
 
 /**
- * Spotlight tutorial: dims the page, cuts a hole around the control of the current step, and points
- * a card at it. The highlighted control stays clickable; everything else is blocked until the tour ends.
+ * Learn-by-doing tutorial. The page stays fully usable: a ring marks the control for the current
+ * step, the screen is dimmed except the whole details panel (so results stay visible), and the card
+ * sits outside that panel, pointing at the control. Clicking the control marks the step done;
+ * choosing a target on the first step moves on by itself.
  */
 export function GuideTour({
   steps,
@@ -74,15 +82,28 @@ export function GuideTour({
   const reduce = useReducedMotion()
   const uid = useId()
   const [index, setIndex] = useState(0)
-  const [rect, setRect] = useState<Rect | null>(null)
-  const [cardPos, setCardPos] = useState<{ top: number; left: number; arrow: CSSProperties; side: 'top' | 'bottom' | 'left' | 'right' | 'none' } | null>(null)
+  const [ring, setRing] = useState<Rect | null>(null)
+  const [lit, setLit] = useState<Rect | null>(null)
+  const [doneFor, setDoneFor] = useState(-1)
+  const [cardPos, setCardPos] = useState<{ top: number; left: number; arrow: CSSProperties; side: Side } | null>(null)
   const cardRef = useRef<HTMLDivElement>(null)
   const nextRef = useRef<HTMLButtonElement>(null)
   const scrolledFor = useRef(-1)
+  const anchorRef = useRef<HTMLElement | null>(null)
+  const hadTarget = useRef(hasTarget)
   const step = steps[Math.min(index, steps.length - 1)]
   const last = index >= steps.length - 1
+  const done = doneFor === index
 
-  // Steps inside the target panel need a target on screen.
+  const go = (d: number) => setIndex((i) => Math.min(Math.max(0, i + d), steps.length - 1))
+
+  // Choosing a target on the first step is the action itself: move on once the panel opens.
+  useEffect(() => {
+    if (hasTarget && !hadTarget.current && index === 0) setIndex(1)
+    hadTarget.current = hasTarget
+  }, [hasTarget, index])
+
+  // Pressing Next on a panel step with nothing open: open a target for the visitor.
   useEffect(() => {
     if (step.needsTarget && !hasTarget) ensureTarget()
   }, [step, hasTarget, ensureTarget])
@@ -92,6 +113,7 @@ export function GuideTour({
     let raf = 0
     const tick = () => {
       const el = step.anchors.length ? findAnchor(step.anchors) : null
+      anchorRef.current = el
       if (el && scrolledFor.current !== index) {
         scrolledFor.current = index
         // Scroll only the details panel: scrollIntoView would also shift the overflow-hidden map stage.
@@ -104,16 +126,28 @@ export function GuideTour({
           }
         }
       }
-      const r = el?.getBoundingClientRect()
-      const next = r ? { top: r.top - PAD, left: r.left - PAD, width: r.width + 2 * PAD, height: r.height + 2 * PAD } : null
-      setRect((prev) => (sameRect(prev, next) ? prev : next))
+      const nextRing = el ? toRect(el.getBoundingClientRect(), PAD) : null
+      const panel = el?.closest<HTMLElement>('.popup')
+      const nextLit = panel ? toRect(panel.getBoundingClientRect()) : nextRing
+      setRing((prev) => (sameRect(prev, nextRing) ? prev : nextRing))
+      setLit((prev) => (sameRect(prev, nextLit) ? prev : nextLit))
       raf = requestAnimationFrame(tick)
     }
     tick()
     return () => cancelAnimationFrame(raf)
   }, [step, index, reduce])
 
-  // Place the card next to the hole, flipping and clamping to stay on screen.
+  // A click on the highlighted control completes the step.
+  useEffect(() => {
+    const onClick = (e: MouseEvent) => {
+      const el = anchorRef.current
+      if (el && e.target instanceof Node && el.contains(e.target)) setDoneFor(index)
+    }
+    document.addEventListener('click', onClick, true)
+    return () => document.removeEventListener('click', onClick, true)
+  }, [index])
+
+  // Place the card outside the lit area, next to the control, flipping and clamping to stay on screen.
   useLayoutEffect(() => {
     const card = cardRef.current
     if (!card) return
@@ -121,96 +155,63 @@ export function GuideTour({
     const vh = window.innerHeight
     const cw = card.offsetWidth
     const ch = card.offsetHeight
-    if (!rect) {
-      setCardPos({ top: Math.max(EDGE, (vh - ch) / 2), left: Math.max(EDGE, (vw - cw) / 2), arrow: {}, side: 'none' })
+    const set = (top: number, left: number, side: Side, arrow: CSSProperties = {}) =>
+      setCardPos((prev) =>
+        prev && prev.top === top && prev.left === left && prev.side === side && JSON.stringify(prev.arrow) === JSON.stringify(arrow)
+          ? prev
+          : { top, left, arrow, side },
+      )
+    if (!ring || !lit) {
+      set(Math.max(EDGE, (vh - ch) / 2), Math.max(EDGE, (vw - cw) / 2), 'none')
       return
     }
-    const cx = rect.left + rect.width / 2
-    const cy = rect.top + rect.height / 2
+    const cx = ring.left + ring.width / 2
+    const cy = ring.top + ring.height / 2
     const clampX = (x: number) => Math.min(Math.max(EDGE, x), vw - cw - EDGE)
     const clampY = (y: number) => Math.min(Math.max(EDGE, y), vh - ch - EDGE)
-    let side: 'top' | 'bottom' | 'left' | 'right'
-    let top: number
-    let left: number
-    if (rect.top + rect.height + GAP + ch <= vh - EDGE) {
-      side = 'bottom'
-      top = rect.top + rect.height + GAP
-      left = clampX(cx - cw / 2)
-    } else if (rect.top - GAP - ch >= EDGE) {
-      side = 'top'
-      top = rect.top - GAP - ch
-      left = clampX(cx - cw / 2)
-    } else if (rect.left + rect.width + GAP + cw <= vw - EDGE) {
-      side = 'right'
-      left = rect.left + rect.width + GAP
-      top = clampY(cy - ch / 2)
-    } else if (rect.left - GAP - cw >= EDGE) {
-      side = 'left'
-      left = rect.left - GAP - cw
-      top = clampY(cy - ch / 2)
+    const arrowY = (top: number) => ({ top: Math.min(Math.max(18, cy - top), ch - 18) })
+    const arrowX = (left: number) => ({ left: Math.min(Math.max(18, cx - left), cw - 18) })
+    if (lit.left + lit.width + GAP + cw <= vw - EDGE) {
+      const top = clampY(cy - ch / 2)
+      set(top, lit.left + lit.width + GAP, 'right', arrowY(top))
+    } else if (lit.left - GAP - cw >= EDGE) {
+      const top = clampY(cy - ch / 2)
+      set(top, lit.left - GAP - cw, 'left', arrowY(top))
+    } else if (lit.top + lit.height + GAP + ch <= vh - EDGE) {
+      const left = clampX(cx - cw / 2)
+      set(lit.top + lit.height + GAP, left, 'bottom', arrowX(left))
+    } else if (lit.top - GAP - ch >= EDGE) {
+      const left = clampX(cx - cw / 2)
+      set(lit.top - GAP - ch, left, 'top', arrowX(left))
     } else {
-      // No room around a large anchor (e.g. the image on a phone): sit inside its lower edge.
-      side = 'top'
-      top = clampY(Math.min(rect.top + rect.height, vh) - ch - GAP)
-      left = clampX(cx - cw / 2)
+      // Phones: the panel fills the screen. Dock the card at the edge away from the control.
+      const top = cy < vh / 2 ? vh - ch - EDGE : EDGE
+      set(top, clampX((vw - cw) / 2), 'none')
     }
-    const arrow: CSSProperties =
-      side === 'top' || side === 'bottom'
-        ? { left: Math.min(Math.max(18, cx - left), cw - 18) }
-        : { top: Math.min(Math.max(18, cy - top), ch - 18) }
-    setCardPos((prev) =>
-      prev && prev.top === top && prev.left === left && prev.side === side && JSON.stringify(prev.arrow) === JSON.stringify(arrow)
-        ? prev
-        : { top, left, arrow, side },
-    )
-  }, [rect, index])
+  }, [ring, lit, index, done])
 
   useEffect(() => {
     nextRef.current?.focus({ preventScroll: true })
   }, [index])
 
-  const go = (d: number) => setIndex((i) => Math.min(Math.max(0, i + d), steps.length - 1))
-
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.preventDefault()
-        onClose()
-      } else if (e.key === 'ArrowRight' && !last) {
-        e.preventDefault()
-        go(1)
-      } else if (e.key === 'ArrowLeft') {
-        e.preventDefault()
-        go(-1)
-      }
+      if (e.key === 'Escape') onClose()
     }
-    window.addEventListener('keydown', onKey, true)
-    return () => window.removeEventListener('keydown', onKey, true)
-  })
-
-  const vw = typeof window !== 'undefined' ? window.innerWidth : 0
-  const vh = typeof window !== 'undefined' ? window.innerHeight : 0
-  const blockers: CSSProperties[] = rect
-    ? [
-        { top: 0, left: 0, width: vw, height: Math.max(0, rect.top) },
-        { top: rect.top + rect.height, left: 0, width: vw, height: Math.max(0, vh - rect.top - rect.height) },
-        { top: rect.top, left: 0, width: Math.max(0, rect.left), height: rect.height },
-        { top: rect.top, left: rect.left + rect.width, width: Math.max(0, vw - rect.left - rect.width), height: rect.height },
-      ]
-    : [{ inset: 0 }]
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
 
   return createPortal(
     <div className={`tour${reduce ? ' tour--still' : ''}`}>
-      {rect ? <div className="tour__spot" style={rect} aria-hidden /> : <div className="tour__dim" aria-hidden />}
-      {blockers.map((b, i) => (
-        <div key={i} className="tour__block" style={b} aria-hidden />
-      ))}
+      {lit ? <div className="tour__lit" style={lit} aria-hidden /> : <div className="tour__dim" aria-hidden />}
+      {ring && <div className={`tour__ring${done ? ' is-done' : ''}`} style={ring} aria-hidden />}
       <div
         ref={cardRef}
         className={`tour__card tour__card--${cardPos?.side ?? 'none'}`}
         style={cardPos ? { top: cardPos.top, left: cardPos.left } : { visibility: 'hidden' }}
         role="dialog"
-        aria-modal="true"
+        aria-modal="false"
         aria-labelledby={`${uid}-t`}
         aria-describedby={`${uid}-b`}
       >
@@ -226,9 +227,10 @@ export function GuideTour({
         <h2 id={`${uid}-t`} className="tour__title">
           {step.title}
         </h2>
-        <div id={`${uid}-b`} className="tour__body">
+        <div id={`${uid}-b`} className="tour__body" aria-live="polite">
           {step.body}
-          {step.anchors.length > 0 && !rect && <p className="caption">Loading this part of the page…</p>}
+          {done && step.done && <p className="tour__done">✓ {step.done}</p>}
+          {step.anchors.length > 0 && !ring && <p className="caption">Loading this part of the page…</p>}
         </div>
         <div className="tour__actions">
           <button type="button" className="btn btn-ghost btn--compact" onClick={onClose}>
@@ -238,7 +240,12 @@ export function GuideTour({
           <button type="button" className="btn btn-secondary btn--compact" onClick={() => go(-1)} disabled={index === 0}>
             Back
           </button>
-          <button ref={nextRef} type="button" className="btn btn-primary btn--compact" onClick={() => (last ? onClose() : go(1))}>
+          <button
+            ref={nextRef}
+            type="button"
+            className={`btn btn-primary btn--compact${done ? ' tour__next--ready' : ''}`}
+            onClick={() => (last ? onClose() : go(1))}
+          >
             {last ? 'Finish' : 'Next'}
           </button>
         </div>

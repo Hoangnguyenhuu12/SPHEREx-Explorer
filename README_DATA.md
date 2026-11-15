@@ -48,7 +48,7 @@ Hoặc chạy `npm run dev:be` tại thư mục `new` để launcher đọc `.en
 
 ## Status on 14 November 2026
 
-The Barnard D6 TAP pilot timed out, so the scripted TAP query has not been verified end to end. The SIA fallback succeeded for all five targets. The initial selection of 90 DR1 FITS is downloaded, plus 21 additional cutouts to seek comparable pairs: **111 files**. All manifest SHA-256 hashes matched on 14/11/2026. FITS integrity and observation identity determine acquisition validity; a non-finite target pixel or incomplete coverage is recorded as a warning and does not discard the file. These checks do not establish source detection or scientific usability. See [COMPARISON_SCREENING_REPORT.md](COMPARISON_SCREENING_REPORT.md) and each `manifest.json`, `selection_report.json` and `validation_report.json`; earlier rejected attempts are recorded as historical.
+The Barnard D6 TAP pilot timed out, so the scripted TAP query has not been verified end to end. The SIA fallback succeeded for all five targets. The initial selection of 90 DR1 FITS is downloaded, plus 21 additional cutouts to seek comparable pairs: **111 files**. All manifest SHA-256 hashes matched on 14/11/2026. FITS integrity and observation identity determine acquisition validity; a non-finite target pixel or incomplete coverage is recorded as a warning and does not discard the file. These checks do not establish source detection or scientific usability. See `data/reports/comparison_candidates.json` and each `manifest.json`, `selection_report.json` and `validation_report.json`; earlier rejected attempts are recorded as historical.
 
 ## Setup and execution
 

@@ -36,7 +36,7 @@ Tổng **171 FITS DR1, 685.756.800 byte** theo manifest. Số liệu sau lần c
 
 Barnard có phần lớn pixel tại tọa độ dự đoán bị cờ overflow/bloom; R Draconis có overflow, bloom và SUR_ERROR. `scripts/inspect_saturated_neighborhoods.py` ghi `data/reports/saturated_neighborhoods.json`: 13/42 ảnh Barnard có ít nhất một pixel sạch trong bán kính 2,5 pixel, R Draconis 0/42. Đó chỉ là số đếm pixel, không phải đo quang. Có thể thử fit PSF trên pixel sạch nhưng cần xác thực trước khi dùng. Các ngưỡng là **heuristic kỹ thuật**, không phải chuẩn khoa học IRSA. Không nới ngưỡng hoặc xóa cờ chỉ để báo đủ 5 sao. Tọa độ dùng proper motion tuyến tính từ J2000, chưa tính đầy đủ thị sai/quỹ đạo hệ đôi; vị trí dự đoán không phải phát hiện thực.
 
-Lịch sử tải từng lượt (mvp2–mvp5, D1 Barnard/R Draconis) có trong `DR1_CAP_NHAT_RW_BARNARD_RDRA.md`. `MVP_DR1_ADDITIONAL_ACQUISITION.md`, `IMAGE_DEMO_REPORT.md` và `COMPARISON_SCREENING_REPORT.md` là snapshot cũ. Nguồn mới nhất là `data/reports/comparison_candidates.json`, `data/reports/comparison_readiness.json` và từng manifest.
+Các báo cáo markdown theo từng lượt tải đã được gỡ khỏi thư mục gốc; xem lại trong lịch sử Git nếu cần. Nguồn mới nhất là `data/reports/comparison_candidates.json`, `data/reports/comparison_readiness.json` và từng manifest.
 
 ## Dữ liệu Khôi và QR/DR
 
@@ -49,7 +49,7 @@ Gói `data/imports/full_harvest_fusion_original/` (gói gốc `SPHEREx_Full_Harv
 - `scripts/download_selected_spherex.py`: retry 180 giây/chỉ mục, xác thực FITS, lưu manifest sau mỗi file, bỏ qua file có SHA khớp. Không chạy nhiều agent cùng ghi manifest một mục tiêu.
 - `scripts/screen_comparison_candidates.py`: kiểm tra ảnh và cặp; kết quả `data/reports/comparison_candidates.json`. Cờ SOURCE/FULLSAMPLE đơn lẻ không phải lỗi; các cờ chất lượng khác tại pixel dự đoán bị loại theo quy tắc hiện tại.
 - `scripts/process_candidate_pair.py`: tạo ảnh chẩn đoán từ cặp đã qua lọc; `scripts/check_comparison_readiness.py`: kiểm tra sản phẩm và nguồn nền; `scripts/validate_fits.py`: kiểm tra FITS. `members/huu-hoang/tan_pipeline.py` xử lý mask theo header `MSKNxxxx`/`MSKMxxxx`.
-- `IMAGE_DEMO_REPORT.md`, `COMPARISON_SCREENING_REPORT.md`, `MVP_DR1_ADDITIONAL_ACQUISITION.md`, `README_DATA.md`: lưu ý số liệu snapshot cũ; ưu tiên JSON hiện tại.
+- `README_DATA.md`: lưu ý số liệu snapshot cũ; ưu tiên JSON hiện tại.
 
 Chạy tại thư mục gốc repo:
 
