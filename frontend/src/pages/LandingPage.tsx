@@ -10,6 +10,7 @@ import { StarfieldCanvas } from '../features/artwork/StarfieldCanvas'
 import { TEAM, TEAM_NAME } from '../shared/config/team'
 import { PageShell } from '../shared/layout/Shell'
 import { maxScroll, sectionSnaps } from '../shared/lib/sectionStops'
+import { HowItWorksSteps } from './landing/HowItWorksSteps'
 import { useSectionPager } from './landing/useSectionPager'
 import './landing/landing.css'
 
@@ -105,17 +106,8 @@ export default function LandingPage() {
         <div className="wrap">
           <h2 id="intro-title">How it works</h2>
           <p className="section-lead">Four steps from a point in the sky to a change you can see.</p>
-          <ol className="steps">
-            {STEPS.map((s, i) => (
-              <li key={s.title} className="step">
-                <span className="step__num" aria-hidden>
-                  {i + 1}
-                </span>
-                <h3 className="step__title">{s.title}</h3>
-                <p>{s.body}</p>
-              </li>
-            ))}
-          </ol>
+          {fine && <p className="steps__hint caption">Point at a step to read it.</p>}
+          <HowItWorksSteps steps={STEPS} reveal={fine} />
         </div>
       </section>
 
