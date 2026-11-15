@@ -13,7 +13,7 @@ import './layout.css'
 const NAV = [
   { to: PATHS.home, label: 'Home', icon: Home },
   { to: PATHS.story, label: 'Story', icon: BookOpen },
-  { to: PATHS.entry, label: 'Where are you', icon: Globe2 },
+  { to: PATHS.entry, label: 'SPHEREx Orbit', icon: Globe2 },
   { to: PATHS.explorer, label: 'The Eyes', icon: Eye },
   { to: PATHS.forum, label: 'Forum', icon: MessagesSquare },
 ] as const

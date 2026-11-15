@@ -9,9 +9,7 @@ import { SpherexCraft } from '../features/artwork/SpherexCraft'
 import { StarfieldCanvas } from '../features/artwork/StarfieldCanvas'
 import { TEAM, TEAM_NAME } from '../shared/config/team'
 import { PageShell } from '../shared/layout/Shell'
-import { maxScroll, sectionSnaps } from '../shared/lib/sectionStops'
 import { HowItWorksSteps } from './landing/HowItWorksSteps'
-import { useSectionPager } from './landing/useSectionPager'
 import './landing/landing.css'
 
 const STEPS = [
@@ -42,7 +40,6 @@ export default function LandingPage() {
   // Touch or reduced motion: a craft rests in each section and scrolls with it, no flight.
   const still = !!reduce || !fine
   const flowRef = useRef<HTMLDivElement>(null)
-  const heroRef = useRef<HTMLElement>(null)
   const heroAnchor = useRef<HTMLSpanElement>(null)
   const introRef = useRef<HTMLElement>(null)
   const aboutRef = useRef<HTMLElement>(null)
@@ -52,12 +49,6 @@ export default function LandingPage() {
   const [guideReady, setGuideReady] = useState(false)
   const onGuideReady = useCallback(() => setGuideReady(true), [])
   const guided = !still && guideReady
-  // Every section, then the page bottom (footer), is a stop for the section pager.
-  const pagerStops = useCallback(() => {
-    const all = [heroRef, ...sections].map((r) => r.current).filter((el): el is HTMLElement => !!el)
-    return [...sectionSnaps(all), maxScroll()]
-  }, [sections])
-  useSectionPager(pagerStops, !still)
 
   return (
     <PageShell header="landing">
@@ -67,7 +58,7 @@ export default function LandingPage() {
         <span className="landing-sky__glow landing-sky__glow--b" />
       </div>
       <div className="landing-flow" ref={flowRef}>
-      <section ref={heroRef} className="hero" aria-labelledby="hero-title">
+      <section className="hero" aria-labelledby="hero-title">
         <div className="wrap hero__grid">
           <div className="hero__copy">
             <p className="eyebrow">NASA SPHEREx · NASA Space Apps 2026</p>
