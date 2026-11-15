@@ -1,4 +1,3 @@
-import { ArrowRight } from 'lucide-react'
 import { Link } from 'react-router'
 import { PATHS } from '../app/config'
 import { Artwork } from '../features/artwork/Artwork'
@@ -6,6 +5,7 @@ import { DETECTORS, TARGETS } from '../shared/config/targets'
 import { TEAM_NAME } from '../shared/config/team'
 import { PageShell } from '../shared/layout/Shell'
 import { ColourDiagram, DifferenceDiagram, MotionDiagram, SurveyTimeline } from './story/diagrams'
+import { ShootingStarLink } from './story/ShootingStarLink'
 import { ShootingStars } from './story/ShootingStars'
 import { TeamGrid } from './story/TeamGrid'
 import './story/story.css'
@@ -19,11 +19,24 @@ const SECTIONS = [
 ] as const
 
 const STEPS = [
-  { title: 'Pick a star', text: 'Choose a featured target, or type a star name or coordinates.' },
-  { title: 'Press Play', text: 'SPHEREx images of that spot step through in date order.' },
-  { title: 'Compare the dates', text: 'Look for a star that shifts or changes brightness, or switch to the Difference view.' },
+  {
+    title: 'Find where you are',
+    text: 'Where are you shows the Solar System, Earth and SPHEREx’s orbit. Click Earth or press Explore the sky.',
+  },
+  { title: 'Pick a star', text: 'In The Eyes, choose a featured target, or type a star name or coordinates.' },
+  {
+    title: 'Press Play and compare',
+    text: 'SPHEREx images step through in date order. Look for a star that shifts or changes brightness, or switch to Difference.',
+  },
   { title: 'Read the notes', text: 'Check the date, detector and wavelength of each image, and the charts and quality flags.' },
 ] as const
+
+const HEADER_ACTION = (
+  <>
+    <span className="site-header__spacer" />
+    <ShootingStarLink size="compact" label="Where are you" />
+  </>
+)
 
 function Status({ kind }: { kind: 'planned' | 'built' | 'pending' }) {
   const label = kind === 'planned' ? 'Planned' : kind === 'built' ? 'Built' : 'Results pending'
@@ -35,7 +48,7 @@ export default function StoryPage() {
   const changers = TARGETS.filter((t) => t.change === 'brightness').map((t) => t.name)
 
   return (
-    <PageShell>
+    <PageShell headerActions={HEADER_ACTION}>
       <ShootingStars />
       <header className="story-head">
         <Artwork variant="corner" className="story-head__art" />
@@ -46,6 +59,21 @@ export default function StoryPage() {
             What SPHEREx Explorer is for, how to use it in four steps, the science behind what you see, and the people who
             built it.
           </p>
+          <ol className="flow-trail" aria-label="Your path through the site">
+            <li>
+              <Link to={PATHS.home}>Home</Link>
+            </li>
+            <li aria-current="step">
+              <span className="flow-trail__here">Story</span> <span className="flow-trail__tag">you are here</span>
+            </li>
+            <li>
+              <Link to={PATHS.entry} className="flow-trail__next">
+                Where are you
+              </Link>{' '}
+              <span className="flow-trail__tag">next</span>
+            </li>
+            <li>The Eyes</li>
+          </ol>
         </div>
       </header>
 
@@ -99,7 +127,10 @@ export default function StoryPage() {
           <section id="how" className="chapter">
             <p className="chapter__num">02</p>
             <h2>How to use it</h2>
-            <p>Everything happens on one page, The Eyes. A first visit takes about a minute:</p>
+            <p>
+              Start on <strong>Where are you</strong>, then explore the sky in <strong>The Eyes</strong>. A first visit takes
+              about a minute:
+            </p>
             <ol className="steps" aria-label="Four steps to use The Eyes">
               {STEPS.map((s, i) => (
                 <li key={s.title} className="step">
@@ -111,7 +142,7 @@ export default function StoryPage() {
                 </li>
               ))}
             </ol>
-            <h3 className="chapter__sub">The toolbar at the bottom of the map</h3>
+            <h3 className="chapter__sub">The toolbar at the bottom of the map in The Eyes</h3>
             <ul className="plain-list">
               <li>
                 <strong>RA/Dec</strong> draws the sky’s coordinate grid. <strong>Ground</strong> adds a horizon, and{' '}
@@ -131,10 +162,8 @@ export default function StoryPage() {
             <p className="note">
               Images marked “Illustrative demo” are generated to show how the tool works. They are not what SPHEREx saw.
             </p>
-            <p>
-              <Link to={PATHS.explorer} className="btn btn-primary">
-                Try it in The Eyes <ArrowRight aria-hidden />
-              </Link>
+            <p className="story-cta">
+              <ShootingStarLink hint="Find SPHEREx in the Solar System, then explore the sky" />
             </p>
           </section>
 
@@ -236,9 +265,7 @@ export default function StoryPage() {
             </p>
             <TeamGrid />
             <p className="story-cta">
-              <Link to={PATHS.explorer} className="btn btn-primary btn-lg">
-                Open The Eyes <ArrowRight aria-hidden />
-              </Link>
+              <ShootingStarLink label="Start: Where are you?" hint="Your first step towards The Eyes" />
             </p>
           </section>
         </article>
