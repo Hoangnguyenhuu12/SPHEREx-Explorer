@@ -71,12 +71,14 @@ interface Live extends SceneLive {
   layout: Layout
 }
 
-function createLive(): Live {
+/** Starts settled in the first view, so the page opens there without a transition. */
+function createLive(view: SceneView): Live {
+  const t = view === 'solar' ? 1 : 0
   return {
-    t: 0,
-    eased: 0,
+    t,
+    eased: t,
     earthAngle: EARTH_START_ANGLE,
-    layout: layout(0, EARTH_START_ANGLE),
+    layout: layout(t, EARTH_START_ANGLE),
     light: LIGHT_DIR.clone(),
     referenceLight: LIGHT_DIR,
     craftBoost: 1,
@@ -490,7 +492,9 @@ const ARIA: Record<SceneView, string> = {
 
 export default function EarthScene(props: Props) {
   const registry = useMemo(() => new Map<BodyName, THREE.Object3D>(), [])
-  const live = useMemo(() => createLive(), [])
+  // Only the first view matters here; later view changes animate from wherever the scene is.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const live = useMemo(() => createLive(props.view), [])
   const sunGroup = useRef<THREE.Group>(null)
   const earthGroup = useRef<THREE.Group>(null)
   const dirLight = useRef<THREE.DirectionalLight>(null)
