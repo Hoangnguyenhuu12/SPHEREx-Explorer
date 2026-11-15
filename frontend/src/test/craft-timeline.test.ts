@@ -1,58 +1,74 @@
 import { describe, expect, it } from 'vitest'
-import { buildTimeline, interpolate, type Anchor } from '../features/artwork/craftTimeline'
+import { bankAngle, buildStops, poseAt, progressAt, type Anchor } from '../features/artwork/craftTimeline'
 
-const hero: Anchor = { x: 760, y: 120, size: 500 }
+// Page coordinates: hero craft on the right, one dock near the top-left of each section.
+const hero: Anchor = { x: 760, y: 180, size: 500 }
 const docks: Anchor[] = [
   { x: 48, y: 1000, size: 88 },
-  { x: 48, y: 2000, size: 88 },
-  { x: 48, y: 2900, size: 88 },
+  { x: 48, y: 1900, size: 88 },
+  { x: 48, y: 2800, size: 88 },
 ]
-const vh = 900
-const t = buildTimeline([hero, ...docks], 64, vh)
+const snaps = [0, 900, 1800, 2700]
+const vh = 964
+const stops = buildStops([hero, ...docks], snaps)
 
-describe('craft timeline', () => {
-  it('keeps scroll inputs strictly ascending', () => {
-    for (let i = 1; i < t.input.length; i++) expect(t.input[i]).toBeGreaterThan(t.input[i - 1])
+describe('craft flight', () => {
+  it('turns page anchors into viewport positions for the scroll at which each section rests', () => {
+    expect(stops.map((s) => s.y)).toEqual([180, 100, 100, 100])
+    expect(stops.map((s) => s.scroll)).toEqual(snaps)
   })
 
-  it('sits exactly on the hero anchor at the top of the page, at full size, with its light', () => {
-    expect(interpolate(0, t.input, t.x)).toBe(hero.x)
-    expect(interpolate(0, t.input, t.y)).toBe(hero.y)
-    expect(interpolate(0, t.input, t.scale)).toBe(1)
-    expect(interpolate(0, t.input, t.beam)).toBe(1)
+  it('maps scroll to a fractional section index, clamped at both ends', () => {
+    expect(progressAt(-20, stops)).toBe(0)
+    expect(progressAt(0, stops)).toBe(0)
+    expect(progressAt(450, stops)).toBeCloseTo(0.5)
+    expect(progressAt(900, stops)).toBe(1)
+    expect(progressAt(2250, stops)).toBeCloseTo(2.5)
+    expect(progressAt(9999, stops)).toBe(3)
   })
 
-  it('docks at each section when that dock is 30% down the viewport, small and without light', () => {
-    for (const d of docks) {
-      const s = 64 + d.y - vh * 0.3
-      expect(interpolate(s, t.input, t.x)).toBeCloseTo(d.x, 5)
-      expect(interpolate(s, t.input, t.y)).toBeCloseTo(d.y, 5)
-      expect(interpolate(s, t.input, t.scale)).toBeCloseTo(88 / 500, 5)
-      expect(interpolate(s, t.input, t.beam)).toBe(0)
-      expect(interpolate(s, t.input, t.rotate)).toBe(0)
+  it('sits exactly on the hero anchor at the top, at full size, with its light', () => {
+    expect(poseAt(0, 0, stops, vh)).toEqual({ x: 760, y: 180, scale: 1, beam: 1 })
+  })
+
+  it('rests exactly on each dock, small and without light', () => {
+    for (let i = 1; i < stops.length; i++) {
+      const pose = poseAt(i, snaps[i], stops, vh)
+      expect(pose.x).toBeCloseTo(48, 5)
+      expect(pose.y).toBeCloseTo(100, 5)
+      expect(pose.scale).toBeCloseTo(88 / 500, 5)
+      expect(pose.beam).toBe(0)
     }
   })
 
-  it('stays docked while the section is read, then stays at the last dock', () => {
-    const between = 64 + docks[1].y - vh * 0.3 + 50
-    expect(interpolate(between, t.input, t.y)).toBeCloseTo(docks[1].y, 5)
-    expect(interpolate(1e6, t.input, t.y)).toBe(docks[2].y)
+  it('flies a curve that swings towards the left margin and dips, rather than a straight line', () => {
+    const mid = poseAt(0.5, 450, stops, vh)
+    expect(mid.x).toBeLessThan((760 + 48) / 2)
+    expect(mid.y).toBeGreaterThan((180 + 100) / 2)
+    const hop = poseAt(1.5, 1350, stops, vh)
+    expect(hop.y).toBeGreaterThan(100)
+    expect(hop.scale).toBeGreaterThan(88 / 500)
   })
 
-  it('tilts mid-flight and swings out towards the left margin, away from the text', () => {
-    const depart = 64 + docks[1].y - vh * 0.95
-    const arrive = 64 + docks[1].y - vh * 0.3
-    const mid = (depart + arrive) / 2
-    expect(interpolate(mid, t.input, t.rotate)).toBeGreaterThan(0)
-    expect(interpolate(mid, t.input, t.x)).toBeLessThan(docks[0].x)
-    expect(interpolate(mid, t.input, t.x)).toBeGreaterThanOrEqual(4)
+  it('moves continuously across a dock (no jump between flights)', () => {
+    const before = poseAt(1 - 1e-6, 900, stops, vh)
+    const after = poseAt(1 + 1e-6, 900, stops, vh)
+    expect(after.x).toBeCloseTo(before.x, 2)
+    expect(after.y).toBeCloseTo(before.y, 2)
+    expect(after.scale).toBeCloseTo(before.scale, 5)
   })
-})
 
-describe('interpolate', () => {
-  it('clamps and interpolates linearly', () => {
-    expect(interpolate(-5, [0, 10], [1, 2])).toBe(1)
-    expect(interpolate(5, [0, 10], [1, 2])).toBe(1.5)
-    expect(interpolate(50, [0, 10], [1, 2])).toBe(2)
+  it('tolerates spring overshoot and rides up with the page past the last section', () => {
+    expect(poseAt(3.04, 2700, stops, vh).y).toBeCloseTo(100, 5)
+    expect(poseAt(-0.03, 0, stops, vh).x).toBeCloseTo(760, 5)
+    expect(poseAt(3, 2900, stops, vh).y).toBeCloseTo(-100, 5)
+  })
+
+  it('banks with speed, within limits', () => {
+    expect(bankAngle(0)).toBe(0)
+    expect(bankAngle(1)).toBeGreaterThan(0)
+    expect(bankAngle(-1)).toBeLessThan(0)
+    expect(bankAngle(100)).toBe(12)
+    expect(bankAngle(-100)).toBe(-12)
   })
 })

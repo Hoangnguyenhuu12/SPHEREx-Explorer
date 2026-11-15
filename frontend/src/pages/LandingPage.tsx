@@ -1,15 +1,16 @@
 import { ArrowRight, BookOpen } from 'lucide-react'
 import { useReducedMotion } from 'motion/react'
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { Link } from 'react-router'
 import { PATHS } from '../app/config'
 import { Artwork } from '../features/artwork/Artwork'
 import { CraftGuide } from '../features/artwork/CraftGuide'
-import { SkyPreview } from '../features/artwork/SkyPreview'
 import { SpherexCraft } from '../features/artwork/SpherexCraft'
 import { StarfieldCanvas } from '../features/artwork/StarfieldCanvas'
 import { TEAM, TEAM_NAME } from '../shared/config/team'
 import { PageShell } from '../shared/layout/Shell'
+import { maxScroll, sectionSnaps } from '../shared/lib/sectionStops'
+import { useSectionPager } from './landing/useSectionPager'
 import './landing/landing.css'
 
 const STEPS = [
@@ -19,9 +20,28 @@ const STEPS = [
   { title: 'Spot what changed', body: 'Compare two dates side by side or flip A/B. A bright-and-dark pair in Difference is a clue to check against the original images.' },
 ]
 
+const FINE_POINTER = '(hover: hover) and (pointer: fine)'
+
+/** Mouse or trackpad: the page pages by section and the craft flies along. Touch keeps native scrolling. */
+function useFinePointer(): boolean {
+  return useSyncExternalStore(
+    (onChange) => {
+      const mq = window.matchMedia(FINE_POINTER)
+      mq.addEventListener('change', onChange)
+      return () => mq.removeEventListener('change', onChange)
+    },
+    () => window.matchMedia(FINE_POINTER).matches,
+    () => true,
+  )
+}
+
 export default function LandingPage() {
   const reduce = useReducedMotion()
+  const fine = useFinePointer()
+  // Touch or reduced motion: a craft rests in each section and scrolls with it, no flight.
+  const still = !!reduce || !fine
   const flowRef = useRef<HTMLDivElement>(null)
+  const heroRef = useRef<HTMLElement>(null)
   const heroAnchor = useRef<HTMLSpanElement>(null)
   const introRef = useRef<HTMLElement>(null)
   const aboutRef = useRef<HTMLElement>(null)
@@ -30,7 +50,13 @@ export default function LandingPage() {
   // The flying guide takes over the hero craft once it has measured the page.
   const [guideReady, setGuideReady] = useState(false)
   const onGuideReady = useCallback(() => setGuideReady(true), [])
-  const guided = !reduce && guideReady
+  const guided = !still && guideReady
+  // Every section, then the page bottom (footer), is a stop for the section pager.
+  const pagerStops = useCallback(() => {
+    const all = [heroRef, ...sections].map((r) => r.current).filter((el): el is HTMLElement => !!el)
+    return [...sectionSnaps(all), maxScroll()]
+  }, [sections])
+  useSectionPager(pagerStops, !still)
 
   return (
     <PageShell header="landing">
@@ -40,7 +66,7 @@ export default function LandingPage() {
         <span className="landing-sky__glow landing-sky__glow--b" />
       </div>
       <div className="landing-flow" ref={flowRef}>
-      <section className="hero" aria-labelledby="hero-title">
+      <section ref={heroRef} className="hero" aria-labelledby="hero-title">
         <div className="wrap hero__grid">
           <div className="hero__copy">
             <p className="eyebrow">NASA SPHEREx · NASA Space Apps 2026</p>
@@ -77,13 +103,8 @@ export default function LandingPage() {
 
       <section ref={introRef} className="intro" aria-labelledby="intro-title">
         <div className="wrap">
-          <div className="intro__head">
-            <div>
-              <h2 id="intro-title">How it works</h2>
-              <p className="section-lead">Four steps from a point in the sky to a change you can see.</p>
-            </div>
-            <SkyPreview />
-          </div>
+          <h2 id="intro-title">How it works</h2>
+          <p className="section-lead">Four steps from a point in the sky to a change you can see.</p>
           <ol className="steps">
             {STEPS.map((s, i) => (
               <li key={s.title} className="step">
@@ -138,7 +159,7 @@ export default function LandingPage() {
           </div>
         </div>
       </section>
-      <CraftGuide containerRef={flowRef} heroRef={heroAnchor} sectionRefs={sections} still={!!reduce} onReady={onGuideReady} />
+      <CraftGuide containerRef={flowRef} heroRef={heroAnchor} sectionRefs={sections} still={still} onReady={onGuideReady} />
       </div>
     </PageShell>
   )
