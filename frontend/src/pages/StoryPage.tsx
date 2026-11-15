@@ -6,6 +6,7 @@ import { DETECTORS, TARGETS } from '../shared/config/targets'
 import { TEAM_NAME } from '../shared/config/team'
 import { PageShell } from '../shared/layout/Shell'
 import { ColourDiagram, DifferenceDiagram, MotionDiagram, SurveyTimeline } from './story/diagrams'
+import { ShootingStars } from './story/ShootingStars'
 import { TeamGrid } from './story/TeamGrid'
 import './story/story.css'
 
@@ -35,6 +36,7 @@ export default function StoryPage() {
 
   return (
     <PageShell>
+      <ShootingStars />
       <header className="story-head">
         <Artwork variant="corner" className="story-head__art" />
         <div className="wrap">
