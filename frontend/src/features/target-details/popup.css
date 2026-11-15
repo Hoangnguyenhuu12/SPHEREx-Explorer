@@ -512,8 +512,14 @@
 }
 .timeline-axis {
   position: relative;
-  height: 28px;
+  height: 36px;
   margin-inline: 6px;
+}
+/* Many observations: smaller dots so neighbours do not sit on each other. */
+.timeline-axis--dense .timeline-dot {
+  width: 7px;
+  height: 7px;
+  border-width: 1px;
 }
 .timeline-axis__rail {
   position: absolute;
@@ -535,7 +541,10 @@
 .timeline-axis__gap-label {
   position: absolute;
   left: 50%;
-  top: -15px;
+  top: -17px;
+  padding: 0 3px;
+  background: var(--bg);
+  line-height: 12px;
   transform: translateX(-50%);
   white-space: nowrap;
   font-size: 10px;
@@ -854,6 +863,7 @@
 }
 .modal--image {
   width: min(760px, 100%);
+  max-height: calc(100dvh - 2 * var(--space-4));
 }
 .modal__head {
   display: flex;
@@ -863,7 +873,8 @@
 .modal__image {
   position: relative;
   width: 100%;
-  height: min(680px, calc(100vh - 300px));
+  /* Leave room for the header and the player below so the dialog fits without scrolling. */
+  height: max(220px, min(640px, calc(100dvh - 440px)));
   background: #000;
   border-radius: var(--radius-sm);
   overflow: hidden;
