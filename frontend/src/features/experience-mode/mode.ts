@@ -81,27 +81,6 @@ export function measureAngularOffset(
   }
 }
 
-export interface SpotChallengeResult {
-  hit: boolean
-  distancePx: number
-  distanceArcsec: number
-}
-
-export function evaluateSpotChallenge(
-  clickPx: [number, number],
-  targetPx: [number, number] | null,
-  pixArcsec: number,
-  tolerancePx = 7,
-): SpotChallengeResult | null {
-  if (!targetPx) return null
-  const distancePx = Math.hypot(clickPx[0] - targetPx[0], clickPx[1] - targetPx[1])
-  return {
-    hit: distancePx <= tolerancePx,
-    distancePx,
-    distanceArcsec: distancePx * pixArcsec,
-  }
-}
-
 function csvCell(value: string | number | boolean | null | undefined): string {
   if (value == null) return ''
   const s = String(value)
@@ -119,8 +98,6 @@ export function buildObservationsCsv(data: FramesResponse): string {
     'utc_iso',
     'wavelength_um',
     'bandwidth_um',
-    'predicted_x_px',
-    'predicted_y_px',
     'bad_pixel_frac',
     'quality_label',
     'source_product_id',
@@ -137,8 +114,6 @@ export function buildObservationsCsv(data: FramesResponse): string {
       f.iso,
       f.wavelength_um ?? '',
       f.bandwidth_um ?? '',
-      f.predicted_px ? f.predicted_px[0] : '',
-      f.predicted_px ? f.predicted_px[1] : '',
       f.bad_pixel_frac ?? '',
       f.quality_label ?? '',
       f.source_product_id ?? '',

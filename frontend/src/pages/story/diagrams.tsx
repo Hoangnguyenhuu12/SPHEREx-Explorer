@@ -106,8 +106,8 @@ export function MotionDiagram() {
       note={
         <>
           Distant stars look fixed, but nearby stars drift across them. Barnard’s Star moves about 10 arcseconds a year,
-          under two SPHEREx pixels, so you need images months apart to see it. The crosshair in The Eyes marks where the
-          star should be on each date.
+          under two SPHEREx pixels, so you need images months apart to see it. Use The Eyes to compare the
+          star across observation dates.
         </>
       }
     >

@@ -3,7 +3,7 @@ import { parseCoordinates, type Coords } from './coordinates'
 
 /**
  * Shareable selection of The Eyes:
- * `?q=&det=&fov=&compare=&seq=&band=&fa=&fb=&ma=&mb=&gaia=&pred=`.
+ * `?q=&det=&fov=&compare=&seq=&band=&fa=&fb=&ma=&mb=&gaia=`.
  * One codec, one source of truth.
  */
 
@@ -29,8 +29,6 @@ export interface Selection {
   markB?: [number, number]
   /** Explicit Gaia overlay state (`1` = on, `0` = off). */
   gaia?: boolean
-  /** Explicit predicted target crosshair state (`1` = on, `0` = off). */
-  pred?: boolean
 }
 
 export type ResolvedQuery =
@@ -97,8 +95,6 @@ export function parseSelection(search: string): Selection {
   if (mb) sel.markB = mb
   const gaia = parseBoolParam(p.get('gaia'))
   if (gaia !== undefined) sel.gaia = gaia
-  const pred = parseBoolParam(p.get('pred'))
-  if (pred !== undefined) sel.pred = pred
   return sel
 }
 
@@ -115,7 +111,6 @@ export function serializeSelection(sel: Selection): string {
   if (sel.markA) p.set('ma', formatPixelPair(sel.markA))
   if (sel.markB) p.set('mb', formatPixelPair(sel.markB))
   if (sel.gaia !== undefined) p.set('gaia', sel.gaia ? '1' : '0')
-  if (sel.pred !== undefined) p.set('pred', sel.pred ? '1' : '0')
   const s = p.toString()
   return s ? `?${s}` : ''
 }

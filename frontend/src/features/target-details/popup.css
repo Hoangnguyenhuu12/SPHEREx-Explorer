@@ -445,9 +445,6 @@
   font-weight: 700;
   font-size: 14px;
 }
-.marker-sym--pred {
-  color: #f4ef83;
-}
 .marker-sym--gaia {
   color: #7ce3ff;
 }
@@ -698,9 +695,6 @@
   background: var(--blue);
   border-radius: 50%;
 }
-.sw--predicted {
-  background: var(--pink);
-}
 .detector-pick {
   border: 0;
   margin: 0;
@@ -801,10 +795,6 @@
   stroke: var(--blue);
   stroke-width: 1.5;
 }
-.chart-line.is-predicted {
-  stroke: var(--pink);
-  stroke-dasharray: 5 4;
-}
 .chart-err {
   stroke: var(--muted);
   stroke-width: 1.5;
@@ -824,13 +814,6 @@
 }
 .chart-dot.is-active {
   fill: var(--primary);
-}
-.chart-pred {
-  fill: var(--pink);
-}
-.chart-pred.is-active {
-  stroke: var(--primary);
-  stroke-width: 2;
 }
 .chart-scale {
   stroke: var(--fg);
@@ -979,4 +962,24 @@
   .compare-copy-btn {
     margin-left: 0;
   }
+}
+.star-picker {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.star-picker__select,
+.star-picker__select .select {
+  width: 100%;
+  min-width: 0;
+}
+.star-picker__details {
+  display: grid;
+  gap: 6px;
+}
+.star-picker__id {
+  overflow-wrap: anywhere;
+  color: #34d399;
 }

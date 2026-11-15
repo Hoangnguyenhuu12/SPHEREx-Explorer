@@ -133,7 +133,7 @@ export function OverviewPanel({ target, coords, data, experienceMode = 'explore'
       </dl>
       {target && (
         <p className="caption">
-          The catalog position is for {target.epoch}. The crosshair on the image marks the position predicted for each observation date.
+          The catalog position is for {target.epoch}.
         </p>
       )}
     </div>
@@ -149,15 +149,14 @@ export function MotionPanel({ target, coords, detector, activeIndex, data, showT
   const pts = useMemo(() => {
     const res = q.data
     if (!res || !res.points.length) return []
-    const first = res.points.find((p) => p.predicted)?.predicted
+    const first = res.points.find((p) => p.measured)?.measured
     if (!first) return []
     const cosd = Math.cos((first.dec * Math.PI) / 180)
     const off = (ra: number, dec: number) => ({ x: (ra - first.ra) * cosd * 3600, y: (dec - first.dec) * 3600 })
-    const out: { x: number; y: number; err?: number; kind: 'measured' | 'predicted'; active?: boolean; label: string }[] = []
+    const out: { x: number; y: number; err?: number; kind: 'measured'; active?: boolean; label: string }[] = []
     res.points.forEach((p, i) => {
       const date = formatUtcDate(p.mjd)
       const active = data ? Math.abs((data.frames[activeIndex]?.mjd ?? -1) - p.mjd) < 2 : i === activeIndex
-      if (p.predicted) out.push({ ...off(p.predicted.ra, p.predicted.dec), kind: 'predicted', active, label: `Predicted ${date}` })
       if (p.measured) out.push({ ...off(p.measured.ra, p.measured.dec), err: p.measured.err_arcsec, kind: 'measured', active, label: `Measured ${date} ± ${p.measured.err_arcsec}″` })
     })
     return out
@@ -184,10 +183,9 @@ export function MotionPanel({ target, coords, detector, activeIndex, data, showT
         <p className="caption">No position measurements for this selection.</p>
       ) : (
         <>
-          <OffsetChart points={pts} title={`Measured and predicted positions of ${target?.name ?? 'the target'}`} />
+          <OffsetChart points={pts} title={`Measured positions of ${target?.name ?? 'the target'}`} />
           <ul className="legend">
             <li><span className="sw sw--measured" /> Measured from the image (circle = uncertainty)</li>
-            <li><span className="sw sw--predicted" /> Predicted from catalog motion</li>
           </ul>
           {target && (
             <p className="caption num">

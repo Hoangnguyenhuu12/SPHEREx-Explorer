@@ -67,6 +67,9 @@ describe('explorer URL codec', () => {
     expect(parseSelection(serializeSelection(s))).toEqual(s)
   })
   it('preserves legacy URLs and round-trips full comparison share state', () => {
+    const legacyPrediction = parseSelection('?q=wise0855&det=6&pred=1')
+    expect(legacyPrediction).not.toHaveProperty('pred')
+    expect(serializeSelection(legacyPrediction)).toBe('?q=wise0855&det=6')
     expect(parseSelection('?q=wise0855&det=6')).toEqual({
       q: 'wise0855',
       detector: 6,
@@ -84,7 +87,6 @@ describe('explorer URL codec', () => {
       markA: [29.4, 53.9] as [number, number],
       markB: [70.6, 50.5] as [number, number],
       gaia: true,
-      pred: false,
     }
     expect(parseSelection(serializeSelection(rich))).toEqual(rich)
   })

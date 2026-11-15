@@ -68,8 +68,6 @@ describe('WCS & spherical angular distance', () => {
     expect(m.angularOffsetArcsec).not.toBeNull()
     expect(m.angularOffsetArcsec!).toBeCloseTo(27.5, 1)
     expect(m.formattedOffset).toBe('27.5″')
-    // Realistic WISE 0855 shift across ~14 yr baseline (~41.36 px * 2.75"/px)
-    expect(m.catalogOffsetArcsec).toBeCloseTo(113.7, 0)
   })
 
   it('handles RA wraparound across 0° / 360° and cos(dec) foreshortening', () => {
@@ -142,7 +140,6 @@ describe('Compare frame resolution, sharing & variable brightness', () => {
       markA: [29.37, 53.88],
       markB: [70.59, 50.46],
       gaia: false,
-      pred: true,
       fovArcmin: 4.5,
     })
     const parsedUrl = new URL(url)
@@ -160,7 +157,6 @@ describe('Compare frame resolution, sharing & variable brightness', () => {
       markA: [29.4, 53.9],
       markB: [70.6, 50.5],
       gaia: false,
-      pred: true,
     })
   })
 })

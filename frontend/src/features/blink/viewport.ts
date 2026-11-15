@@ -28,7 +28,7 @@ export function screenToImage(v: Viewport, sx: number, sy: number): { x: number;
   return { x: (sx - v.offsetX) / v.scale, y: (sy - v.offsetY) / v.scale }
 }
 
-/** Marker position for a top-left, integer-centred pixel coordinate (API predicted_px). */
+/** Marker position for a top-left, integer-centred pixel coordinate (image pixel coordinates). */
 export function pixelCentreToScreen(v: Viewport, px: [number, number]): { x: number; y: number } {
   return imageToScreen(v, px[0] + 0.5, px[1] + 0.5)
 }
