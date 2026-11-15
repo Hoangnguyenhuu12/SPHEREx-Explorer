@@ -36,7 +36,9 @@ const results = [];
 
 async function get(path) {
   const started = performance.now();
-  const response = await fetch(base + path, {
+  // Frame PNGs may be absolute URLs (e.g. Supabase Storage); API paths are relative to the base.
+  const url = /^https?:\/\//.test(path) ? path : base + path;
+  const response = await fetch(url, {
     headers: origin ? { Origin: origin } : {},
     signal: AbortSignal.timeout(TIMEOUT_MS),
   });
@@ -100,7 +102,7 @@ for (const t of targets) {
     const { body, ms } = await json(`/api/frames?${query}`);
     if (body.frames.length === 0) throw new Error(`no frames (${body.warnings.join(", ")})`);
     const first = body.frames[0];
-    const imageMs = (await png(first.png)) + (await png(first.diff_png));
+    const imageMs = (await png(first.png)) + (first.diff_png ? await png(first.diff_png) : 0);
     const marker = first.predicted_px ? "crosshair" : "no crosshair";
     const few = body.frames.length < 3 ? ", FEW_FRAMES" : "";
     return `${body.frames.length} frames${few}, grid ${body.grid.width}x${body.grid.height}, ${marker} (${ms} ms + PNG ${imageMs} ms)`;
