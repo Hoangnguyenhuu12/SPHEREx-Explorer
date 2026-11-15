@@ -118,11 +118,11 @@ export default function GlobePage() {
       <div className="globe-layout">
         <section className="globe-display" aria-labelledby="globe-title">
           <div className="globe-title">
-            <h1 id="globe-title">Thiên cầu 3D</h1>
-            <p>Kéo để xoay hoặc dùng phím mũi tên</p>
+            <h1 id="globe-title">3D Sky Globe</h1>
+            <p>Drag to rotate or use arrow keys</p>
           </div>
           <div className="globe-viewport" aria-busy={status === "loading"}>
-            <canvas ref={canvas} tabIndex={0} aria-label="Thiên cầu tương tác, dùng phím mũi tên để xoay"
+            <canvas ref={canvas} tabIndex={0} aria-label="Interactive sky globe, use arrow keys to rotate"
               onPointerDown={startDrag} onPointerMove={moveDrag}
               onLostPointerCapture={() => { drag.current = null; }} onKeyDown={keyboard} />
             {TARGET_PRESETS.map((item) => {
@@ -136,39 +136,39 @@ export default function GlobePage() {
             })}
             {status !== "ready" && <div className="globe-status" role="status">
               {status === "error" ? <button type="button" onClick={() => { setResult(undefined); setRetry(retry + 1); }}>
-                Không tải được ảnh. Thử lại
-              </button> : "Đang tải ảnh toàn trời…"}
+                Could not load sky imagery. Retry
+              </button> : "Loading all-sky imagery…"}
             </div>}
           </div>
           <div className="globe-readout">
             <span>RA {view.ra.toFixed(1)}° <span aria-hidden="true">·</span> Dec {view.dec.toFixed(1)}°</span>
-            <button type="button" onClick={() => setView(HOME)}>Về tâm Ngân Hà</button>
+            <button type="button" onClick={() => setView(HOME)}>Galactic center</button>
           </div>
         </section>
-        <aside className="globe-controls" aria-label="Điều khiển thiên cầu">
+        <aside className="globe-controls" aria-label="Sky globe controls">
           <div className="globe-field">
-            <label htmlFor="survey-layer">Lớp ảnh hồng ngoại</label>
+            <label htmlFor="survey-layer">Infrared survey layer</label>
             <select id="survey-layer" value={layer} onChange={(event) => setLayer(event.target.value as Layer)}>
               {Object.entries(LAYERS).map(([key, item]) => <option key={key} value={key}>{item.title}</option>)}
             </select>
-            {layer === "blend" && <p><span className="globe-cyan">■</span> SPHEREx 3.383 µm &nbsp; <span className="globe-warm">■</span> AllWISE W1<br />Chồng màu trực quan, chưa hiệu chuẩn flux.</p>}
+            {layer === "blend" && <p><span className="globe-cyan">■</span> SPHEREx 3.383 µm &nbsp; <span className="globe-warm">■</span> AllWISE W1<br />Visual color blend, uncalibrated flux.</p>}
           </div>
           <div className="globe-field">
-            <label htmlFor="globe-zoom">Thu phóng</label>
+            <label htmlFor="globe-zoom">Zoom</label>
             <input id="globe-zoom" type="range" min="0.9" max="4" step="0.1" value={view.zoom}
               onChange={(event) => setView({ ...view, zoom: zoomTo(Number(event.target.value)) })} />
           </div>
           <div className="globe-field">
-            <label htmlFor="globe-target">Mục tiêu quan sát</label>
+            <label htmlFor="globe-target">Observation target</label>
             <select id="globe-target" value={targetKey} onChange={(event) => selectTarget(event.target.value)}>
               {TARGET_PRESETS.map((item) => <option key={item.key} value={item.key}>{item.name}</option>)}
             </select>
             <p>{target.objectType}</p>
             <p className="globe-coordinates">RA {target.ra.toFixed(3)}° · Dec {target.dec.toFixed(3)}° · J2000</p>
-            <a className="globe-open" href={framesUrl}>Mở Blink Viewer ↗</a>
+            <a className="globe-open" href={framesUrl}>Open Blink Viewer ↗</a>
           </div>
           <footer className="globe-credits">
-            Ảnh toàn trời từ <a href="https://irsa.ipac.caltech.edu/data/SPHEREx/docs/overview_dr1.html">SPHEREx DR1 / IRSA</a> và <a href="https://irsa.ipac.caltech.edu/data/hips/CDS/AllWISE/W1/">AllWISE / CDS</a>.
+            All-sky imagery from <a href="https://irsa.ipac.caltech.edu/data/SPHEREx/docs/overview_dr1.html">SPHEREx DR1 / IRSA</a> and <a href="https://irsa.ipac.caltech.edu/data/hips/CDS/AllWISE/W1/">AllWISE / CDS</a>.
           </footer>
         </aside>
       </div>

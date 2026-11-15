@@ -498,7 +498,7 @@
   }
 }
 
-/* One section per screen: the section pager (useSectionPager) glides from one to the next. */
+/* Full-viewport breathing room for each landing section. */
 .intro,
 .about,
 .cta {

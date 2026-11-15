@@ -55,7 +55,7 @@ describe('ShootingStarLink', () => {
 
   afterEach(() => host?.remove())
 
-  it('is a real link to Where are you', async () => {
+  it('is a real link to SPHEREx Orbit', async () => {
     host = document.createElement('div')
     document.body.append(host)
     const root = createRoot(host)
@@ -66,7 +66,7 @@ describe('ShootingStarLink', () => {
     })
     const a = host.querySelector('a.star-link')
     expect(a?.getAttribute('href')).toBe(PATHS.entry)
-    expect(a?.textContent).toContain('Where are you?')
+    expect(a?.textContent).toContain('SPHEREx Orbit')
     await act(async () => root.unmount())
   })
 })

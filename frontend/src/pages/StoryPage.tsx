@@ -20,8 +20,8 @@ const SECTIONS = [
 
 const STEPS = [
   {
-    title: 'Find where you are',
-    text: 'Where are you shows the Solar System, Earth and SPHEREx’s orbit. Click Earth or press Explore the sky.',
+    title: 'Find SPHEREx in orbit',
+    text: 'SPHEREx Orbit shows the Solar System, Earth and SPHEREx’s orbit. Click Earth to zoom in, then press Open The Eyes.',
   },
   { title: 'Pick a star', text: 'In The Eyes, choose a featured target, or type a star name or coordinates.' },
   {
@@ -34,7 +34,7 @@ const STEPS = [
 const HEADER_ACTION = (
   <>
     <span className="site-header__spacer" />
-    <ShootingStarLink size="compact" label="Where are you" />
+    <ShootingStarLink size="compact" label="SPHEREx Orbit" />
   </>
 )
 
@@ -68,7 +68,7 @@ export default function StoryPage() {
             </li>
             <li>
               <Link to={PATHS.entry} className="flow-trail__next">
-                Where are you
+                SPHEREx Orbit
               </Link>{' '}
               <span className="flow-trail__tag">next</span>
             </li>
@@ -128,7 +128,7 @@ export default function StoryPage() {
             <p className="chapter__num">02</p>
             <h2>How to use it</h2>
             <p>
-              Start on <strong>Where are you</strong>, then explore the sky in <strong>The Eyes</strong>. A first visit takes
+              Start on <strong>SPHEREx Orbit</strong>, then explore the sky in <strong>The Eyes</strong>. A first visit takes
               about a minute:
             </p>
             <ol className="steps" aria-label="Four steps to use The Eyes">
@@ -163,7 +163,7 @@ export default function StoryPage() {
               Images marked “Illustrative demo” are generated to show how the tool works. They are not what SPHEREx saw.
             </p>
             <p className="story-cta">
-              <ShootingStarLink hint="Find SPHEREx in the Solar System, then explore the sky" />
+              <ShootingStarLink hint="See SPHEREx in the Solar System, then open The Eyes" />
             </p>
           </section>
 
@@ -245,10 +245,12 @@ export default function StoryPage() {
             </div>
             <h3 className="chapter__sub">Where the data comes from</h3>
             <ul className="plain-list">
-              <li>SPHEREx images: NASA/IPAC Infrared Science Archive (IRSA).</li>
+              <li>SPHEREx images: NASA/IPAC Infrared Science Archive (IRSA — DR1 &amp; QR3).</li>
+              <li>Multi-epoch infrared timeline: unWISE time-resolved coadds (W1/W2) via WiseView.</li>
               <li>Background sky map: SPHEREx DR1 all-sky cube served by IRSA, shown with Aladin Lite (CDS).</li>
-              <li>Catalogue stars: ESA Gaia DR3 via VizieR. Target positions and motions: SIMBAD.</li>
-              <li>Earth imagery on “Where are you”: NASA Blue Marble.</li>
+              <li>Catalogue stars: ESA Gaia DR3 via STScI MAST and CDS VizieR. Target positions and motions: SIMBAD.</li>
+              <li>Moving-target archive test suite: CSA NEOSSat observations via CADC (CAOM-2).</li>
+              <li>Earth imagery on “SPHEREx Orbit”: NASA Blue Marble.</li>
             </ul>
             <p>
               <Status kind="pending" /> We will report measured results here only after checking them on real SPHEREx
@@ -265,7 +267,7 @@ export default function StoryPage() {
             </p>
             <TeamGrid />
             <p className="story-cta">
-              <ShootingStarLink label="Start: Where are you?" hint="Your first step towards The Eyes" />
+              <ShootingStarLink label="Start: SPHEREx Orbit" hint="Your first step towards The Eyes" />
             </p>
           </section>
         </article>

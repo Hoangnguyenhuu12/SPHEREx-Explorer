@@ -1,107 +1,112 @@
-# spaceapps-training
+# SPHEREx Explorer — Planet X and SPHEREx
 
-Training repo for **NASA Space Apps 2026: SPHEREx Sky Viewer** (3–13/11).
+Public-facing multi-epoch infrared sky viewer built for the **2026 NASA Space Apps Challenge** ([Planet X and SPHEREx](https://www.spaceappschallenge.org/2026/challenges/planet-x-and-spherex/)).
 
-Daily assignments are tracked in [GitHub Issues](https://github.com/MINIONS-WORKFORCE/Human-Binoculars/issues).
-Read the [team collaboration guide](docs/team/README.md) for the Issue-to-PR
-workflow, module handoffs and the current API sources.
+> **Disclaimer:** SPHEREx Explorer is an independent open-source project created for the NASA Space Apps Challenge and is not an official NASA product.
 
-> This is the **training** repo. The competition repo is created fresh at hour 0 on 14/11; do not copy code from here into it.
+---
 
-## Layout
+## Overview
 
+SPHEREx maps the entire sky every six months across 102 near-infrared spectral bands (`0.75–5.0 µm`). Because SPHEREx only began surveying in 2025, spotting proper motion or brightness variability on a single-year baseline can be challenging. **SPHEREx Explorer** helps anyone explore real observations without needing to know FITS headers or archive query languages:
+
+- **SPHEREx Orbit:** 3D Solar System & SPHEREx orbital view leading into the sky explorer.
+- **The Eyes (`/the-eyes`):** Interactive all-sky map powered by Aladin Lite v3 and the SPHEREx DR1 All-Sky HiPS Cube, with epoch-propagated Gaia DR3 catalog overlays.
+- **Multi-Mission Blink Timeline (`unWISE W2 + SPHEREx D6`):** Combines 14 years of `unWISE` W2 (`4.6 µm`, 2010–2024) coadds with new `SPHEREx` D6 (`4.4–5.0 µm`, 2025–2026) cutouts—preserving the real mission gap—across all five challenge benchmark targets:
+  - **Barnard's Star** (`barnard`) — 27 frames (23 unWISE + 4 SPHEREx D6)
+  - **Epsilon Indi B** (`epsindib`) — 27 frames (23 unWISE + 4 SPHEREx D6)
+  - **WISE 0855−0714** (`wise0855`) — 27 frames (23 unWISE + 4 SPHEREx D6)
+  - **RW Aurigae** (`rwaur`) — 27 frames (23 unWISE + 4 SPHEREx D6)
+  - **R Draconis** (`rdra`) — 52 frames (48 unWISE + 4 SPHEREx D6)
+
+---
+
+## Data Sources, Attributions & Licenses
+
+All astronomical datasets, catalogs, and third-party open-source tools used in this project are credited below in compliance with the NASA Space Apps Challenge citation policy. See [docs/HARVESTED_DATA_SOURCES.md](docs/HARVESTED_DATA_SOURCES.md) for the full archive inventory.
+
+### NASA Data & Resources
+- **SPHEREx Observations (`spherex_dr1`, `spherex_qr3`) & All-Sky HiPS Cube:** Retrieved from the **NASA/IPAC Infrared Science Archive (IRSA)** ([irsa.ipac.caltech.edu/Missions/spherex.html](https://irsa.ipac.caltech.edu/Missions/spherex.html)), following the official [IRSA SPHEREx Tutorial Notebooks](https://caltech-ipac.github.io/irsa-tutorials/spherex/).
+- **WISE / unWISE Time-Resolved Coadds (`W1` 3.4 µm & `W2` 4.6 µm, 2010–2024):** Cutouts accessed via **WiseView** ([byw.tools/wiseview](http://byw.tools/wiseview) / `unwise.me`), using public NASA WISE/NEOWISE survey data.
+- **Earth Imagery:** **NASA Blue Marble** used in the 3D Solar System & SPHEREx orbit view.
+
+### Space Agency Partner Resources & Astronomical Catalogs
+- **ESA Gaia DR3:** Astrometric star catalog (`ra`, `dec`, `g_mag`, `parallax`, `pmra`, `pmdec` at reference epoch J2016.0) retrieved from **STScI MAST** (`archive.stsci.edu`, `Mast.Catalogs.GaiaDR3.Cone`) and **CDS VizieR**, used to propagate reference stars and target trajectories to each observation epoch.
+- **CSA / CADC NEOSSat (`cadc:NEOSSAT`):** Public Level 2 observations of near-Earth asteroid `(66391) Moshup` (`1999-KW4`) queried from the **Canadian Astronomy Data Centre (CADC)** ([cadc-ccda.hia-iha.nrc-cnrc.gc.ca](https://www.cadc-ccda.hia-iha.nrc-cnrc.gc.ca/en/)) and **CSA Open Data** ([data.asc-csa.gc.ca/dataset/neossat](https://data.asc-csa.gc.ca/dataset/neossat)) for our moving-target ingestion and astrometry review pipeline.
+- **CDS Strasbourg Services:** **Aladin Lite v3**, **SIMBAD**, and **AllWISE / CDS** sky tiles for interactive sky rendering and object resolution.
+
+### Software & Open-Source Stack
+- **Backend & Astronomical Processing:** Python 3.12, FastAPI, Astropy, Photutils, NumPy, SciPy, Supabase (PostgreSQL + Storage).
+- **Frontend:** React, TypeScript, Vite, TanStack Query, Aladin Lite.
+- **Project License:** Released under the **MIT License** (see [LICENSE](LICENSE)).
+
+---
+
+## Repository Layout
+
+```text
+frontend/            React + TypeScript + Vite web application
+members/dong/        FastAPI backend API, services, and pytest suite
+scripts/             IRSA / unWISE / Gaia / NEOSSat harvesters & timeline builders
+shared/              Shared target definitions, FITS/image processing, IRSA client
+supabase/            Database schema migrations
+docs/                Architecture, QA, resource alignment, and data inventory docs
+data/                Local gitignored cache, FITS cutouts, and generated sequences
 ```
-members/<name>/      your own experiments, notebooks, scripts (one folder per person)
-shared/              things others depend on: API contract, targets, data layout
-templates/vite-react starter for React + Vite pages (copy into your member folder)
-scripts/check_env.py checks that your machine is ready
-data/                local only, gitignored: fixture packs from the drive go here
-docs/team/           collaboration workflow and handoff guides
-```
 
-| Folder | Person | Role |
-| --- | --- | --- |
-| `members/thach` | Thạch | Frontend B + UI/UX + coordination |
-| `members/duy-hoang` | Duy Hoàng | Frontend A + DevOps + testing (repo owner) |
-| `members/dong` | Đông | Backend API + cache |
-| `members/khoi` | Khôi | IRSA data + database |
-| `members/huu-hoang` | Hữu Hoàng | Image processing |
-| `members/nguyen` | Nguyên | Science + spectra |
+### Team (`NASA Minions`)
 
-## Setup (about 15 minutes)
+| Member | Focus |
+| --- | --- |
+| Thạch | Frontend UI/UX & coordination |
+| Duy Hoàng | Frontend architecture, DevOps & testing |
+| Đông | Backend API & caching |
+| Khôi | IRSA / archive data pipelines & database |
+| Hữu Hoàng | Image processing & alignment |
+| Nguyên | Astronomical science, photometry & spectra |
 
-You need: **Python 3.12**, **Node 24 LTS** (22.12+ also works), **Git**.
+---
 
-- Python 3.11 will NOT work: current numpy, scipy and photutils require 3.12+.
-- Node 20 will NOT work: Vite 8 / Vitest 5 need 22.12+.
+## Quick Setup & Verification
+
+Requires **Python 3.12+** and **Node 22.12+ / 24 LTS**.
 
 ```bash
-git clone https://github.com/MINIONS-WORKFORCE/Human-Binoculars.git
-cd Human-Binoculars
-
-# 1. Python virtual environment
-py -3.12 -m venv .venv            # macOS/Linux: python3.12 -m venv .venv
-.venv\Scripts\Activate.ps1        # Git Bash: source .venv/Scripts/activate
-                                  # macOS/Linux: source .venv/bin/activate
-python -m pip install --upgrade pip
+# 1. Python virtual environment & dependencies
+py -3.12 -m venv .venv
+.venv\Scripts\Activate.ps1        # macOS/Linux: source .venv/bin/activate
 pip install -r requirements.txt
 
-# 2. Strip notebook outputs automatically on commit (run once per clone)
-nbstripout --install
+# 2. Environment variables (.env from .env.example)
+cp .env.example .env
 
-# 3. Local config
-cp .env.example .env              # PowerShell: Copy-Item .env.example .env
-
-# 4. Frontend packages
+# 3. Frontend packages
 npm install
-
-# 5. Check everything
-python scripts/check_env.py --online
-npm run dev:starter               # opens the starter page at http://localhost:5173
+cd frontend && npm install && cd ..
 ```
 
-**Done when** `check_env.py --online` prints `READY: environment OK`. Post that line in the team chat.
-
-## Daily workflow
-
-1. Read the assigned GitHub Issue, its acceptance criteria and current API wiki.
-2. Check `git status`. From a clean worktree, run `git switch main` and `git pull --ff-only origin main`.
-3. Create `<your-folder>/<task>`, e.g. `dong/issue-14-api-contract-fixture`.
-4. Work inside `members/<you>/`. Code someone else imports goes to `shared/`.
-5. Open a small PR using the template and link the Issue. Duy Hoàng merges; `main` must always run.
-6. Hand off by the Issue's deadline, and before 22:30 for the daily handoff, with a link and reproducible instructions.
-
-Blocked for more than 30 minutes: open a **Blocked** issue (template provided),
-link the original task and switch to another assigned Issue or available backlog item.
-
-## Rules
-
-- **Never commit** `.fits`, cutouts, `.db`/`.sqlite`, or `.env`. `.gitignore` blocks them; fixture packs live on the team drive.
-- Adding a Python or npm package = a PR that changes `requirements.txt` or `package.json` + `package-lock.json`. Use `npm install <pkg>` so the lockfile updates.
-- Notebook outputs are stripped on commit by `nbstripout`. If you need to share a plot, save it as a PNG and attach it to the PR.
-
-## Editor
-
-Any editor works; formatting is enforced by `.editorconfig`, Ruff (Python) and Prettier (JS). **VS Code is recommended**: opening the folder prompts you to install the extensions in `.vscode/extensions.json` (Python, Jupyter, Ruff, Prettier), and format-on-save is already configured.
+### Run Locally
 
 ```bash
-ruff check . && ruff format .     # Python
-npm run format                    # JS/JSX
-npm test                          # Vitest
+# Backend API (from repo root)
+node members/dong/dev.mjs
+
+# Frontend dev server
+cd frontend && npm run dev
 ```
 
-## Data notes
+### Run Tests & Build Checks
 
-- Current live priority is `spherex_dr1`, followed by `spherex_qr3`. QR2 remains only as historical evidence and is not selected by the live default. The active collection is read from `.env`.
-- DR1 and QR3 were released in November 2026. QR2 remains useful for historical coverage and must be labelled with its release. Query the configured collection and record the actual `obs_collection` returned by IRSA.
-- Always use cutouts (`access_url` + `?center=ra,dec&size=deg`), never full files (hundreds of MB each).
+```bash
+# Backend tests
+.\.venv\Scripts\python.exe -m pytest members\dong\tests
 
-## Troubleshooting
+# Frontend checks
+cd frontend
+npm run typecheck
+npm run lint
+npm test
+npm run build
+```
 
-| Problem | Fix |
-| --- | --- |
-| `Activate.ps1 cannot be loaded because running scripts is disabled` | `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`, then retry |
-| `py -3.12` not found | Install Python 3.12 from python.org and tick "Add to PATH" |
-| `pip install` fails building a package | Check `python --version` inside the venv is 3.12; delete `.venv` and recreate |
-| `npm install` engine warning | Upgrade Node to 24 LTS (`nvm install 24` / `nvm use 24`) |
-| `check_env.py --online` IRSA FAIL | Network/firewall or IRSA down; retry later or on 4G, the library check is what matters today |
+> **Note:** Never commit `.env`, `.fits` files, local cutouts, or `.db`/`.sqlite` artifacts (all excluded by `.gitignore`). Pre-rendered timeline PNGs and manifests are served from Supabase Storage (`spherex-dr1-demo`).
