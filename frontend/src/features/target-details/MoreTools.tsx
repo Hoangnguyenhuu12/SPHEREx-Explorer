@@ -1,7 +1,8 @@
 import { useQueries, useQuery } from '@tanstack/react-query'
 import { AlertTriangle, Check, Copy, Loader2 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
-import { config } from '../../app/config'
+import { useNavigate } from 'react-router'
+import { config, PATHS } from '../../app/config'
 import { api } from '../../shared/api'
 import { describeError } from '../../shared/api/errors'
 import type { FramesResponse } from '../../shared/api/types'
@@ -9,13 +10,18 @@ import { DR1_MAP_MJD } from '../../shared/config/epoch'
 import type { TargetInfo } from '../../shared/config/targets'
 import wiseReferenceConfig from '../../shared/config/wise-reference.json'
 import { framesQueryKey } from '../blink/useFrameSession'
+import { buildForumCandidatePrefill, type RulerMeasurement } from '../experience-mode/mode'
 import type { GaiaStatusInfo, SurveyInfo } from '../sky-map/AladinMap'
+import { formatDecDms, formatRaHms } from '../target-search/coordinates'
 import { DemoTag } from './SciencePanels'
 import { formatUtcDate } from './format'
 
 interface Props {
   target: TargetInfo | null
   coords: { ra: number; dec: number }
+  detector?: number
+  picked?: { ra: number; dec: number; x: number; y: number } | null
+  rulerMeasurement?: RulerMeasurement | null
   data: FramesResponse | null
   activeIndex: number
   gaia: boolean
@@ -248,6 +254,19 @@ function RgbView({ target, coords, data, activeIndex }: Pick<Props, 'target' | '
 
 export function MoreTools(p: Props) {
   const [rgbOn, setRgbOn] = useState(false)
+  const [reportCopied, setReportCopied] = useState(false)
+  const navigate = useNavigate()
+  const activeFrame = p.data?.frames[p.activeIndex] ?? null
+  const candidatePrefill = buildForumCandidatePrefill({
+    targetName: p.target?.name ?? 'Custom sky position',
+    targetKey: p.target?.key,
+    coords: p.coords,
+    picked: p.picked,
+    detector: p.detector ?? p.data?.detector ?? 6,
+    frame: activeFrame,
+    shareUrl: p.shareUrl,
+    rulerMeasurement: p.rulerMeasurement,
+  })
   const isDssFallback = p.survey.key === 'dss2' || p.survey.id === 'CDS/P/DSS2/color'
   const sourceName = p.gaiaStatus.source === 'sky_archive' ? 'Supabase sky_archive (ESA Gaia DR3)' : 'ESA/Gaia DR3 via VizieR'
   const targetEpochText = p.survey.cube
@@ -315,6 +334,36 @@ export function MoreTools(p: Props) {
             Combine three detectors
           </button>
         )}
+      </section>
+
+      <section className="tool">
+        <h4>Citizen science · Report a candidate</h4>
+        <p className="caption">
+          {p.picked
+            ? `Marked position: pixel (${p.picked.x}, ${p.picked.y}) · ${formatRaHms(p.picked.ra)} ${formatDecDms(p.picked.dec)}`
+            : `Field position: ${formatRaHms(p.coords.ra)} ${formatDecDms(p.coords.dec)} (click the image to mark a specific source)`}
+        </p>
+        <div className="detail-block__row">
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={() => navigate(PATHS.forumNew, { state: { prefill: candidatePrefill } })}
+          >
+            Create research note in Forum
+          </button>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={() =>
+              void navigator.clipboard?.writeText(`# ${candidatePrefill.title}\n\n${candidatePrefill.body}`).then(() => {
+                setReportCopied(true)
+                setTimeout(() => setReportCopied(false), 1500)
+              })
+            }
+          >
+            {reportCopied ? <Check aria-hidden /> : <Copy aria-hidden />} {reportCopied ? 'Copied note' : 'Copy Markdown report'}
+          </button>
+        </div>
       </section>
 
       <section className="tool">

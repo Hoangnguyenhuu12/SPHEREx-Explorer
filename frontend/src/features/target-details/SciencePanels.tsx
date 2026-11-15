@@ -6,6 +6,7 @@ import { api } from '../../shared/api'
 import { describeError } from '../../shared/api/errors'
 import type { FramesResponse } from '../../shared/api/types'
 import { DETECTORS, type TargetInfo } from '../../shared/config/targets'
+import { buildObservationsCsv, buildPythonSnippet, type ExperienceMode } from '../experience-mode/mode'
 import { formatDecDms, formatDeg, formatRaHms } from '../target-search/coordinates'
 import { ErrorBarChart, OffsetChart } from './charts'
 import { formatInterval, formatShortDate, formatUtcDate } from './format'
@@ -66,9 +67,10 @@ interface Common {
   detector: number
   data: FramesResponse | null
   activeIndex: number
+  experienceMode?: ExperienceMode
 }
 
-export function OverviewPanel({ target, coords, data }: Common) {
+export function OverviewPanel({ target, coords, data, experienceMode = 'explore' }: Common) {
   const frames = data?.frames ?? []
   const raText = formatRaHms(coords.ra)
   const decText = formatDecDms(coords.dec)
@@ -82,6 +84,22 @@ export function OverviewPanel({ target, coords, data }: Common) {
             <p>{target.lookFor}</p>
             <p className="caption">A viewing tip, not a guaranteed result. Small movements may not be visible across these dates.</p>
           </div>
+          {experienceMode === 'explore' && (
+            <div className="look-for" aria-label="Plain-language science guide">
+              <h4>Why is this object special?</h4>
+              <p>{target.funFact}</p>
+              <dl className="facts">
+                <div>
+                  <dt>How fast it moves</dt>
+                  <dd>{target.speedAnalogy}</dd>
+                </div>
+                <div>
+                  <dt>How warm or cold it is</dt>
+                  <dd>{target.temperatureAnalogy}</dd>
+                </div>
+              </dl>
+            </div>
+          )}
         </>
       ) : (
         <p>A custom position. Step through the observations and compare the stars between dates.</p>
@@ -232,7 +250,24 @@ export function BrightnessPanel({ target, coords, detector, data, activeIndex }:
   )
 }
 
-export function DataPanel({ data, activeIndex, detector, onDetector, flags, setFlags }: Common & { onDetector: (d: number) => void; flags: boolean; setFlags: (v: boolean) => void }) {
+export function DataPanel({
+  target,
+  coords,
+  data,
+  activeIndex,
+  detector,
+  onDetector,
+  flags,
+  setFlags,
+  picked,
+  combined,
+}: Common & {
+  onDetector: (d: number) => void
+  flags: boolean
+  setFlags: (v: boolean) => void
+  picked: { ra: number; dec: number; x: number; y: number } | null
+  combined: boolean
+}) {
   const f = data?.frames[activeIndex]
   const flagsQ = useQuery({
     queryKey: ['flags', f?.id ?? null],
@@ -240,6 +275,43 @@ export function DataPanel({ data, activeIndex, detector, onDetector, flags, setF
     enabled: !!f && flags,
     staleTime: Infinity,
   })
+  const fitsUrl =
+    combined && !config.useMock && target?.key
+      ? config.apiBaseUrl
+        ? `${config.apiBaseUrl}/api/frames/combined/${encodeURIComponent(target.key)}/aligned_sequence.fits`
+        : target.key === 'wise0855'
+          ? 'https://gprawwpsgvhfzwyfoout.supabase.co/storage/v1/object/public/spherex-dr1-demo/combined/wise0855_unwise_spherex_d6/aligned_sequence.fits'
+          : null
+      : null
+  const manifestUrl =
+    combined && !config.useMock && target?.key === 'wise0855'
+      ? 'https://gprawwpsgvhfzwyfoout.supabase.co/storage/v1/object/public/spherex-dr1-demo/combined/wise0855_unwise_spherex_d6/sequence_manifest.json'
+      : null
+  const pythonSnippet = useMemo(
+    () =>
+      buildPythonSnippet({
+        targetName: target?.name ?? 'Custom sky position',
+        targetKey: target?.key,
+        ra: coords.ra,
+        dec: coords.dec,
+        detector,
+        fitsUrl,
+        manifestUrl,
+      }),
+    [target?.name, target?.key, coords.ra, coords.dec, detector, fitsUrl, manifestUrl],
+  )
+  const downloadCsv = () => {
+    if (!data) return
+    const csv = buildObservationsCsv(data)
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${target?.key ?? 'custom'}_d${detector}_observations.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   return (
     <div className="panel">
       <fieldset className="detector-pick">
@@ -268,8 +340,12 @@ export function DataPanel({ data, activeIndex, detector, onDetector, flags, setF
             <dd className="num">{f.wavelength_um != null ? `${f.wavelength_um.toFixed(3)} µm` : '—'}{f.bandwidth_um ? ` (width ${f.bandwidth_um} µm)` : ''}</dd>
           </div>
           <div>
-            <dt>Release</dt>
-            <dd>{f.release ?? '—'}{f.survey ? ` · sky pass ${f.survey}` : ''}</dd>
+            <dt>Release &amp; quality label</dt>
+            <dd>
+              {f.release ?? '—'}
+              {f.survey ? ` · sky pass ${f.survey}` : ''}
+              {f.quality_label ? ` · ${f.quality_label}` : ''}
+            </dd>
           </div>
           <div>
             <dt>Image grid</dt>
@@ -295,27 +371,81 @@ export function DataPanel({ data, activeIndex, detector, onDetector, flags, setF
         </dl>
       )}
 
-      <label className="check">
-        <input type="checkbox" checked={flags} onChange={(e) => setFlags(e.target.checked)} disabled={!f} />
-        Show quality flags on the image
-      </label>
-      {flags &&
-        (flagsQ.isPending ? (
-          <Pending label="Loading quality flags…" />
-        ) : flagsQ.isError ? (
-          <Failed error={flagsQ.error} />
-        ) : flagsQ.data ? (
-          <>
-            <DemoTag mode={flagsQ.data.mode} />
-            <ul className="legend">
-              {flagsQ.data.legend.map((l) => (
-                <li key={l.bit}>
-                  <span className="sw" style={{ background: l.color }} /> <strong>{l.name}.</strong> {l.description}
-                </li>
-              ))}
-            </ul>
-          </>
-        ) : null)}
+      <section className="detail-block" aria-label="FITS data download">
+        <h4>Science data &amp; table export</h4>
+        <div className="detail-block__row">
+          {data && data.frames.length > 0 && (
+            <button type="button" className="btn btn-secondary btn-sm" onClick={downloadCsv}>
+              Download observation table (.csv)
+            </button>
+          )}
+          {fitsUrl && (
+            <a className="btn btn-secondary btn-sm" href={fitsUrl} download={`${target?.key ?? 'sequence'}_aligned_sequence.fits`}>
+              Download aligned FITS cube (.fits)
+            </a>
+          )}
+          {manifestUrl && (
+            <a className="btn btn-secondary btn-sm" href={manifestUrl} target="_blank" rel="noreferrer">
+              Open sequence manifest (.json)
+            </a>
+          )}
+        </div>
+        <p className="caption">
+          {fitsUrl
+            ? `Aligned FITS cube contains all ${data?.frames.length ?? ''} WCS-registered frames on the shared ${data?.grid.width}×${data?.grid.height} TAN grid.`
+            : config.useMock
+              ? 'CSV table export is ready; FITS cube download is available when connected to the real observation archive.'
+              : 'CSV table export is ready; aligned FITS cube download is available for combined unWISE + SPHEREx sequences on D6.'}
+        </p>
+        <details>
+          <summary>Python / Astropy notebook snippet</summary>
+          <div className="detail-block__row">
+            <pre className="num caption" style={{ overflowX: 'auto' }}>{pythonSnippet}</pre>
+            <CopyButton text={pythonSnippet} label="Copy Python snippet" />
+          </div>
+        </details>
+      </section>
+
+      <section className="detail-block" aria-label="Quality flags">
+        <h4>Quality flags</h4>
+        <label className="check">
+          <input type="checkbox" checked={flags} onChange={(e) => setFlags(e.target.checked)} disabled={!f} />
+          Show quality flags on the image
+        </label>
+        {flags &&
+          (flagsQ.isPending ? (
+            <Pending label="Loading quality flags…" />
+          ) : flagsQ.isError ? (
+            <Failed error={flagsQ.error} />
+          ) : flagsQ.data ? (
+            <>
+              <DemoTag mode={flagsQ.data.mode} />
+              <ul className="legend">
+                {flagsQ.data.legend.map((l) => (
+                  <li key={l.bit}>
+                    <span className="sw" style={{ background: l.color }} /> <strong>{l.name}.</strong> {l.description}
+                  </li>
+                ))}
+              </ul>
+            </>
+          ) : null)}
+      </section>
+
+      <details className="detail-block">
+        <summary className="detail-summary">Spectrum (D1–D6 brightness)</summary>
+        <div className="detail-block__inner">
+          <SpectrumResult
+            position={
+              picked ?? {
+                ra: coords.ra,
+                dec: coords.dec,
+                x: Math.floor((data?.grid.width ?? 0) / 2),
+                y: Math.floor((data?.grid.height ?? 0) / 2),
+              }
+            }
+          />
+        </div>
+      </details>
     </div>
   )
 }

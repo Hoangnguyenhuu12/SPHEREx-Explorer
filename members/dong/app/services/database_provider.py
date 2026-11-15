@@ -198,3 +198,37 @@ def gaia_frame_overlays(sequence_id, frame_index=None, in_frame_only=False):
         if row.get("source_id") is not None:
             row["source_id"] = str(row["source_id"])
     return rows
+
+
+def spherex_sequences(target_key=None, detector=None, release_source=None):
+    params = {"select": "*", "order": "target_key.asc,release_source.asc,detector.asc"}
+    if target_key:
+        params["target_key"] = f"eq.{target_key}"
+    if detector is not None:
+        params["detector"] = f"eq.{int(detector)}"
+    if release_source:
+        params["release_source"] = f"eq.{release_source}"
+    try:
+        return _get("spherex_sequences", params)
+    except DatabaseError:
+        return dr1_sequences(target_key=target_key, detector=detector)
+
+
+def dr1_sequences(target_key=None, detector=None):
+    params = {"select": "*", "order": "target_key.asc,detector.asc,is_primary.desc,sequence_id.asc"}
+    if target_key:
+        params["target_key"] = f"eq.{target_key}"
+    if detector is not None:
+        params["detector"] = f"eq.{int(detector)}"
+    return _get_paginated("dr1_sequences", params)
+
+
+def dr1_frames(target_key=None, detector=None):
+    params = {"select": "*", "order": "observed_mjd.asc,obs_id.asc"}
+    if target_key:
+        params["target_key"] = f"eq.{target_key}"
+    if detector is not None:
+        params["detector"] = f"eq.{int(detector)}"
+    return _get_paginated("dr1_frames", params)
+
+

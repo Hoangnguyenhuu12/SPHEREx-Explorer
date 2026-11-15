@@ -16,7 +16,7 @@ const STEPS = [
   { title: 'Choose a target', body: 'Pick one of five featured stars, search a name, or type any RA and Dec.' },
   { title: 'Pick an infrared channel', body: 'SPHEREx has six detectors, from 0.75 to 5 micrometres. Colder objects show up at longer wavelengths.' },
   { title: 'Step through the dates', body: 'SPHEREx scans the whole sky about every six months. Play the observations like a short film.' },
-  { title: 'Spot what changed', body: 'A moving star leaves a bright-and-dark pair in the difference view. A variable star brightens and fades.' },
+  { title: 'Spot what changed', body: 'Compare two dates side by side or flip A/B. A bright-and-dark pair in Difference is a clue to check against the original images.' },
 ]
 
 export default function LandingPage() {
@@ -53,10 +53,13 @@ export default function LandingPage() {
               brightness. No data files, no code.
             </p>
             <div className="hero__actions">
-              <Link to={PATHS.entry} className="btn btn-primary btn-lg">
-                Find where you are <ArrowRight aria-hidden />
+              <Link to={`${PATHS.explorer}?q=wise0855&compare=1`} className="btn btn-primary btn-lg">
+                Watch a brown dwarf move <ArrowRight aria-hidden />
               </Link>
-              <Link to={PATHS.story} className="btn btn-secondary btn-lg">
+              <Link to={PATHS.entry} className="btn btn-secondary btn-lg">
+                Explore the sky <ArrowRight aria-hidden />
+              </Link>
+              <Link to={PATHS.story} className="btn btn-ghost btn-lg">
                 <BookOpen aria-hidden /> Read the story
               </Link>
             </div>
@@ -123,11 +126,16 @@ export default function LandingPage() {
       <section ref={ctaRef} className="cta" aria-labelledby="cta-title">
         <Artwork variant="band" className="cta__art" />
         <div className="wrap cta__inner">
-          <h2 id="cta-title">Start from Earth</h2>
-          <p>Begin at home, then look out at the stars SPHEREx has been watching.</p>
-          <Link to={PATHS.entry} className="btn btn-primary btn-lg">
-            Find where you are <ArrowRight aria-hidden />
-          </Link>
+          <h2 id="cta-title">See the sky move</h2>
+          <p>Jump straight into the WISE 0855 brown dwarf comparison, or start from Earth and roam the whole infrared sky.</p>
+          <div className="cta__actions">
+            <Link to={`${PATHS.explorer}?q=wise0855&compare=1`} className="btn btn-primary btn-lg">
+              Watch a brown dwarf move <ArrowRight aria-hidden />
+            </Link>
+            <Link to={PATHS.entry} className="btn btn-secondary btn-lg">
+              Explore the sky <ArrowRight aria-hidden />
+            </Link>
+          </div>
         </div>
       </section>
       <CraftGuide containerRef={flowRef} heroRef={heroAnchor} sectionRefs={sections} still={!!reduce} onReady={onGuideReady} />

@@ -65,3 +65,32 @@ def combined_gaia_overlays(
     if payload is None:
         fixtures.fail(404, "TIMELINE_UNAVAILABLE", "Combined timeline sequence is unavailable.")
     return {"api_version": "0.1", "source": "sky_archive.gaia_frame_overlays", **payload}
+
+
+@router.get("/spherex-sequences")
+def spherex_sequences(
+    target_key: Annotated[str | None, Query(max_length=80)] = None,
+    detector: Annotated[int | None, Query(ge=1, le=6)] = None,
+    release_source: Annotated[str | None, Query(max_length=20)] = None,
+):
+    if target_key is not None and target_key not in KNOWN_TARGETS:
+        fixtures.fail(404, "UNKNOWN_TARGET", "Unknown archive target.", {"target_key": target_key})
+    if release_source is not None and release_source not in {"dr1", "qr3"}:
+        fixtures.fail(400, "INVALID_RELEASE_SOURCE", "release_source must be dr1 or qr3.")
+    if not database_provider.enabled():
+        return {"api_version": "0.1", "source": "disabled", "count": 0, "sequences": []}
+    try:
+        rows = database_provider.spherex_sequences(
+            target_key=target_key,
+            detector=detector,
+            release_source=release_source,
+        )
+    except database_provider.DatabaseError:
+        fixtures.fail(503, "DATABASE_UNAVAILABLE", "Supabase sky_archive spherex_sequences is unavailable.")
+    return {
+        "api_version": "0.1",
+        "source": "sky_archive.spherex_sequences",
+        "count": len(rows),
+        "sequences": rows,
+    }
+

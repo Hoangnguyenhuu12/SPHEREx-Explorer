@@ -48,3 +48,9 @@ def test_combined_timeline_serves_sorted_prebuilt_images(monkeypatch, tmp_path):
         (assets / 'frame_001_unwise.png').unlink()
         assert client.get('/api/frames', params=params).status_code == 503
         assert client.get(first['png']).json()['error']['code'] == 'TIMELINE_UNAVAILABLE'
+        fits_file = tmp_path / 'aligned_sequence.fits'
+        assert client.get('/api/frames/combined/wise0855/aligned_sequence.fits').status_code == 404
+        fits_file.write_bytes(b'SIMPLE  = T')
+        fits_res = client.get('/api/frames/combined/wise0855/aligned_sequence.fits')
+        assert fits_res.status_code == 200
+        assert fits_res.content == b'SIMPLE  = T'
