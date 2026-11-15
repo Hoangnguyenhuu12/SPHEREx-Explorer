@@ -3,7 +3,7 @@ import { AlertTriangle, Check, Copy, Info, Loader2 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { config } from '../../app/config'
 import { api } from '../../shared/api'
-import { describeError } from '../../shared/api/errors'
+import { ApiError, describeError } from '../../shared/api/errors'
 import type { FramesResponse } from '../../shared/api/types'
 import { DETECTORS, type TargetInfo } from '../../shared/config/targets'
 import { buildObservationsCsv, buildPythonSnippet, type ExperienceMode } from '../experience-mode/mode'
@@ -481,8 +481,9 @@ export function useFlagsOverlay(frameId: string | null, enabled: boolean): HTMLI
 export function SpectrumResult({ position, target }: { position: { ra: number; dec: number; x: number; y: number } | null; target: TargetInfo | null }) {
   const q = useQuery({
     queryKey: ['spectrum', config.useMock, position?.ra ?? null, position?.dec ?? null],
-    queryFn: ({ signal }) => api.spectrum({ ra: position!.ra, dec: position!.dec }, signal),
+    queryFn: ({ signal }) => api.spectrum({ ra: position!.ra, dec: position!.dec, targetKey: target?.key }, signal),
     enabled: !!position,
+    retry: (count, err) => !(err instanceof ApiError && err.code === 'NO_SPECTRUM') && count < 2,
     staleTime: Infinity,
   })
   if (!position) return <p className="caption">Turn on “Pick a point” and click the image to see the brightness at each wavelength there.</p>
@@ -496,9 +497,9 @@ export function SpectrumResult({ position, target }: { position: { ra: number; d
       </div>
       {q.isPending ? (
         <Pending label="Loading spectrum…" />
-      ) : q.isError ? (
+      ) : q.isError && !(q.error instanceof ApiError && q.error.code === 'NO_SPECTRUM') ? (
         <Failed error={q.error} />
-      ) : (q.data?.points.length ?? 0) === 0 ? (
+      ) : q.isError || (q.data?.points.length ?? 0) === 0 ? (
         <p className="caption">No measured spectral samples cover this position. No stellar properties are reported.</p>
       ) : (
         <>

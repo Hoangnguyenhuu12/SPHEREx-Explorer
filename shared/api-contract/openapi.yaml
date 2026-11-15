@@ -833,6 +833,9 @@ components:
           - fixture
           - live
           - local
+          - harvest
+          - database
+          - hybrid
           title: Mode
         fixture_targets:
           items:
