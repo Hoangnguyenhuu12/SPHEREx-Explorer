@@ -94,7 +94,7 @@ def measurement_metadata(item, position):
         elif item.get("survey") == "synthetic" or item.get("data_kind") == "mock":
             result["wavelength_source"] = "synthetic"
         elif "WCS-WAVE" in h:
-            spectral = WCS(header, fobj=h, key="W")
+            spectral = WCS(header, fobj=h, key="W", preserve_units=True)
             spectral.sip = None
             wave, width = spectral.pixel_to_world_values(x, y)
             result.update(

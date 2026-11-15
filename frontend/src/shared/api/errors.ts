@@ -42,6 +42,12 @@ export function describeError(error: unknown): ErrorCopy {
         body: 'No SPHEREx FITS spectrum covers this position, so nothing is plotted. Pick another point or target.',
         retry: false,
       }
+    case 'SPECTRUM_ASSET_UNAVAILABLE':
+      return {
+        title: 'Spectrum file unavailable',
+        body: 'The catalog record exists, but its FITS asset is not readable from the configured archive.',
+        retry: false,
+      }
     case 'FRAME_NOT_FOUND':
       return { title: 'Images expired', body: 'The image service restarted. Reload the observations.', retry: true }
     case 'TIMELINE_UNAVAILABLE':
