@@ -158,6 +158,7 @@ export interface SpectrumPoint {
 export interface SpectrumResponse {
   position: { ra: number; dec: number }
   points: SpectrumPoint[]
+  warnings?: string[]
   mode?: DataMode
 }
 

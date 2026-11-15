@@ -332,18 +332,44 @@ def astrometry(query: ScienceQuery):
 
 
 def spectrum(query: ScienceQuery):
-    """Read the selected sky position from each local harvest FITS."""
-    if not harvest_mode():
-        fail(404, "NO_SPECTRUM", "Spectrum-at-point requires DATA_MODE=harvest.")
+    """Read measured flux from FITS supplied by harvest, database, or IRSA.
+
+    The endpoint never classifies a source from a sparse spectrum. It returns
+    measured points and explicit warnings when the archive cannot provide FITS.
+    """
     from astropy.coordinates import SkyCoord
     from astropy.io import fits
     from astropy.wcs import WCS
-    root = ROOT / "data" / "harvest" / str(query.target_key) / "spherex"
-    if not root.is_dir():
-        fail(404, "NO_SPECTRUM", "No local harvest data for this target.")
+    paths = []
+    if harvest_mode():
+        root = ROOT / "data" / "harvest" / str(query.target_key) / "spherex"
+        if root.is_dir():
+            paths = sorted(root.glob("*.fits"))
+    elif live_mode():
+        from types import SimpleNamespace
+        spectrum_dir = ROOT / "data" / "cache" / "spectrum" / str(query.target_key)
+        spectrum_dir.mkdir(parents=True, exist_ok=True)
+        request = SimpleNamespace(
+            target_key=query.target_key,
+            ra=query.ra,
+            dec=query.dec,
+            detector=query.detector,
+            size=0.1,
+            max_frames=60,
+        )
+        try:
+            paths = [item.path for item in load_cutouts(request, spectrum_dir)]
+        except (UpstreamError, UpstreamTimeout, OSError, ValueError):
+            paths = []
+    if not paths:
+        fail(404, "NO_SPECTRUM", "No measured FITS spectrum covers this position.", {
+            "target_key": query.target_key,
+            "data_mode": os.getenv("DATA_MODE", "fixture"),
+            "source": "NASA/IPAC IRSA or sky_archive FITS",
+        })
     points = []
     sky = SkyCoord(query.ra, query.dec, unit="deg")
-    for path in sorted(root.glob("*.fits")):
+    for path in paths:
         if query.detector is not None and f"_D{query.detector}_" not in path.name:
             continue
         try:
@@ -384,7 +410,7 @@ def spectrum(query: ScienceQuery):
         # directly invertible after reprojection. Keep the tool usable by
         # returning the central detector pixel with an explicit quality warning.
         central = {1: 0.92, 2: 1.38, 3: 2.03, 4: 3.12, 5: 4.12, 6: 4.71}
-        for path in sorted(root.glob("*.fits")):
+        for path in paths:
             if query.detector is not None and f"_D{query.detector}_" not in path.name:
                 continue
             try:
@@ -400,4 +426,14 @@ def spectrum(query: ScienceQuery):
                 continue
         if not points:
             fail(404, "NO_SPECTRUM", "No valid spectral pixels cover this position.")
-    return {"api_version": "0.1", "mode": "harvest", "flux_unit": "mJy", "points": sorted(points, key=lambda p: p["wavelength_um"])}
+    return {
+        "api_version": "0.1",
+        "mode": os.getenv("DATA_MODE", "fixture"),
+        "position": {"ra": query.ra, "dec": query.dec},
+        "flux_unit": "mJy",
+        "points": sorted(points, key=lambda p: p["wavelength_um"]),
+        "warnings": [
+            "MEASURED_FLUX_ONLY",
+            "NO_AUTOMATIC_STELLAR_CLASSIFICATION",
+        ],
+    }

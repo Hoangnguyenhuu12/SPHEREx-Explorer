@@ -100,6 +100,8 @@ interface Props {
   onPixelClick: (x: number, y: number) => void
   onClearPick?: () => void
   onRulerChange?: (measurement: RulerMeasurement | null) => void
+  onShowSpectrum?: () => void
+  spectrumEnabled?: boolean
   detector: number
   onDetectorChange?: (detector: number) => void
   timelineControl?: { combined: boolean; setCombined: (value: boolean) => void }
@@ -1151,6 +1153,16 @@ export function ObservationViewer(props: Props) {
 
           {experienceMode === 'science' && (
             <>
+              <button
+                type="button"
+                className="btn btn-secondary btn--compact"
+                aria-pressed={props.spectrumEnabled}
+                onClick={props.onShowSpectrum}
+                title="Read measured SPHEREx flux by wavelength at the selected position"
+              >
+                <Sparkles aria-hidden />
+                <span>Spectrum at point</span>
+              </button>
               <button
                 type="button"
                 className="btn btn-secondary btn--compact"
