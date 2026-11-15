@@ -7,9 +7,19 @@ function parseBool(value: string | undefined, fallback: boolean): boolean {
 }
 
 const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL ?? '').trim().replace(/\/+$/, '')
+const supabaseUrl = (import.meta.env.VITE_SUPABASE_URL ?? '').trim().replace(/\/+$/, '')
+/** Public anon/publishable key only. Never the service_role key. */
+const supabaseAnonKey = (import.meta.env.VITE_SUPABASE_ANON_KEY ?? '').trim()
 
 export const config = {
   apiBaseUrl,
+  supabaseUrl,
+  supabaseAnonKey,
+  /**
+   * Forum and login talk to the real backend (Supabase Auth + /api/forum) only when asked for
+   * explicitly and every setting is present. Otherwise the in-browser demo forum is used.
+   */
+  forumLive: import.meta.env.VITE_FORUM_API === 'http' && apiBaseUrl !== '' && supabaseUrl !== '' && supabaseAnonKey !== '',
   /** Mock mode is on unless explicitly disabled AND an API origin exists. */
   useMock: parseBool(import.meta.env.VITE_USE_MOCK, true) || apiBaseUrl === '',
   /** Client watchdog for /api/frames: Render wake-up (~50 s) + live processing (~65 s). */

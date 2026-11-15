@@ -1,3 +1,5 @@
+import { config } from '../../app/config'
+import { httpForumApi } from './http/httpForumApi'
 import { mockForumApi } from './mock/mockForumApi'
 
 export { ForumError, describeForumError, type ConflictReason, type ForumErrorCode, type ForumErrorDetails } from './errors'
@@ -108,7 +110,10 @@ export interface ForumApi {
   setTagActive(id: string, active: boolean): Promise<Tag>
 }
 
-/** No Forum backend exists yet (docs/ui-design/FORUM_API_NEEDS.md); the mock is the only adapter. */
-export const forumApi: ForumApi = mockForumApi
+/**
+ * Live backend (Supabase Auth + /api/forum, forum-v1.1) when VITE_FORUM_API=http and its settings are
+ * present; otherwise the in-browser demo forum (docs/ui-design/FORUM_API_NEEDS.md).
+ */
+export const forumApi: ForumApi = config.forumLive ? httpForumApi : mockForumApi
 
-export const USING_DEMO_DATA = true
+export const USING_DEMO_DATA = !config.forumLive
