@@ -69,7 +69,9 @@ def load_cutouts(query, directory):
     if harvest_mode():
         return load_harvest_cutouts(query)
     if uses_database_cutouts(query):
-        return load_database_cutouts(query)
+        database_cutouts = load_database_cutouts(query)
+        if database_cutouts or database_mode():
+            return database_cutouts
     size = getattr(query, "size", 0.1)
     predicted = position_at(query.target_key, 61100)
     ra, dec = (predicted.ra.deg, predicted.dec.deg) if predicted is not None else (query.ra, query.dec)

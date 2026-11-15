@@ -57,7 +57,7 @@ def fail(status, code, message, details=None):
 
 
 def require_fixture_mode():
-    if os.getenv("DATA_MODE", "fixture") not in {"fixture", "real", "harvest", "database"}:
+    if os.getenv("DATA_MODE", "fixture") not in {"fixture", "real", "harvest", "live", "database", "hybrid"}:
         fail(500, "INTERNAL", "Unsupported data mode.")
 
 
