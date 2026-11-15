@@ -1,47 +1,5 @@
 import { X } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
-
-const TUTORIAL_KEY = 'spherex-explorer.tutorial.v1'
-
-function readDismissed(): boolean {
-  try {
-    return localStorage.getItem(TUTORIAL_KEY) === 'done'
-  } catch {
-    return false
-  }
-}
-
-export function Tutorial({ hidden }: { hidden: boolean }) {
-  const [dismissed, setDismissed] = useState(readDismissed)
-  if (dismissed || hidden) return null
-  const done = () => {
-    setDismissed(true)
-    try {
-      localStorage.setItem(TUTORIAL_KEY, 'done')
-    } catch {
-      /* private mode: keep it dismissed for this visit only */
-    }
-  }
-  return (
-    <section className="tutorial" aria-label="How to use The Eyes">
-      <h2 className="tutorial__title">Three steps</h2>
-      <ol>
-        <li>
-          <strong>Choose a target</strong> from the buttons above, or search a name or coordinates.
-        </li>
-        <li>
-          <strong>Press Play</strong> to step through the SPHEREx observations.
-        </li>
-        <li>
-          <strong>Compare the dates.</strong> Look for a star that shifts or changes brightness.
-        </li>
-      </ol>
-      <button type="button" className="btn btn-primary" onClick={done}>
-        Got it
-      </button>
-    </section>
-  )
-}
+import { useEffect, useRef } from 'react'
 
 const SHORTCUTS: [string, string][] = [
   ['Space', 'Play or pause the observations'],
@@ -52,6 +10,7 @@ const SHORTCUTS: [string, string][] = [
   ['C', 'Center the map on the target'],
   ['Esc', 'Close the target details'],
   ['+ / − / 0', 'Zoom or fit the image (when the image has focus)'],
+  ['T', 'Show or hide the on-screen guide'],
   ['?', 'Open this help'],
 ]
 
