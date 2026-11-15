@@ -1,22 +1,31 @@
 import { motion, useReducedMotion } from 'motion/react'
-import { AlertTriangle, LocateFixed, X } from 'lucide-react'
-import { useMemo, useState, type Dispatch } from 'react'
+import { AlertTriangle, ArrowLeft, LocateFixed, X } from 'lucide-react'
+import { useCallback, useMemo, useState, type Dispatch } from 'react'
 import type { TargetInfo } from '../../shared/config/targets'
 import type { GaiaOverlayMarker, TrailPoint } from '../blink/BlinkCanvas'
 import type { PlayerAction, PlayerState } from '../blink/player'
 import type { FrameSession } from '../blink/useFrameSession'
 import { pixelToSky, skyToPixel } from '../blink/wcs'
+import { positionAt } from '../../shared/config/epoch'
+import type { GaiaFrameOverlay } from '../../shared/api/types'
+import type { ExperienceMode, RulerMeasurement } from '../experience-mode/mode'
 import type { GaiaStatusInfo, SurveyInfo } from '../sky-map/AladinMap'
 import { warningText } from './format'
 import { MoreTools } from './MoreTools'
-import { ObservationViewer, type GaiaOverlayMeta, type ViewerToggles } from './ObservationViewer'
+import {
+  ObservationViewer,
+  type CompareSelectionControl,
+  type GaiaOverlayMeta,
+  type ViewerToggles,
+} from './ObservationViewer'
 import { BrightnessPanel, DataPanel, MotionPanel, OverviewPanel, useFlagsOverlay } from './SciencePanels'
+import { selectReferenceGaiaOverlays } from './timeline'
 import { useQuery } from '@tanstack/react-query'
 import { config } from '../../app/config'
 import { api } from '../../shared/api'
 import './popup.css'
 
-const TABS = ['Overview', 'Motion', 'Brightness', 'Data', 'More tools'] as const
+const TABS = ['Overview', 'Motion', 'Brightness', 'Details', 'More tools'] as const
 type Tab = (typeof TABS)[number]
 
 interface Props {
@@ -26,6 +35,7 @@ interface Props {
   detector: number
   onDetector: (d: number) => void
   timelineControl?: { combined: boolean; setCombined: (value: boolean) => void }
+  initialCompare?: boolean
   session: FrameSession
   player: PlayerState
   dispatch: Dispatch<PlayerAction>
@@ -41,12 +51,18 @@ interface Props {
   survey: SurveyInfo
   shareUrl: string
   embedUrl: string
+  experienceMode?: ExperienceMode
+  onExperienceModeChange?: (mode: ExperienceMode) => void
+  compareSelection?: CompareSelectionControl
 }
 
 export function TargetPopup(p: Props) {
   const reduce = useReducedMotion()
   const [tab, setTab] = useState<Tab>('Overview')
   const [picked, setPicked] = useState<{ ra: number; dec: number; x: number; y: number } | null>(null)
+  const [rulerMeasurement, setRulerMeasurement] = useState<RulerMeasurement | null>(null)
+  const [wideCompare, setWideCompare] = useState(false)
+  const experienceMode = p.experienceMode ?? 'explore'
   const data = p.session.data
   const frame = data?.frames[p.player.index] ?? null
   const flagsOverlay = useFlagsOverlay(frame?.id ?? null, p.toggles.flags)
@@ -58,20 +74,102 @@ export function TargetPopup(p: Props) {
     enabled: p.toggles.trail,
   })
 
-  const combinedActive = Boolean(p.timelineControl?.combined && p.target?.key === 'wise0855')
+  const combinedSequenceId = p.target ? `${p.target.key}:unwise_w2_to_spherex_d6` : null
+  const combinedActive = Boolean(p.timelineControl?.combined && combinedSequenceId)
   const overlaysQ = useQuery({
-    queryKey: ['combined-gaia-overlays', config.useMock, 'wise0855:unwise_w2_to_spherex_d6'],
-    queryFn: ({ signal }) => api.combinedGaiaOverlays('wise0855:unwise_w2_to_spherex_d6', signal),
+    queryKey: ['combined-gaia-overlays', config.useMock, combinedSequenceId],
+    queryFn: ({ signal }) => api.combinedGaiaOverlays(combinedSequenceId!, signal),
     staleTime: Infinity,
     enabled: combinedActive,
   })
+
+  const spherexGaiaQ = useQuery({
+    queryKey: ['sky-archive-gaia', config.useMock, p.target?.key ?? null],
+    queryFn: ({ signal }) => api.skyArchiveGaia(p.target!.key, signal),
+    staleTime: Infinity,
+    enabled: Boolean(!combinedActive && p.target?.key),
+  })
+
+  const gridW = data?.grid.width ?? 105
+  const gridH = data?.grid.height ?? 105
+
+  const spherexOverlays = useMemo<GaiaFrameOverlay[] | null>(() => {
+    if (combinedActive || !data || !spherexGaiaQ.data?.sources) return null
+    const out: GaiaFrameOverlay[] = []
+    const sources = spherexGaiaQ.data.sources
+    data.frames.forEach((f, idx) => {
+      const frameIndex = idx + 1
+      for (const s of sources) {
+        const hasPm =
+          s.pmra_mas_yr != null &&
+          s.pmdec_mas_yr != null &&
+          Number.isFinite(s.pmra_mas_yr) &&
+          Number.isFinite(s.pmdec_mas_yr)
+        const prop = positionAt(
+          {
+            raDeg: s.ra,
+            decDeg: s.dec,
+            pmRaCosDecMasYr: s.pmra_mas_yr,
+            pmDecMasYr: s.pmdec_mas_yr,
+            refEpochJyear: s.ref_epoch_jyear || 2016.0,
+          },
+          f.mjd,
+        )
+        const [px, py] = skyToPixel(data.grid, prop.ra, prop.dec)
+        const inFrame =
+          Number.isFinite(px) &&
+          Number.isFinite(py) &&
+          px >= 0 &&
+          px <= data.grid.width - 1 &&
+          py >= 0 &&
+          py <= data.grid.height - 1
+        if (inFrame) {
+          out.push({
+            frame_index: frameIndex,
+            source_id: String(s.source_id),
+            observed_mjd: f.mjd,
+            catalog_ra_deg: s.ra,
+            catalog_dec_deg: s.dec,
+            propagated_ra_deg: prop.ra,
+            propagated_dec_deg: prop.dec,
+            pixel_x: px,
+            pixel_y_png: py,
+            in_frame: true,
+            has_proper_motion: hasPm,
+            motion_status: hasPm ? 'propagated_pm' : 'catalog_static_no_pm',
+            g_mag: s.g_mag,
+          })
+        }
+      }
+    })
+    return out
+  }, [combinedActive, data, spherexGaiaQ.data])
+
+  const overlays = combinedActive ? (overlaysQ.data?.overlays ?? null) : spherexOverlays
+
+  const getGaiaMarkers = useCallback(
+    (frameIdx: number): GaiaOverlayMarker[] => {
+      if (!overlays) return []
+      const sel = selectReferenceGaiaOverlays(overlays, frameIdx + 1, gridW, gridH, 6)
+      return sel.selected.map((o) => ({
+        px: [o.pixel_x, o.pixel_y_png] as [number, number],
+        sourceId: o.source_id,
+        propagated: o.motion_status === 'propagated_pm',
+        gMag: o.g_mag,
+      }))
+    },
+    [overlays, gridW, gridH],
+  )
 
   const { gaiaMarkers, gaiaOverlayMeta } = useMemo<{
     gaiaMarkers: GaiaOverlayMarker[]
     gaiaOverlayMeta: GaiaOverlayMeta | null
   }>(() => {
-    if (!combinedActive) return { gaiaMarkers: [], gaiaOverlayMeta: null }
-    if (overlaysQ.isPending) {
+    const gaiaActive = combinedActive || Boolean(p.target?.key)
+    if (!gaiaActive) return { gaiaMarkers: [], gaiaOverlayMeta: null }
+    const isPending = combinedActive ? overlaysQ.isPending : spherexGaiaQ.isPending
+    const isError = combinedActive ? overlaysQ.isError || !overlaysQ.data : spherexGaiaQ.isError || !overlays
+    if (isPending) {
       return {
         gaiaMarkers: [],
         gaiaOverlayMeta: {
@@ -79,11 +177,13 @@ export function TargetPopup(p: Props) {
           annualParallaxIncluded: false,
           propagatedCount: 0,
           staticCount: 0,
+          selectedCount: 0,
+          totalInFrame: 0,
           loading: true,
         },
       }
     }
-    if (overlaysQ.isError || !overlaysQ.data) {
+    if (isError || !overlays) {
       return {
         gaiaMarkers: [],
         gaiaOverlayMeta: {
@@ -91,35 +191,43 @@ export function TargetPopup(p: Props) {
           annualParallaxIncluded: false,
           propagatedCount: 0,
           staticCount: 0,
+          selectedCount: 0,
+          totalInFrame: 0,
           error: true,
         },
       }
     }
-    const activeFrameIndex = p.player.index + 1
-    const inFrame = overlaysQ.data.overlays.filter((o) => o.frame_index === activeFrameIndex && o.in_frame)
-    let propagatedCount = 0
-    let staticCount = 0
-    const markers: GaiaOverlayMarker[] = inFrame.map((o) => {
-      const propagated = o.motion_status === 'propagated_pm'
-      if (propagated) propagatedCount++
-      else staticCount++
-      return {
-        px: [o.pixel_x, o.pixel_y_png],
-        sourceId: o.source_id,
-        propagated,
-        gMag: o.g_mag,
-      }
-    })
+    const sel = selectReferenceGaiaOverlays(overlays, p.player.index + 1, gridW, gridH, 6)
+    const markers: GaiaOverlayMarker[] = sel.selected.map((o) => ({
+      px: [o.pixel_x, o.pixel_y_png],
+      sourceId: o.source_id,
+      propagated: o.motion_status === 'propagated_pm',
+      gMag: o.g_mag,
+    }))
     return {
       gaiaMarkers: markers,
       gaiaOverlayMeta: {
-        model: overlaysQ.data.gaia_propagation_model || 'angular_proper_motion_only',
-        annualParallaxIncluded: Boolean(overlaysQ.data.annual_parallax_included),
-        propagatedCount,
-        staticCount,
+        model: (combinedActive ? overlaysQ.data?.gaia_propagation_model : null) || 'angular_proper_motion_only',
+        annualParallaxIncluded: Boolean(combinedActive && overlaysQ.data?.annual_parallax_included),
+        propagatedCount: sel.propagatedCount,
+        staticCount: sel.staticCount,
+        selectedCount: markers.length,
+        totalInFrame: sel.inFrameCount,
       },
     }
-  }, [combinedActive, overlaysQ.isPending, overlaysQ.isError, overlaysQ.data, p.player.index])
+  }, [
+    combinedActive,
+    p.target?.key,
+    overlaysQ.isPending,
+    overlaysQ.isError,
+    overlaysQ.data,
+    spherexGaiaQ.isPending,
+    spherexGaiaQ.isError,
+    overlays,
+    p.player.index,
+    gridW,
+    gridH,
+  ])
 
   const trail: TrailPoint[] = useMemo(() => {
     if (!data || !astro.data) return []
@@ -138,14 +246,13 @@ export function TargetPopup(p: Props) {
     if (!data) return
     const s = pixelToSky(data.grid, x, y)
     setPicked({ ...s, x, y })
-    setTab('More tools')
   }
 
   const common = { target: p.target, coords: p.coords, detector: p.detector, data, activeIndex: p.player.index }
 
   return (
     <motion.aside
-      className="popup"
+      className={wideCompare ? 'popup popup--wide' : 'popup'}
       aria-label={`${p.title} details`}
       initial={reduce ? { opacity: 0 } : { opacity: 0, x: -24 }}
       animate={reduce ? { opacity: 1 } : { opacity: 1, x: 0 }}
@@ -160,6 +267,30 @@ export function TargetPopup(p: Props) {
           </p>
         </div>
         <div className="popup__actions">
+          {p.onExperienceModeChange && (
+            <div className="segmented" role="group" aria-label="Experience mode">
+              <button
+                type="button"
+                aria-pressed={experienceMode === 'explore'}
+                title="Beginner & student mode: plain-language guides and Spot-the-Star feedback"
+                onClick={() => p.onExperienceModeChange?.('explore')}
+              >
+                Explore
+              </button>
+              <button
+                type="button"
+                aria-pressed={experienceMode === 'science'}
+                title="Research mode: astrometry ruler, contrast stretch, CSV/FITS/Python export"
+                onClick={() => p.onExperienceModeChange?.('science')}
+              >
+                Science
+              </button>
+            </div>
+          )}
+          <button type="button" className="btn btn-secondary btn--compact" onClick={p.onClose}>
+            <ArrowLeft aria-hidden />
+            <span>Back to map</span>
+          </button>
           <button type="button" className="icon-btn" aria-label="Center map on target" title="Center on map" onClick={p.onCenter}>
             <LocateFixed aria-hidden />
           </button>
@@ -171,23 +302,32 @@ export function TargetPopup(p: Props) {
 
       <div className="popup__body">
         <ObservationViewer
+          key={`${p.target?.key ?? `${p.coords.ra}:${p.coords.dec}`}-${p.initialCompare ? 'cmp' : 'tl'}`}
           timelineControl={p.timelineControl}
           session={p.session}
           player={p.player}
           dispatch={p.dispatch}
           toggles={p.toggles}
           setToggles={p.setToggles}
+          target={p.target}
           targetName={p.title}
+          experienceMode={experienceMode}
           flagsOverlay={flagsOverlay}
           trail={trail}
           gaiaMarkers={gaiaMarkers}
+          getGaiaMarkers={getGaiaMarkers}
           gaiaOverlayMeta={gaiaOverlayMeta}
           picked={picked ? [picked.x, picked.y] : null}
           onPixelClick={onPixelClick}
+          onClearPick={() => setPicked(null)}
+          onRulerChange={setRulerMeasurement}
           detector={p.detector}
-          onDetector={p.onDetector}
+          onDetectorChange={p.onDetector}
           fovArcmin={p.fovArcmin}
           onFovChange={p.onFovChange}
+          initialCompare={p.initialCompare}
+          compareSelection={p.compareSelection}
+          onWideChange={setWideCompare}
         />
 
         {data && data.warnings.length > 0 && (
@@ -227,14 +367,26 @@ export function TargetPopup(p: Props) {
           ))}
         </div>
         <div role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`} className="tabpanel">
-          {tab === 'Overview' && <OverviewPanel {...common} />}
+          {tab === 'Overview' && <OverviewPanel {...common} experienceMode={experienceMode} />}
           {tab === 'Motion' && <MotionPanel {...common} showTrail={p.toggles.trail} setShowTrail={(v) => p.setToggles({ trail: v })} />}
           {tab === 'Brightness' && <BrightnessPanel {...common} />}
-          {tab === 'Data' && <DataPanel {...common} onDetector={p.onDetector} flags={p.toggles.flags} setFlags={(v) => p.setToggles({ flags: v })} />}
+          {tab === 'Details' && (
+            <DataPanel
+              {...common}
+              onDetector={p.onDetector}
+              flags={p.toggles.flags}
+              setFlags={(v) => p.setToggles({ flags: v })}
+              picked={picked}
+              combined={combinedActive}
+            />
+          )}
           {tab === 'More tools' && (
             <MoreTools
               target={p.target}
               coords={p.coords}
+              detector={p.detector}
+              picked={picked}
+              rulerMeasurement={rulerMeasurement}
               data={data}
               activeIndex={p.player.index}
               gaia={p.gaia}

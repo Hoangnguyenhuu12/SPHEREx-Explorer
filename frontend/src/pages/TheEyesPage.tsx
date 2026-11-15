@@ -12,6 +12,7 @@ import { useOverlay } from '../shared/layout/overlay'
 import { formatDecDms, formatRaHms } from '../features/target-search/coordinates'
 import { usePlayer } from '../features/blink/player'
 import { useFrameSession } from '../features/blink/useFrameSession'
+import { readExperienceMode, writeExperienceMode, type ExperienceMode } from '../features/experience-mode/mode'
 import { AladinMap, SURVEY, type GaiaStatusInfo, type SelectedGaiaSource, type SkyMapHandle, type SurveyInfo } from '../features/sky-map/AladinMap'
 import { DR1_MAP_MJD, mapPosition } from '../shared/config/epoch'
 import { TargetPopup } from '../features/target-details/TargetPopup'
@@ -22,13 +23,19 @@ import { HelpDialog, Tutorial } from './eyes/Help'
 import { Horizon } from '../features/sky-map/Horizon'
 import './eyes/eyes.css'
 
-const DEFAULT_TOGGLES: ViewerToggles = { mode: 'original', crosshair: true, flags: false, trail: false, pick: false, gaiaOverlays: true }
+const DEFAULT_TOGGLES: ViewerToggles = { mode: 'original', crosshair: true, flags: false, trail: false, pick: true, gaiaOverlays: true }
+const COMBINED_TARGETS = new Set<TargetKey>(['wise0855', 'epsindib', 'barnard', 'rwaur', 'rdra'])
 const DEFAULT_MAP_FOV_DEG = 90
 const zoomFormat = new Intl.NumberFormat('en', { style: 'percent', maximumFractionDigits: 0 })
 
 function isTyping(el: EventTarget | null): boolean {
   const t = el as HTMLElement | null
   return !!t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)
+}
+
+function isInteractiveTarget(el: EventTarget | null): boolean {
+  const t = el as HTMLElement | null
+  return !!t && !!t.closest('button, a, summary, [role="tab"], input, textarea, select')
 }
 
 export default function TheEyesPage() {
@@ -53,8 +60,16 @@ export default function TheEyesPage() {
   const [source, setSource] = useState<SelectedGaiaSource | null>(null)
   const [backgroundMode, setBackgroundMode] = useState<'spherex' | 'wise'>('spherex')
   const [survey, setSurvey] = useState<SurveyInfo>(SURVEY)
-  const [toggles, setTogglesState] = useState<ViewerToggles>(DEFAULT_TOGGLES)
-  const setToggles = useCallback((patch: Partial<ViewerToggles>) => setTogglesState((t) => ({ ...t, ...patch })), [])
+  const [experienceMode, setExperienceModeState] = useState<ExperienceMode>(() => readExperienceMode(location.search))
+  const setExperienceMode = useCallback((next: ExperienceMode) => {
+    setExperienceModeState(next)
+    writeExperienceMode(next)
+  }, [])
+  const [toggles, setTogglesState] = useState<ViewerToggles>(() => ({
+    ...DEFAULT_TOGGLES,
+    crosshair: sel.pred !== undefined ? sel.pred : !(sel.compare || (rq.kind === 'target' && rq.key === 'wise0855')),
+    gaiaOverlays: sel.gaia !== undefined ? sel.gaia : true,
+  }))
 
   // One health check per visit for build/mode diagnostics; never blocks frame requests.
   const health = useQuery({ queryKey: ['health', config.apiBaseUrl], queryFn: ({ signal }) => api.health(signal), enabled: !config.useMock, staleTime: Infinity })
@@ -89,8 +104,8 @@ export default function TheEyesPage() {
 
   const title = target?.name ?? (rq.kind === 'name' && resolved.data ? resolved.data.name : coords ? 'Custom position' : '')
   const detector = sel.detector || target?.recommendedDetector || 6
-  const [spherexOnly, setSpherexOnly] = useState(false)
-  const canCombine = !config.useMock && target?.key === 'wise0855' && detector === 6
+  const spherexOnly = sel.seq === 'spherex'
+  const canCombine = target != null && COMBINED_TARGETS.has(target.key) && detector === 6
   const timeline = canCombine && !spherexOnly ? 'combined' as const : undefined
 
   const framesParams = useMemo(
@@ -110,7 +125,7 @@ export default function TheEyesPage() {
 
   // Selection change → back to the original image, no stale tool state.
   useEffect(() => {
-    setTogglesState((t) => ({ ...DEFAULT_TOGGLES, crosshair: t.crosshair }))
+    setTogglesState((t) => ({ ...DEFAULT_TOGGLES, crosshair: t.crosshair, gaiaOverlays: t.gaiaOverlays }))
   }, [framesParams])
 
   // Open details for a selection that arrives from the URL (deep link / Back).
@@ -119,9 +134,14 @@ export default function TheEyesPage() {
     if (!coords || lastQ.current === sel.q) return
     lastQ.current = sel.q
     setSkyMotion(false)
+    setTogglesState({
+      ...DEFAULT_TOGGLES,
+      crosshair: sel.pred !== undefined ? sel.pred : !(sel.compare || target?.key === 'wise0855'),
+      gaiaOverlays: sel.gaia !== undefined ? sel.gaia : true,
+    })
     open('target')
     if (mapCoords) mapRef.current?.focus(mapCoords.ra, mapCoords.dec, 0.6)
-  }, [coords, mapCoords, sel.q, open])
+  }, [coords, mapCoords, sel.q, sel.compare, sel.pred, sel.gaia, target?.key, open])
 
   const commit = useCallback(
     (next: Partial<Selection>, replace = false) => {
@@ -129,6 +149,45 @@ export default function TheEyesPage() {
       setSearchParams(serializeSelection(merged).replace(/^\?/, '') + (embed ? '&embed=1' : ''), { replace })
     },
     [sel, setSearchParams, embed],
+  )
+
+  const setToggles = useCallback(
+    (patch: Partial<ViewerToggles>) => {
+      setTogglesState((t) => ({ ...t, ...patch }))
+      const urlPatch: Partial<Selection> = {}
+      if (patch.gaiaOverlays !== undefined) urlPatch.gaia = patch.gaiaOverlays
+      if (patch.crosshair !== undefined) urlPatch.pred = patch.crosshair
+      if (Object.keys(urlPatch).length > 0 && (sel.compare || target?.key === 'wise0855' || sel.frameA || sel.frameB || sel.markA || sel.markB)) {
+        commit(urlPatch, true)
+      }
+    },
+    [commit, sel.compare, sel.frameA, sel.frameB, sel.markA, sel.markB, target?.key],
+  )
+
+  const compareSelection = useMemo(
+    () => ({
+      queryText: sel.q,
+      frameAId: sel.frameA,
+      frameBId: sel.frameB,
+      markA: sel.markA ?? null,
+      markB: sel.markB ?? null,
+      onFramePairChange: (frameAId: string, frameBId: string) =>
+        commit(
+          {
+            compare: true,
+            frameA: frameAId,
+            frameB: frameBId,
+            markA: frameAId === sel.frameA ? sel.markA : undefined,
+            markB: frameBId === sel.frameB ? sel.markB : undefined,
+          },
+          true,
+        ),
+      onMarkChange: (slot: 'A' | 'B', px: [number, number] | null) =>
+        commit(slot === 'A' ? { compare: true, markA: px ?? undefined } : { compare: true, markB: px ?? undefined }, true),
+      onClearAllMarks: () => commit({ markA: undefined, markB: undefined }, true),
+      onResetFrames: () => commit({ frameA: undefined, frameB: undefined, markA: undefined, markB: undefined }, true),
+    }),
+    [commit, sel.q, sel.frameA, sel.frameB, sel.markA, sel.markB],
   )
 
   const selectTarget = useCallback(
@@ -140,12 +199,44 @@ export default function TheEyesPage() {
         mapRef.current?.focus(p.ra, p.dec, 0.6)
         return
       }
-      commit({ q: key, detector: 0, fovArcmin: null })
+      commit(
+        {
+          q: key,
+          detector: 0,
+          fovArcmin: null,
+          compare: undefined,
+          seq: undefined,
+          band: undefined,
+          frameA: undefined,
+          frameB: undefined,
+          markA: undefined,
+          markB: undefined,
+          gaia: undefined,
+          pred: undefined,
+        },
+      )
     },
     [commit, open, sel.q],
   )
 
-  const submitQuery = useCallback((q: string) => commit({ q, detector: 0, fovArcmin: null }), [commit])
+  const submitQuery = useCallback(
+    (q: string) =>
+      commit({
+        q,
+        detector: 0,
+        fovArcmin: null,
+        compare: undefined,
+        seq: undefined,
+        band: undefined,
+        frameA: undefined,
+        frameB: undefined,
+        markA: undefined,
+        markB: undefined,
+        gaia: undefined,
+        pred: undefined,
+      }),
+    [commit],
+  )
 
   // FOV of the image viewer is display-only; record it in the URL lazily.
   const fovTimer = useRef<number | undefined>(undefined)
@@ -201,7 +292,7 @@ export default function TheEyesPage() {
       if (document.querySelector('.modal-backdrop')) return
       switch (e.key) {
         case ' ':
-          if (!popupOpen) return
+          if (!popupOpen || isInteractiveTarget(e.target)) return
           e.preventDefault()
           dispatch({ type: 'toggle' })
           break
@@ -241,7 +332,8 @@ export default function TheEyesPage() {
 
   const shareUrl = typeof window !== 'undefined' ? `${window.location.origin}${PATHS.explorer}${serializeSelection(sel)}` : ''
   const embedUrl = `${shareUrl}${shareUrl.includes('?') ? '&' : '?'}embed=1`
-  const dataLabel = config.useMock ? 'Observation data: Illustrative demo (generated)' : timeline ? 'Observation data: unWISE and SPHEREx' : 'Observation data: NASA/IPAC IRSA, SPHEREx'
+  const isMock = config.useMock || session.data?.mode === 'mock'
+  const dataLabel = isMock ? 'Observation data: Illustrative demo (generated)' : timeline ? 'Observation data: unWISE and SPHEREx' : 'Observation data: NASA/IPAC IRSA, SPHEREx'
   // In the TAN projection, scale is proportional to the inverse tangent of half the field of view.
   const zoomLabel = mapFovDeg === null ? '—' : zoomFormat.format(
     Math.tan(DEFAULT_MAP_FOV_DEG * Math.PI / 360) / Math.tan(mapFovDeg * Math.PI / 360),
@@ -380,13 +472,32 @@ export default function TheEyesPage() {
 
         {popupOpen && coords && (
             <TargetPopup
-              timelineControl={canCombine ? { combined: !spherexOnly, setCombined: (value) => setSpherexOnly(!value) } : undefined}
+              timelineControl={
+                canCombine
+                  ? {
+                      combined: !spherexOnly,
+                      setCombined: (value) =>
+                        commit(
+                          {
+                            seq: value ? 'combined' : 'spherex',
+                            frameA: undefined,
+                            frameB: undefined,
+                            markA: undefined,
+                            markB: undefined,
+                          },
+                          true,
+                        ),
+                    }
+                  : undefined
+              }
+              initialCompare={Boolean(sel.compare || target?.key === 'wise0855')}
+              compareSelection={compareSelection}
               key={`${coords.ra}:${coords.dec}`}
               target={target}
               title={title}
               coords={coords}
               detector={detector}
-              onDetector={(d) => commit({ detector: d })}
+              onDetector={(d) => commit({ detector: d, frameA: undefined, frameB: undefined, markA: undefined, markB: undefined })}
               session={session}
               player={player}
               dispatch={dispatch}
@@ -402,9 +513,32 @@ export default function TheEyesPage() {
               survey={survey}
               shareUrl={shareUrl}
               embedUrl={embedUrl}
+              experienceMode={experienceMode}
+              onExperienceModeChange={setExperienceMode}
             />
           )}
         <div className="dock" role="toolbar" aria-label="Sky tools">
+          <div className="dock__switch" role="group" aria-label="Experience mode">
+            <button
+              type="button"
+              className="dock__btn"
+              aria-pressed={experienceMode === 'explore'}
+              title="Explore mode for beginners & students"
+              onClick={() => setExperienceMode('explore')}
+            >
+              <span>Explore</span>
+            </button>
+            <button
+              type="button"
+              className="dock__btn"
+              aria-pressed={experienceMode === 'science'}
+              title="Science mode for citizen scientists & researchers"
+              onClick={() => setExperienceMode('science')}
+            >
+              <span>Science</span>
+            </button>
+          </div>
+          <span className="dock__sep" aria-hidden />
           <button type="button" className="dock__btn" aria-pressed={grid} title="RA/Dec grid (G)" onClick={() => setGrid((g) => !g)}>
             <Grid3x3 aria-hidden /> <span>RA/Dec</span>
           </button>
@@ -479,7 +613,7 @@ export default function TheEyesPage() {
           {survey.fromArchive ? ' · sky_archive' : ''}
         </span>
         <span className="sep">·</span>
-        <span className={config.useMock ? 'demo-tag' : undefined}>{dataLabel}</span>
+        <span className={isMock ? 'demo-tag' : undefined}>{dataLabel}</span>
         {!config.useMock && (
           <>
             <span className="sep">·</span>

@@ -173,8 +173,291 @@ def load_harvest_cutouts(query):
     return tuple(result)
 
 
+def _storage_public_url(rel_path: str) -> str:
+    clean = str(rel_path or "").strip()
+    if clean.startswith(("http://", "https://", "/api/")):
+        return clean
+    base = os.getenv("SUPABASE_URL", "").strip().rstrip("/")
+    bucket = os.getenv("SUPABASE_STORAGE_BUCKET", "spherex-dr1-demo").strip() or "spherex-dr1-demo"
+    if base:
+        return f"{base}/storage/v1/object/public/{bucket}/{clean.lstrip('/')}"
+    return f"/api/frames/sequences/{clean.lstrip('/')}"
+
+
+def _normalize_iso_utc(raw: str | None) -> str:
+    text = str(raw or "").strip()
+    if not text:
+        return "2025-01-01T00:00:00Z"
+    if text.endswith("+00:00"):
+        return text[:-6] + "Z"
+    if not text.endswith("Z") and "+" not in text[10:]:
+        return text + "Z"
+    return text
+
+
+def load_database_spherex_frames(query, target):
+    """Build SPHEREx-only Frames from sky_archive.dr1_frames + dr1_sequences (Storage PNGs)."""
+    from ..api_models import Frame, Frames, Grid, Norm
+    from .observed_frames import position_at
+
+    target_key = target.target_key or query.target_key
+    if not target_key:
+        return None
+    detector = int(query.detector)
+
+    try:
+        db_frames = database_provider.dr1_frames(target_key=target_key, detector=detector)
+    except Exception:
+        db_frames = []
+    try:
+        seqs = database_provider.dr1_sequences(target_key=target_key, detector=detector)
+    except Exception:
+        seqs = []
+
+    downloaded_inside = [
+        row
+        for row in db_frames
+        if row.get("download_status") == "downloaded" and row.get("target_inside") is True
+    ]
+    usable_frames = [row for row in downloaded_inside if row.get("usable") is True]
+    by_id = {str(row.get("frame_id")): row for row in downloaded_inside if row.get("frame_id")}
+
+    valid_seqs = [
+        s
+        for s in seqs
+        if isinstance(s.get("assets"), dict)
+        and (s["assets"].get("frames") or [])
+        and isinstance((s.get("report") or {}).get("inputs"), list)
+        and len((s.get("report") or {}).get("inputs") or []) == len(s["assets"].get("frames") or [])
+    ]
+
+    if valid_seqs:
+        has_usable_pair = len(usable_frames) >= 2 or (not db_frames and any(s.get("kind") == "screened" for s in valid_seqs))
+        if has_usable_pair:
+            valid_seqs.sort(
+                key=lambda s: (
+                    s.get("kind") != "screened",
+                    not bool(s.get("is_primary")),
+                    -int(s.get("frame_count") or 0),
+                )
+            )
+        else:
+            valid_seqs.sort(
+                key=lambda s: (
+                    not bool(s.get("is_primary")),
+                    s.get("kind") != "screened",
+                    -int(s.get("frame_count") or 0),
+                )
+            )
+        seq = valid_seqs[0]
+        inputs = (seq.get("report") or {}).get("inputs") or []
+        assets = seq.get("assets") or {}
+        asset_frames = assets.get("frames") or []
+        asset_diffs = assets.get("diffs") or []
+        frame_ids = seq.get("frame_ids") or []
+
+        w = int(seq.get("grid_width") or 47)
+        h = int(seq.get("grid_height") or 47)
+        scale = float(seq.get("pixel_scale_arcsec") or 6.15)
+
+        mid_mjd = (float(inputs[0]["mjd"]) + float(inputs[-1]["mjd"])) / 2.0
+        pos = position_at(target_key, mid_mjd)
+        if pos is not None:
+            center_ra = round(float(pos.ra.deg), 6)
+            center_dec = round(float(pos.dec.deg), 6)
+        else:
+            center_ra = round(float(target.ra), 6)
+            center_dec = round(float(target.dec), 6)
+
+        grid = Grid(
+            width=w,
+            height=h,
+            pixscale_arcsec=scale,
+            projection="TAN",
+            center_ra=center_ra,
+            center_dec=center_dec,
+        )
+
+        norm_raw = seq.get("norm") or (seq.get("report") or {}).get("norm") or {}
+        vmin = float(norm_raw.get("vmin", 0.0))
+        vmax = float(norm_raw.get("vmax", 1.0))
+        if vmin >= vmax:
+            vmax = vmin + 1.0
+        norm = Norm(vmin=round(vmin, 4), vmax=round(vmax, 4), stretch="asinh")
+
+        built_frames: list[Frame] = []
+        any_unusable = (seq.get("kind") == "display_only") or (bool(downloaded_inside) and not usable_frames)
+        for idx, inp in enumerate(inputs):
+            fid = str(frame_ids[idx]) if idx < len(frame_ids) else f"{target_key}:{inp.get('obs_id', idx)}:D{detector}"
+            dbf = by_id.get(fid) or {}
+            mjd = round(float(inp.get("mjd") or dbf.get("observed_mjd")), 5)
+            iso = _normalize_iso_utc(inp.get("iso_utc") or dbf.get("observed_at"))
+            wave = round(float(inp.get("wavelength_um") or dbf.get("wavelength_um") or 1.0), 4)
+            bw_raw = inp.get("bandwidth_um") if inp.get("bandwidth_um") is not None else dbf.get("bandwidth_um")
+            bw = round(float(bw_raw), 4) if bw_raw is not None and float(bw_raw) > 0 else None
+
+            xy_lower = inp.get("predicted_pixel_xy_origin_lower")
+            if isinstance(xy_lower, (list, tuple)) and len(xy_lower) == 2:
+                pred_px = (round(float(xy_lower[0]), 3), round(float(h - 1) - float(xy_lower[1]), 3))
+            else:
+                pred_px = (round(w / 2 - 0.5, 3), round(h / 2 - 0.5, 3))
+
+            usable_flag = (
+                bool(dbf.get("usable"))
+                if "usable" in dbf
+                else bool(inp.get("usable_for_candidate", seq.get("kind") == "screened"))
+            )
+            if not usable_flag or bool(dbf.get("bad_flags")):
+                any_unusable = True
+
+            obs_id = str(inp.get("obs_id") or dbf.get("obs_id") or f"frame-{idx + 1}")
+            png_url = _storage_public_url(asset_frames[idx])
+            diff_url = _storage_public_url(asset_diffs[idx]) if idx < len(asset_diffs) else None
+
+            built_frames.append(
+                Frame(
+                    id=f"spherex-dr1-{target_key}-d{detector}-{obs_id}",
+                    mjd=mjd,
+                    iso=iso,
+                    wavelength_um=wave,
+                    bandwidth_um=bw,
+                    release=str(dbf.get("release") or (seq.get("report") or {}).get("release") or "dr1"),
+                    survey=1,
+                    bad_pixel_frac=0.0 if usable_flag else None,
+                    predicted_px=pred_px,
+                    png=png_url,
+                    diff_png=diff_url,
+                    mission="SPHEREx",
+                    band_or_detector=f"D{detector}",
+                    quality_label="screened_dr1_usable" if usable_flag else "saturated_or_flagged_fallback",
+                    source_product_id=dbf.get("product_id"),
+                )
+            )
+
+        built_frames.sort(key=lambda f: f.mjd)
+        warnings: list[str] = []
+        if any_unusable:
+            warnings.append("SATURATION_POSSIBLE")
+        max_frames = int(getattr(query, "max_frames", 60))
+        if len(built_frames) > max_frames:
+            built_frames = built_frames[:max_frames]
+            warnings.append("TRUNCATED")
+        if len(built_frames) < 2:
+            warnings.append("FEW_FRAMES")
+
+        return Frames(
+            api_version="0.1",
+            target=target,
+            detector=detector,
+            grid=grid,
+            norm=norm,
+            reference_frame_id=built_frames[0].id if built_frames else None,
+            frames=built_frames,
+            warnings=warnings,
+        )
+
+    if downloaded_inside:
+        chosen = usable_frames if usable_frames else downloaded_inside
+        chosen = sorted(chosen, key=lambda r: (float(r.get("observed_mjd") or 0.0), str(r.get("obs_id") or "")))
+        any_unusable = (not usable_frames) or any(not bool(r.get("usable", True)) or bool(r.get("bad_flags")) for r in chosen)
+        w, h, scale = 47, 47, 6.15
+        mid_mjd = (float(chosen[0]["observed_mjd"]) + float(chosen[-1]["observed_mjd"])) / 2.0
+        pos = position_at(target_key, mid_mjd)
+        center_ra = round(float(pos.ra.deg), 6) if pos is not None else round(float(target.ra), 6)
+        center_dec = round(float(pos.dec.deg), 6) if pos is not None else round(float(target.dec), 6)
+        grid = Grid(width=w, height=h, pixscale_arcsec=scale, projection="TAN", center_ra=center_ra, center_dec=center_dec)
+        norm = Norm(vmin=0.0, vmax=1.0, stretch="asinh")
+        built_frames = []
+        for idx, dbf in enumerate(chosen):
+            mjd = round(float(dbf.get("observed_mjd")), 5)
+            obs_id = str(dbf.get("obs_id") or f"frame-{idx + 1}")
+            usable_flag = bool(dbf.get("usable", False))
+            px = dbf.get("predicted_pixel_x")
+            py = dbf.get("predicted_pixel_y")
+            pred_px = (round(float(px), 3), round(float(py), 3)) if px is not None and py is not None else (23.0, 23.0)
+            png_url = str(dbf.get("storage_url") or dbf.get("cutout_url") or f"/api/frames/{target_key}/d{detector}/{obs_id}.png")
+            built_frames.append(
+                Frame(
+                    id=f"spherex-dr1-{target_key}-d{detector}-{obs_id}",
+                    mjd=mjd,
+                    iso=_normalize_iso_utc(dbf.get("observed_at")),
+                    wavelength_um=round(float(dbf.get("wavelength_um") or 1.0), 4),
+                    bandwidth_um=round(float(dbf["bandwidth_um"]), 4) if dbf.get("bandwidth_um") else None,
+                    release=str(dbf.get("release") or "dr1"),
+                    survey=1,
+                    bad_pixel_frac=0.0 if usable_flag else None,
+                    predicted_px=pred_px,
+                    png=png_url,
+                    diff_png=None,
+                    mission="SPHEREx",
+                    band_or_detector=f"D{detector}",
+                    quality_label="screened_dr1_usable" if usable_flag else "saturated_or_flagged_fallback",
+                    source_product_id=dbf.get("product_id"),
+                )
+            )
+        warnings = []
+        if any_unusable:
+            warnings.append("SATURATION_POSSIBLE")
+        max_frames = int(getattr(query, "max_frames", 60))
+        if len(built_frames) > max_frames:
+            built_frames = built_frames[:max_frames]
+            warnings.append("TRUNCATED")
+        if len(built_frames) < 2:
+            warnings.append("FEW_FRAMES")
+        return Frames(
+            api_version="0.1",
+            target=target,
+            detector=detector,
+            grid=grid,
+            norm=norm,
+            reference_frame_id=built_frames[0].id if built_frames else None,
+            frames=built_frames,
+            warnings=warnings,
+        )
+
+    return None
+
+
 def load_database_cutouts(query):
     result = []
+    try:
+        db_frames = database_provider.dr1_frames(query.target_key, query.detector)
+    except Exception:
+        db_frames = []
+    downloaded_inside = [
+        row
+        for row in db_frames
+        if row.get("download_status") == "downloaded" and row.get("target_inside") is True
+    ]
+    usable_frames = [row for row in downloaded_inside if row.get("usable") is True]
+    candidates = usable_frames if usable_frames else downloaded_inside
+    for row in candidates:
+        prov = row.get("provenance") or {}
+        relative = prov.get("file") or row.get("local_fits_path")
+        if not relative:
+            continue
+        path = Path(relative)
+        if not path.is_absolute():
+            alt = Path(os.getenv("DATA_DIR", "data")) / path
+            path = path if path.is_file() else alt
+        if not path.is_file():
+            continue
+        result.append(
+            Cutout(
+                path.resolve(),
+                str(row.get("obs_id", path.stem)),
+                int(query.detector),
+                float(row.get("observed_mjd")),
+                str(row.get("release") or "dr1"),
+                str(row.get("cutout_sha256") or ""),
+                path.stat().st_size,
+                path.stat().st_mtime_ns,
+            )
+        )
+    if result or db_frames:
+        result.sort(key=lambda item: item.mjd)
+        return tuple(result[: getattr(query, "max_frames", 60)])
+
     for product in database_provider.products_for_target(query.target_key):
         match = re.search(r"D([1-6])", str(product.get("band") or ""), re.IGNORECASE)
         if match is None or int(match.group(1)) != query.detector:

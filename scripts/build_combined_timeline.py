@@ -32,11 +32,50 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from members.dong.app.services.catalog import position_at  # noqa: E402
+from scripts.export_combined_timeline_pngs import export as export_clean_player_pngs  # noqa: E402
 from scripts.harvest_sky_archive import insert, sql_value  # noqa: E402
 from scripts.import_sky_archive import connection_settings, run_psql  # noqa: E402
 from shared.image_processing import mask_flags, reproject_compatible  # noqa: E402
 
 MIGRATION_PATH = ROOT / "scripts" / "migrations" / "004_combined_timeline_and_gaia_overlays.sql"
+
+TARGET_CONFIGS = {
+    "wise0855": {
+        "coadd_id": "1342m076",
+        "title": "WISE 0855 Combined Timeline: unWISE W2 (2010-2024) -> SPHEREx DR1 D6 (2025-2026)",
+        "object_name": "WISE 0855",
+        "astrometry_source": "shared/targets.json (2021ApJS..253....7K; 0 reliable Gaia DR3 matches at J2016.0)",
+        "require_usable": True,
+    },
+    "barnard": {
+        "coadd_id": "2688p045",
+        "title": "Barnard's Star Combined Timeline: unWISE W2 (2010-2024) -> SPHEREx DR1 D6 (2025-2026)",
+        "object_name": "Barnard's Star",
+        "astrometry_source": "shared/targets.json (2020yCat.1350....0G; Gaia DR3 cross-matched at J2016.0)",
+        "require_usable": False,
+    },
+    "epsindib": {
+        "coadd_id": "3323m576",
+        "title": "Epsilon Indi B Combined Timeline: unWISE W2 (2010-2024) -> SPHEREx DR1 D6 (2025-2026)",
+        "object_name": "Epsilon Indi B",
+        "astrometry_source": "shared/targets.json (SIMBAD ICRS J2000; Gaia DR3 6412596012146801152)",
+        "require_usable": True,
+    },
+    "rwaur": {
+        "coadd_id": "0765p302",
+        "title": "RW Aurigae Combined Timeline: unWISE W2 (2010-2024) -> SPHEREx DR1 D6 (2025-2026)",
+        "object_name": "RW Aurigae",
+        "astrometry_source": "shared/targets.json (SIMBAD ICRS J2000; Gaia DR3 cross-matched at J2016.0)",
+        "require_usable": False,
+    },
+    "rdra": {
+        "coadd_id": "2486p666",
+        "title": "R Draconis Combined Timeline: unWISE W2 (2010-2024) -> SPHEREx DR1 D6 (2025-2026)",
+        "object_name": "R Draconis",
+        "astrometry_source": "shared/targets.json (SIMBAD ICRS J2000; Gaia DR3 cross-matched at J2016.0)",
+        "require_usable": False,
+    },
+}
 
 
 def tan_grid(ra, dec, fov_deg=0.08, scale_arcsec=2.75):
@@ -95,7 +134,7 @@ def load_unwise_frame(path):
     }
 
 
-def load_spherex_frame(path, target_ra, target_dec):
+def load_spherex_frame(path, target_ra, target_dec, *, usable=True, fallback_wave_um=4.7, fallback_bw_um=0.12):
     with fits.open(path, memmap=False) as hdus:
         img_hdu = hdus["IMAGE"] if "IMAGE" in hdus else hdus[0]
         hdr = img_hdu.header
@@ -111,6 +150,8 @@ def load_spherex_frame(path, target_ra, target_dec):
                 del spectral_hdr[k]
         x, y = wcs.world_to_pixel(SkyCoord(target_ra, target_dec, unit="deg"))
         wave_um, bw_um = WCS(spectral_hdr, fobj=hdus, key="W").pixel_to_world_values(x, y)
+        wave_val = float(wave_um) if np.isfinite(wave_um) and float(wave_um) > 0 else float(fallback_wave_um or 4.7)
+        bw_val = float(bw_um) if np.isfinite(bw_um) and float(bw_um) > 0 else (float(fallback_bw_um) if fallback_bw_um else None)
         mjd = float(hdr.get("MJD-AVG") or hdr.get("MJD-OBS"))
         obs_id = str(hdr.get("OBSID", path.stem))
         det = int(hdr.get("DETECTOR", 6))
@@ -123,14 +164,14 @@ def load_spherex_frame(path, target_ra, target_dec):
         "mjd": mjd,
         "mjd_min": mjd,
         "mjd_max": mjd,
-        "wavelength_um": float(wave_um),
-        "bandwidth_um": float(bw_um),
-        "quality_label": "screened_dr1_usable",
+        "wavelength_um": wave_val,
+        "bandwidth_um": bw_val,
+        "quality_label": "screened_dr1_usable" if usable else "dr1_target_flagged_or_saturated",
         "data": data,
         "wcs": wcs,
         "sha256": sha,
         "local_source_path": path.relative_to(ROOT).as_posix(),
-        "meta": {"obs_id": obs_id, "detector": det, "date_obs": str(hdr.get("DATE-OBS", "")), "bunit": str(hdr.get("BUNIT", ""))},
+        "meta": {"obs_id": obs_id, "detector": det, "date_obs": str(hdr.get("DATE-OBS", "")), "bunit": str(hdr.get("BUNIT", "")), "usable": bool(usable)},
     }
 
 
@@ -179,48 +220,54 @@ def render_png(reproj, norm, out_path, title, predicted_xy_png, gaia_pts):
 
 
 def propagate_gaia_stars(gaia_rows, mjd, grid_wcs, width, height):
-    overlays = []
+    if not gaia_rows:
+        return []
     target_time = Time(float(mjd), format="mjd", scale="utc")
-    for g in gaia_rows:
-        ra0 = float(g["ra_deg"])
-        dec0 = float(g["dec_deg"])
-        pmra = g.get("pmra_mas_yr")
-        pmdec = g.get("pmdec_mas_yr")
-        ref_ep = g.get("ref_epoch_jyear") or 2016.0
-        has_pm = pmra is not None and pmdec is not None
+    n = len(gaia_rows)
+    ra_out = np.array([float(g["ra_deg"]) for g in gaia_rows], dtype=float)
+    dec_out = np.array([float(g["dec_deg"]) for g in gaia_rows], dtype=float)
+    has_pm_arr = [g.get("pmra_mas_yr") is not None and g.get("pmdec_mas_yr") is not None for g in gaia_rows]
+
+    by_epoch = {}
+    for i, (g, has_pm) in enumerate(zip(gaia_rows, has_pm_arr)):
         if has_pm:
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
-                c0 = SkyCoord(
-                    ra=ra0 * u.deg,
-                    dec=dec0 * u.deg,
-                    pm_ra_cosdec=float(pmra) * u.mas / u.yr,
-                    pm_dec=float(pmdec) * u.mas / u.yr,
-                    obstime=Time(float(ref_ep), format="jyear"),
-                    frame="icrs",
-                )
-                c_ep = c0.apply_space_motion(new_obstime=target_time)
-            ra_ep, dec_ep = float(c_ep.ra.deg), float(c_ep.dec.deg)
-            status = "propagated_pm"
-        else:
-            ra_ep, dec_ep = ra0, dec0
-            status = "catalog_static_no_pm"
-        px, py = grid_wcs.world_to_pixel(SkyCoord(ra_ep, dec_ep, unit="deg"))
-        x_px = float(px)
-        y_png = float((height - 1) - float(py))
+            ref_ep = float(g.get("ref_epoch_jyear") or 2016.0)
+            by_epoch.setdefault(ref_ep, []).append(i)
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        for ref_ep, idxs in by_epoch.items():
+            c0 = SkyCoord(
+                ra=ra_out[idxs] * u.deg,
+                dec=dec_out[idxs] * u.deg,
+                pm_ra_cosdec=np.array([float(gaia_rows[i]["pmra_mas_yr"]) for i in idxs]) * u.mas / u.yr,
+                pm_dec=np.array([float(gaia_rows[i]["pmdec_mas_yr"]) for i in idxs]) * u.mas / u.yr,
+                obstime=Time(ref_ep, format="jyear"),
+                frame="icrs",
+            )
+            c_ep = c0.apply_space_motion(new_obstime=target_time)
+            ra_out[idxs] = c_ep.ra.deg
+            dec_out[idxs] = c_ep.dec.deg
+
+    px_arr, py_arr = grid_wcs.world_to_pixel_values(ra_out, dec_out)
+    overlays = []
+    for i, g in enumerate(gaia_rows):
+        x_px = float(px_arr[i])
+        y_png = float((height - 1) - float(py_arr[i]))
+        has_pm = has_pm_arr[i]
         in_frame = bool(0 <= x_px <= width - 1 and 0 <= y_png <= height - 1)
         overlays.append({
             "source_id": int(g["source_id"]),
             "observed_mjd": float(mjd),
-            "catalog_ra_deg": ra0,
-            "catalog_dec_deg": dec0,
-            "propagated_ra_deg": ra_ep,
-            "propagated_dec_deg": dec_ep,
+            "catalog_ra_deg": float(g["ra_deg"]),
+            "catalog_dec_deg": float(g["dec_deg"]),
+            "propagated_ra_deg": float(ra_out[i]),
+            "propagated_dec_deg": float(dec_out[i]),
             "pixel_x": x_px,
             "pixel_y_png": y_png,
             "in_frame": in_frame,
             "has_proper_motion": has_pm,
-            "motion_status": status,
+            "motion_status": "propagated_pm" if has_pm else "catalog_static_no_pm",
             "g_mag": g.get("g_mag"),
         })
     return overlays
@@ -313,67 +360,100 @@ def upload_timeline_assets(env_path, out_dir, seq_id, db_env, executable):
     print(f"Uploaded {len(frame_urls)} frame PNGs + 3 bundle assets to bucket '{bucket}' ({prefix}/) and updated Supabase URLs.")
 
 
+def select_spherex_frames(d6_rows, limit=4):
+    """Pick up to `limit` SPHEREx D6 epochs spanning DR1, preferring `usable=true` frames first."""
+    if len(d6_rows) <= limit:
+        return d6_rows
+    buckets = [
+        [r for r in d6_rows if float(r["observed_mjd"]) < 60900],
+        [r for r in d6_rows if 60980 <= float(r["observed_mjd"]) <= 61005],
+        [r for r in d6_rows if 61015 <= float(r["observed_mjd"]) <= 61040],
+        [r for r in d6_rows if float(r["observed_mjd"]) >= 61140],
+    ]
+    selected = []
+    for idx_b, grp in enumerate(buckets):
+        if not grp:
+            continue
+        usable_grp = [r for r in grp if r.get("usable")]
+        pool = usable_grp or grp
+        selected.append(pool[-1] if idx_b == len(buckets) - 1 else pool[0])
+    if len(selected) < limit:
+        def _row_key(r):
+            return r.get("product_id") or r.get("frame_id") or r.get("obs_id")
+
+        seen_ids = {_row_key(r) for r in selected}
+        ranked = sorted(d6_rows, key=lambda r: (not bool(r.get("usable")), float(r["observed_mjd"])))
+        for r in ranked:
+            rk = _row_key(r)
+            if rk not in seen_ids:
+                selected.append(r)
+                seen_ids.add(rk)
+            if len(selected) >= limit:
+                break
+    return sorted(selected, key=lambda r: float(r["observed_mjd"]))
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--target-key", choices=sorted(TARGET_CONFIGS), default="wise0855")
     parser.add_argument("--env-file", type=Path, default=ROOT / ".env")
     parser.add_argument("--psql", help="Path to psql executable")
-    parser.add_argument("--output-dir", type=Path, default=ROOT / "data" / "processed_sequences" / "wise0855_unwise_spherex_d6")
-    parser.add_argument("--sql-output", type=Path, default=ROOT / "data" / "combined-timeline-wise0855.sql")
+    parser.add_argument("--output-dir", type=Path)
+    parser.add_argument("--sql-output", type=Path)
+    parser.add_argument("--include-flagged", action="store_true", help="Include downloaded DR1 frames whose target pixel has saturation/quality flags")
     parser.add_argument("--apply", action="store_true")
     parser.add_argument("--upload-only", action="store_true", help="Upload existing local outputs to Supabase Storage and update DB URLs")
     args = parser.parse_args()
+
+    target_key = args.target_key
+    tcfg = TARGET_CONFIGS[target_key]
+    seq_id = f"{target_key}:unwise_w2_to_spherex_d6"
+    out_dir = args.output_dir or (ROOT / "data" / "processed_sequences" / f"{target_key}_unwise_spherex_d6")
+    sql_output = args.sql_output or (ROOT / "data" / f"combined-timeline-{target_key}.sql")
 
     env, executable = connection_settings(args.env_file)
     executable = args.psql or executable
 
     if args.upload_only:
-        upload_timeline_assets(args.env_file, args.output_dir, "wise0855:unwise_w2_to_spherex_d6", env, executable)
+        upload_timeline_assets(args.env_file, out_dir, seq_id, env, executable)
         return
 
-    # 1. Fetch Gaia DR3 stars for wise0855 and usable SPHEREx D6 frames from Supabase
-    gaia_rows = fetch_psql_json(env, executable, """
+    # 1. Fetch Gaia DR3 stars, SPHEREx D6 frames, and unWISE W2 cutouts from Supabase
+    gaia_rows = fetch_psql_json(env, executable, f"""
         SELECT DISTINCT g.source_id, g.ra_deg, g.dec_deg, g.g_mag, g.parallax_mas,
                g.pmra_mas_yr, g.pmdec_mas_yr, g.ref_epoch_jyear
         FROM sky_archive.target_gaia_dr3 t
         JOIN sky_archive.gaia_dr3 g USING (source_id)
-        WHERE t.target_key = 'wise0855'
+        WHERE t.target_key = {sql_value(target_key)}
         ORDER BY g.g_mag ASC NULLS LAST, g.source_id ASC
     """)
-    d6_rows = fetch_psql_json(env, executable, """
-        SELECT frame_id, product_id, obs_id, observed_mjd, wavelength_um, bandwidth_um, cutout_url
+    include_flagged = args.include_flagged or not tcfg["require_usable"]
+    usable_clause = "" if include_flagged else "AND usable = true"
+    d6_rows = fetch_psql_json(env, executable, f"""
+        SELECT frame_id, product_id, obs_id, observed_mjd, wavelength_um, bandwidth_um,
+               cutout_url, usable
         FROM sky_archive.dr1_frames
-        WHERE target_key = 'wise0855' AND detector = 6 AND usable = true
+        WHERE target_key = {sql_value(target_key)}
+          AND detector = 6
+          AND download_status = 'downloaded'
+          AND target_inside = true
+          AND cutout_url IS NOT NULL
+          {usable_clause}
         ORDER BY observed_mjd ASC
     """)
-    unwise_rows = fetch_psql_json(env, executable, """
+    if not d6_rows:
+        raise RuntimeError(f"No SPHEREx D6 frames found in sky_archive.dr1_frames for {target_key}")
+
+    unwise_rows = fetch_psql_json(env, executable, f"""
         SELECT release, coadd_id, epoch, band, mjd_start, mjd_end, access_url, sha256, metadata
         FROM sky_archive.unwise_epoch_cutouts
-        WHERE coadd_id = '1342m076' AND band = 'W2'
+        WHERE coadd_id = {sql_value(tcfg['coadd_id'])} AND band = 'W2'
         ORDER BY epoch ASC
     """)
+    if not unwise_rows:
+        raise RuntimeError(f"No unWISE W2 epochs found for {target_key} ({tcfg['coadd_id']})")
 
-    # Pick 4 representative SPHEREx D6 epochs (earliest May 2025, Nov 2025, Dec 2025, latest May 2026)
-    if len(d6_rows) <= 4:
-        selected_d6 = d6_rows
-    else:
-        buckets = [
-            [r for r in d6_rows if float(r["observed_mjd"]) < 60900],
-            [r for r in d6_rows if 60980 <= float(r["observed_mjd"]) <= 61005],
-            [r for r in d6_rows if 61015 <= float(r["observed_mjd"]) <= 61040],
-            [r for r in d6_rows if float(r["observed_mjd"]) >= 61140],
-        ]
-        selected_d6 = []
-        for idx_b, grp in enumerate(buckets):
-            if grp:
-                selected_d6.append(grp[-1] if idx_b == len(buckets) - 1 else grp[0])
-        if len(selected_d6) < 4:
-            seen_ids = {r["product_id"] for r in selected_d6}
-            for r in d6_rows:
-                if r["product_id"] not in seen_ids:
-                    selected_d6.append(r)
-                    seen_ids.add(r["product_id"])
-                if len(selected_d6) >= 4:
-                    break
+    selected_d6 = select_spherex_frames(d6_rows, limit=4)
 
     session = requests.Session()
     session.mount("https://", HTTPAdapter(max_retries=Retry(total=3, backoff_factor=1.5, status_forcelist=(429, 500, 502, 503, 504))))
@@ -386,22 +466,28 @@ def main():
         info["source_product_id"] = f"{ur['coadd_id']}:e{int(ur['epoch']):03d}:{ur['band']}"
         frames_raw.append(info)
 
-    cutout_cache_dir = ROOT / "data" / "spherex" / "wise0855" / "cutouts"
+    cutout_cache_dir = ROOT / "data" / "spherex" / target_key / "cutouts"
     for sr in selected_d6:
         dest = cutout_cache_dir / f"{sr['obs_id']}_D6.fits"
         download_spherex_cutout(session, sr["cutout_url"], dest)
-        pos = position_at("wise0855", float(sr["observed_mjd"]))
-        info = load_spherex_frame(dest, float(pos.ra.deg), float(pos.dec.deg))
-        info["source_product_id"] = sr["product_id"]
+        pos = position_at(target_key, float(sr["observed_mjd"]))
+        info = load_spherex_frame(
+            dest,
+            float(pos.ra.deg),
+            float(pos.dec.deg),
+            usable=bool(sr.get("usable")),
+            fallback_wave_um=sr.get("wavelength_um"),
+            fallback_bw_um=sr.get("bandwidth_um"),
+        )
+        info["source_product_id"] = sr.get("product_id") or sr.get("frame_id") or f"ivo://irsa.ipac/spherex_dr1?{sr['obs_id']}/D6"
         frames_raw.append(info)
 
     frames_raw.sort(key=lambda f: f["mjd"])
 
-    # 2. Fixed WCS grid covering wise0855 2010->2026 motion
-    center_2018 = position_at("wise0855", Time(2018.0, format="jyear").mjd)
+    # 2. Fixed WCS grid covering target 2010->2026 motion (anchored at 2018.0 midpoint)
+    center_2018 = position_at(target_key, Time(2018.0, format="jyear").mjd)
     grid_wcs, (height, width) = tan_grid(float(center_2018.ra.deg), float(center_2018.dec.deg), fov_deg=0.08, scale_arcsec=2.75)
 
-    out_dir = args.output_dir
     out_dir.mkdir(parents=True, exist_ok=True)
 
     reprojected_cubes = []
@@ -421,27 +507,28 @@ def main():
     def make_norm(arrays):
         vals = np.concatenate([a[np.isfinite(a)] for a in arrays if np.any(np.isfinite(a))])
         vmin, vmax = np.percentile(vals, [5.0, 99.5])
+        if not np.isfinite(vmin) or not np.isfinite(vmax) or vmin >= vmax:
+            vmin, vmax = float(np.nanmin(vals)), float(np.nanmax(vals))
         return ImageNormalize(vmin=float(vmin), vmax=float(vmax), stretch=AsinhStretch(a=0.15))
 
     norm_unwise = make_norm(unwise_arrays)
     norm_spherex = make_norm(spherex_arrays)
 
-    # Check if wise0855 has any reliable Gaia match within 5 arcsec at J2016.0
-    pos_2016 = position_at("wise0855", Time(2016.0, format="jyear").mjd)
+    # Check if target has any reliable Gaia match within 5 arcsec at J2016.0
+    pos_2016 = position_at(target_key, Time(2016.0, format="jyear").mjd)
     gaia_matches = []
     for g in gaia_rows:
         sep = pos_2016.separation(SkyCoord(float(g["ra_deg"]), float(g["dec_deg"]), unit="deg")).arcsec
         if sep < 5.0:
             gaia_matches.append((g["source_id"], sep))
 
-    seq_id = "wise0855:unwise_w2_to_spherex_d6"
     frame_rows = []
     overlay_rows = []
     manifest_frames = []
     pil_frames = []
 
     for idx, fr in enumerate(frames_raw, start=1):
-        pos_ep = position_at("wise0855", fr["mjd"])
+        pos_ep = position_at(target_key, fr["mjd"])
         px, py = grid_wcs.world_to_pixel(pos_ep)
         cx_px, cy_png = float(px), float((height - 1) - float(py))
 
@@ -501,7 +588,7 @@ def main():
 
     fits_cube_path = out_dir / "aligned_sequence.fits"
     hdu = fits.PrimaryHDU(data=np.stack(reprojected_cubes, axis=0).astype(np.float32), header=grid_wcs.to_header())
-    hdu.header["OBJECT"] = "WISE 0855"
+    hdu.header["OBJECT"] = tcfg["object_name"]
     hdu.header["NFRAMES"] = len(frames_raw)
     hdu.writeto(fits_cube_path, overwrite=True)
 
@@ -517,10 +604,19 @@ def main():
         "center_ra_deg": float(center_2018.ra.deg),
         "center_dec_deg": float(center_2018.dec.deg),
     }
+    has_flagged_spherex = any(
+        f["mission"] == "SPHEREx" and f["quality_label"] != "screened_dr1_usable"
+        for f in frames_raw
+    )
+    sat_note = (
+        " Includes SPHEREx frames flagged/saturated at the bright target core; saturated pixels are masked."
+        if has_flagged_spherex
+        else ""
+    )
     seq_row = (
         seq_id,
-        "wise0855",
-        "WISE 0855 Combined Timeline: unWISE W2 (2010-2024) -> SPHEREx DR1 D6 (2025-2026)",
+        target_key,
+        tcfg["title"],
         "{unWISE,SPHEREx}",
         grid_wcs_json,
         len(frames_raw),
@@ -532,7 +628,7 @@ def main():
         "angular_proper_motion_only",
         False,
         False,
-        "shared/targets.json (2021ApJS..253....7K; 0 reliable Gaia DR3 matches at J2016.0)",
+        tcfg["astrometry_source"],
         {
             "local_dir": out_dir.relative_to(ROOT).as_posix(),
             "blink_gif": gif_path.relative_to(ROOT).as_posix(),
@@ -541,19 +637,23 @@ def main():
             "storage_url": None,
         },
         "local_only",
-        f"Mission gap preserved ({gap_days:.1f} days between unWISE e022 and SPHEREx D6). No cross-mission flux/PSF/photometric matching applied; demonstration of motion only.",
+        (
+            f"Mission gap preserved ({gap_days:.1f} days between last unWISE epoch and SPHEREx D6). "
+            f"No cross-mission flux/PSF/photometric matching applied; demonstration of motion only.{sat_note}"
+        ),
     )
 
     manifest = {
         "sequence_id": seq_id,
-        "target_key": "wise0855",
+        "target_key": target_key,
         "grid_wcs": grid_wcs_json,
         "mission_gap_days": gap_days,
-        "gaia_matches_for_wise0855": gaia_matches,
+        "gaia_matches": gaia_matches,
         "gaia_propagation_model": "angular_proper_motion_only (no annual parallax or observer ephemeris)",
         "frames": manifest_frames,
     }
     (out_dir / "sequence_manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+    exported_clean = export_clean_player_pngs(out_dir)
 
     # Emit SQL and optionally apply
     mig_sql = MIGRATION_PATH.read_text(encoding="utf-8")
@@ -577,21 +677,21 @@ def main():
         "pixel_x", "pixel_y_png", "in_frame", "has_proper_motion", "motion_status", "g_mag",
     )
 
-    args.sql_output.parent.mkdir(parents=True, exist_ok=True)
-    with NamedTemporaryFile(mode="w", dir=args.sql_output.parent, encoding="utf-8", newline="\n", delete=False) as tmp:
+    sql_output.parent.mkdir(parents=True, exist_ok=True)
+    with NamedTemporaryFile(mode="w", dir=sql_output.parent, encoding="utf-8", newline="\n", delete=False) as tmp:
         tmp_path = Path(tmp.name)
         tmp.write("BEGIN;\nSET LOCAL standard_conforming_strings = on;\n" + mig_sql + "\n")
         tmp.writelines(insert("combined_timeline_sequences", seq_cols, ("sequence_id",), [seq_row]))
         tmp.writelines(insert("combined_timeline_frames", fr_cols, ("sequence_id", "frame_index"), frame_rows))
         tmp.writelines(insert("gaia_frame_overlays", ov_cols, ("sequence_id", "frame_index", "source_id"), overlay_rows))
         tmp.write("COMMIT;\n")
-    tmp_path.replace(args.sql_output)
-    print(f"Combined sequence built: {len(frames_raw)} frames ({len(unwise_arrays)} unWISE + {len(spherex_arrays)} SPHEREx D6), gap={gap_days:.1f}d, overlays={len(overlay_rows)}")
-    print(f"SQL: {args.sql_output}")
+    tmp_path.replace(sql_output)
+    print(f"[{target_key}] Combined sequence built: {len(frames_raw)} frames ({len(unwise_arrays)} unWISE + {len(spherex_arrays)} SPHEREx D6), player PNGs={exported_clean}, gap={gap_days:.1f}d, overlays={len(overlay_rows)}")
+    print(f"[{target_key}] SQL: {sql_output}")
 
     if args.apply:
-        run_psql(env, executable, ["-w", "-f", str(args.sql_output)])
-        print("Applied combined timeline SQL to Supabase successfully.")
+        run_psql(env, executable, ["-w", "-f", str(sql_output)])
+        print(f"[{target_key}] Applied combined timeline SQL to Supabase successfully.")
         cfg = dotenv_values(args.env_file)
         if cfg.get("SUPABASE_SECRET_KEY") or cfg.get("SUPABASE_SERVICE_ROLE_KEY"):
             upload_timeline_assets(args.env_file, out_dir, seq_id, env, executable)

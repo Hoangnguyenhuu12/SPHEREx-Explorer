@@ -28,6 +28,17 @@ function scenario(): Scenario {
 
 /** Illustrative observation dates, roughly one all-sky pass every six months. */
 const DATES = ['2025-05-14', '2025-11-10', '2026-05-12', '2026-11-06']
+const COMBINED_DATES = [
+  { iso: '2010-05-04', mission: 'unWISE' as const, band: 'W2', wavelength: 4.6, release: 'wiseview-unwise', quality: 'verified_coadd_e000' },
+  { iso: '2010-11-11', mission: 'unWISE' as const, band: 'W2', wavelength: 4.6, release: 'wiseview-unwise', quality: 'verified_coadd_e001' },
+  { iso: '2014-05-07', mission: 'unWISE' as const, band: 'W2', wavelength: 4.6, release: 'wiseview-unwise', quality: 'verified_coadd_e002' },
+  { iso: '2018-04-19', mission: 'unWISE' as const, band: 'W2', wavelength: 4.6, release: 'wiseview-unwise', quality: 'verified_coadd_e010' },
+  { iso: '2021-04-18', mission: 'unWISE' as const, band: 'W2', wavelength: 4.6, release: 'wiseview-unwise', quality: 'verified_coadd_e016' },
+  { iso: '2024-04-17', mission: 'unWISE' as const, band: 'W2', wavelength: 4.6, release: 'wiseview-unwise', quality: 'verified_coadd_e022' },
+  { iso: '2025-05-05', mission: 'SPHEREx' as const, band: 'D6', wavelength: 4.7, release: 'illustrative', quality: 'screened_dr1_usable' },
+  { iso: '2025-11-10', mission: 'SPHEREx' as const, band: 'D6', wavelength: 4.7, release: 'illustrative', quality: 'screened_dr1_usable' },
+  { iso: '2026-05-11', mission: 'SPHEREx' as const, band: 'D6', wavelength: 4.7, release: 'illustrative', quality: 'screened_dr1_usable' },
+]
 const MJD_UNIX_EPOCH = 40587
 const DETECTOR_CENTER_UM = [0, 0.92, 1.36, 2.02, 3.12, 4.12, 4.71]
 
@@ -87,8 +98,18 @@ function buildSequence(key: string, p: FramesParams, count: number): { seq: Sequ
   const size = Math.max(32, Math.min(128, Math.round((p.size * 3600) / PIX_ARCSEC)))
   const seed = hashString(`${p.ra.toFixed(4)}:${p.dec.toFixed(4)}`)
   const field = makeField(seed, size, Math.round(size * size * 0.0075))
-  const dates = DATES.slice(0, count)
-  const midIso = dates[Math.floor((dates.length - 1) / 2)]
+  const isCombined = p.timeline === 'combined'
+  const entries = isCombined
+    ? COMBINED_DATES.slice(0, count === 1 ? 1 : COMBINED_DATES.length)
+    : DATES.slice(0, count).map((iso) => ({
+        iso,
+        mission: 'SPHEREx' as const,
+        band: `D${p.detector}`,
+        wavelength: DETECTOR_CENTER_UM[p.detector],
+        release: 'illustrative',
+        quality: undefined as string | undefined,
+      }))
+  const midIso = entries[Math.floor((entries.length - 1) / 2)].iso
   // Proper motion in pixels per year (north up, east left).
   const pmX = t ? -t.pmRaCosDecMasYr / 1000 / PIX_ARCSEC : 0
   const pmY = t ? -t.pmDecMasYr / 1000 / PIX_ARCSEC : 0
@@ -96,8 +117,8 @@ function buildSequence(key: string, p: FramesParams, count: number): { seq: Sequ
 
   const images: Float32Array[] = []
   const frames: Frame[] = []
-  dates.forEach((iso, i) => {
-    const dt = yearsBetween(midIso, iso)
+  entries.forEach((entry, i) => {
+    const dt = yearsBetween(midIso, entry.iso)
     const x = c + pmX * dt
     const y = c + pmY * dt
     const flux = targetFlux(t, i, p.detector)
@@ -106,19 +127,24 @@ function buildSequence(key: string, p: FramesParams, count: number): { seq: Sequ
     const id = `mock-${key}-${i}`
     frames.push({
       id,
-      mjd: isoToMjd(iso),
-      iso: iso + 'T00:00:00Z',
-      wavelength_um: DETECTOR_CENTER_UM[p.detector] + (i % 2 ? 0.02 : -0.02),
-      bandwidth_um: 0.04,
-      release: 'illustrative',
-      survey: i + 1,
+      mjd: isoToMjd(entry.iso),
+      iso: entry.iso + 'T00:00:00Z',
+      wavelength_um: entry.wavelength + (i % 2 ? 0.02 : -0.02),
+      bandwidth_um: entry.mission === 'unWISE' ? 1.0 : 0.04,
+      release: entry.release,
+      survey: isCombined ? null : i + 1,
       bad_pixel_frac: t?.key === 'rdra' && i === 0 ? 0.004 : 0,
       predicted_px: t ? [Math.floor(x), Math.floor(y)] : null,
       png: `mock://${key}/${i}.png`,
-      diff_png: `mock://${key}/${i}/diff.png`,
+      diff_png: isCombined ? null : `mock://${key}/${i}/diff.png`,
+      mission: isCombined ? entry.mission : undefined,
+      band_or_detector: isCombined ? entry.band : undefined,
+      quality_label: entry.quality,
+      source_product_id: isCombined ? `mock-${entry.mission.toLowerCase()}-${i + 1}` : undefined,
+      data_mode: isCombined ? 'fixture' : undefined,
       detector: p.detector,
-      t_min_mjd: isoToMjd(iso) - 0.4,
-      t_max_mjd: isoToMjd(iso) + 0.4,
+      t_min_mjd: isoToMjd(entry.iso) - 0.4,
+      t_max_mjd: isoToMjd(entry.iso) + 0.4,
       n_exposures: 3,
     })
   })
@@ -325,7 +351,42 @@ export const mockApi: ObservationApi = {
     throw new ApiError('NOT_AVAILABLE', 'Mock mode uses VizieR Gaia catalog', 404)
   },
 
-  async combinedGaiaOverlays() {
-    throw new ApiError('NOT_AVAILABLE', 'Mock mode does not include sky_archive overlays', 404)
+  async combinedGaiaOverlays(sequenceId, signal) {
+    await sleep(120, signal)
+    const targetKey = sequenceId.split(':')[0]
+    const t = isTargetKey(targetKey) ? TARGET_BY_KEY.get(targetKey) : undefined
+    if (!t) throw new ApiError('NOT_AVAILABLE', 'Unknown mock combined sequence', 404)
+    const size = Math.max(32, Math.min(128, Math.round((0.1667 * 3600) / PIX_ARCSEC)))
+    const seed = hashString(`${t.raDeg.toFixed(4)}:${t.decDeg.toFixed(4)}`)
+    const brightest = [...makeField(seed, size, Math.round(size * size * 0.0075))]
+      .sort((a, b) => b.flux - a.flux)
+      .slice(0, 12)
+    const overlays = COMBINED_DATES.flatMap((entry, idx) =>
+      brightest.map((star, j) => ({
+        frame_index: idx + 1,
+        source_id: `mock-gaia-${j + 1}`,
+        observed_mjd: isoToMjd(entry.iso),
+        catalog_ra_deg: t.raDeg,
+        catalog_dec_deg: t.decDeg,
+        propagated_ra_deg: t.raDeg,
+        propagated_dec_deg: t.decDeg,
+        pixel_x: star.x - 0.5,
+        pixel_y_png: star.y - 0.5,
+        in_frame: true,
+        has_proper_motion: true,
+        motion_status: 'propagated_pm' as const,
+        g_mag: +(13.2 + j * 0.45).toFixed(2),
+      })),
+    )
+    return {
+      api_version: '0.1',
+      sequence_id: sequenceId,
+      source: 'illustrative-mock',
+      gaia_propagation_model: 'angular_proper_motion_only',
+      annual_parallax_included: false,
+      observer_ephemeris_included: false,
+      target_astrometry_source: 'Illustrative demo',
+      overlays,
+    }
   },
 }

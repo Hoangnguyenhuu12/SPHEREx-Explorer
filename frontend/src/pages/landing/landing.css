@@ -246,6 +246,12 @@
   line-height: 28px;
   color: var(--muted);
 }
+.cta__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-3);
+}
 
 @media (max-width: 1000px) {
   .hero__grid,
