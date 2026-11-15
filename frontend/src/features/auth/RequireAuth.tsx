@@ -6,8 +6,15 @@ import { justLoggedOut, useSession } from './session'
 
 /** Route guard: guests are sent to Log in and come back here afterwards. */
 export function RequireAuth({ children }: { children: ReactNode }) {
-  const { user } = useSession()
+  const { user, ready } = useSession()
   const location = useLocation()
+  // Live mode restores the Supabase session asynchronously; don't bounce to Log in meanwhile.
+  if (!ready)
+    return (
+      <div className="route-loading" role="status">
+        Checking your session…
+      </div>
+    )
   if (!user) return <Navigate to={justLoggedOut() ? PATHS.forum : loginPath(`${location.pathname}${location.search}`)} replace />
   return <>{children}</>
 }

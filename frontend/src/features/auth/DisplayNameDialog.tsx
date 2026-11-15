@@ -40,15 +40,28 @@ export function useEnsureDisplayName(): { ensure: (action: () => void) => void; 
     setError(undefined)
   }
 
-  const save = (e: FormEvent) => {
+  const [saving, setSaving] = useState(false)
+
+  const save = async (e: FormEvent) => {
     e.preventDefault()
+    if (saving) return
     const message = validateDisplayName(value)
     setError(message)
     if (message) {
       inputRef.current?.focus()
       return
     }
-    setDisplayName(value)
+    setSaving(true)
+    try {
+      // Live mode saves the name on the server (PATCH /me) before the post or comment goes out.
+      await setDisplayName(value)
+    } catch {
+      setError('Could not save your name. Try again.')
+      inputRef.current?.focus()
+      return
+    } finally {
+      setSaving(false)
+    }
     const action = pending
     close()
     action?.()
@@ -66,13 +79,13 @@ export function useEnsureDisplayName(): { ensure: (action: () => void) => void; 
           <button type="button" className="btn btn-secondary" onClick={close}>
             Cancel
           </button>
-          <button type="submit" form={`${id}-form`} className="btn btn-primary">
-            Save name
+          <button type="submit" form={`${id}-form`} className="btn btn-primary" disabled={saving}>
+            {saving ? 'Saving…' : 'Save name'}
           </button>
         </>
       }
     >
-      <form id={`${id}-form`} className="field" onSubmit={save} noValidate>
+      <form id={`${id}-form`} className="field" onSubmit={(e) => void save(e)} noValidate>
         <label htmlFor={`${id}-name`} className="field__label">
           Display name
         </label>
