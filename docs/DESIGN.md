@@ -124,10 +124,14 @@ CTA chính tới `/where-are-you`. Không có hàng card lặp; bốn bước l�
 Bố cục bài viết: mục lục dính bên trái (240 px) liệt kê 5 phần; cột chữ 68 ch. Mỗi phần: số thứ tự lớn bằng Averia, tiêu đề `h2`, đoạn văn, tuỳ chọn hình minh hoạ hoặc bảng. Thứ tự ưu tiên mục đích của người xem, phần về nhóm ngắn:
 
 1. **What you can do here** — trang dùng để làm gì, cho ai (học sinh/giáo viên, người yêu thiên văn, giám khảo).
-2. **How to use it** — 4 bước có số, lưới 2×2 nối bằng mũi tên (1 cột dưới 560 px), kèm giải thích thanh công cụ của The Eyes.
+2. **How to use it** — 4 bước có số theo đúng luồng thật (Find where you are → Pick a star → Press Play and compare → Read the notes), lưới 2×2 nối bằng mũi tên (1 cột dưới 560 px), kèm giải thích thanh công cụ của The Eyes, rồi CTA ngôi sao băng.
 3. **The science, in pictures** — 4 sơ đồ SVG (`pages/story/diagrams.tsx`), mỗi sơ đồ có `figcaption` bắt đầu bằng "Note:": bộ lọc đổi màu (102 màu, 0,75–5 µm), sao gần trôi trên lưới pixel 6,15″ (đúng tỉ lệ), ảnh hiệu, mốc thời gian khảo sát.
 4. **Reading it honestly** — giới hạn khi đọc ảnh, bảng detector D1–D6, 5 mục tiêu, nguồn dữ liệu; kết quả đo để "Results pending".
-5. **About us** — ảnh tròn 112 px của 6 thành viên (`TeamGrid.tsx`), tên và vai trò, rồi CTA "Open The Eyes".
+5. **About us** — ảnh tròn 112 px của 6 thành viên (`TeamGrid.tsx`), tên và vai trò, rồi CTA ngôi sao băng "Start: Where are you?".
+
+**Luồng (15/11):** Story luôn dẫn sang **Where are you**, không nhảy thẳng vào The Eyes. Có 3 lối ra, đều là `ShootingStarLink` (`pages/story/ShootingStarLink.tsx`) trỏ tới `/where-are-you`: nút ở header (thay "Open The Eyes" qua `headerActions`; dưới 560 px chỉ còn icon ngôi sao), cuối phần 02 và cuối phần 05. Dưới lead có dải đường đi `Home → Story (you are here) → Where are you (next) → The Eyes`.
+
+**Ngôi sao băng:** nền trang có sao băng và sao nhấp nháy trang trí (`ShootingStars.tsx`, không nhận click, `aria-hidden`). Nút CTA là link thật (`<a href>`; Ctrl/Cmd/middle-click mở tab mới như thường). Click trái thường bắn một vệt sao từ nút lên góc phải (~450 ms), rồi chuyển trang bằng `useRouteTransition().launch`. Khi bật reduced motion: không có sao băng nền và không có vệt sao, nút chuyển trang ngay.
 
 Không bịa số liệu; mọi con số trong sơ đồ đã có trong trang hoặc `shared/config/targets.ts`.
 

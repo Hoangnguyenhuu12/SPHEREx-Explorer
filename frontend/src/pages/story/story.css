@@ -408,3 +408,195 @@ ol.plain-list {
     display: none;
   }
 }
+
+/* Flow trail under the header: Home → Story → Where are you → The Eyes */
+.flow-trail {
+  list-style: none;
+  margin: var(--space-5) 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) 0;
+  font-size: 15px;
+  color: var(--muted);
+}
+.flow-trail li {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+.flow-trail li:not(:last-child)::after {
+  content: '→';
+  margin-inline: var(--space-3);
+  color: var(--line-strong);
+}
+.flow-trail a {
+  color: var(--fg);
+}
+.flow-trail__here {
+  color: var(--heading);
+  font-weight: 700;
+}
+.flow-trail__next {
+  color: var(--primary) !important;
+  font-weight: 700;
+}
+.flow-trail__tag {
+  font-size: 12px;
+  line-height: 18px;
+  padding: 0 var(--space-2);
+  border: 1px solid currentColor;
+  border-radius: 999px;
+}
+
+/* Shooting-star call to action that leads to "Where are you" */
+.star-link {
+  position: relative;
+  gap: var(--space-3);
+  border-radius: 999px;
+  overflow: hidden;
+  text-align: left;
+  transition: box-shadow var(--dur-hover, 160ms) ease-out;
+}
+.star-link.btn-lg {
+  /* .btn is nowrap; let the label and hint wrap so the button never widens the column on phones. */
+  white-space: normal;
+  max-width: 100%;
+  height: auto;
+  min-height: 56px;
+  padding: var(--space-2) var(--space-6) var(--space-2) var(--space-4);
+}
+.star-link:hover,
+.star-link:focus-visible {
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary) 25%, transparent), 0 0 28px rgba(244, 239, 131, 0.35);
+}
+.star-link__sky {
+  position: relative;
+  flex: none;
+  width: 44px;
+  height: 24px;
+}
+.star-link--compact .star-link__sky {
+  width: 30px;
+  height: 18px;
+}
+/* Tail runs from the star down-left, as if the star has just fallen in from the top-right. */
+.star-link__tail {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  width: 34px;
+  height: 2px;
+  border-radius: 999px;
+  background: linear-gradient(to left, var(--on-primary), transparent);
+  opacity: 0.55;
+  transform-origin: right center;
+  transform: translateY(-50%) rotate(-28deg) scaleX(0.75);
+  transition: transform 260ms ease-out, opacity 260ms ease-out;
+}
+.star-link__star {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  width: 12px;
+  height: 12px;
+  transform: translate(0, -50%);
+  background: var(--on-primary);
+  /* Four-point star */
+  clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%);
+  transition: transform 260ms ease-out;
+}
+.star-link:hover .star-link__tail,
+.star-link:focus-visible .star-link__tail {
+  opacity: 0.9;
+  transform: translateY(-50%) rotate(-28deg) scaleX(1.15);
+}
+.star-link:hover .star-link__star,
+.star-link:focus-visible .star-link__star {
+  transform: translate(0, -50%) rotate(45deg) scale(1.25);
+}
+.star-link.is-firing .star-link__star,
+.star-link.is-firing .star-link__tail {
+  opacity: 0;
+}
+.star-link__text {
+  display: grid;
+  min-width: 0;
+}
+.star-link__label {
+  font-size: inherit;
+}
+.star-link__hint {
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 400;
+  opacity: 0.8;
+}
+@media (max-width: 560px) {
+  .star-link--compact {
+    padding-inline: var(--space-3);
+  }
+  .star-link--compact .star-link__text {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+  }
+}
+
+/* The streak a click fires: a bright star flying up-right from the button, then the page changes. */
+.star-streak {
+  position: fixed;
+  z-index: 600;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+  transform: rotate(-28deg) translateX(0);
+  animation: star-streak var(--streak-ms, 450ms) cubic-bezier(0.5, 0, 0.9, 0.6) forwards;
+}
+.star-streak::before {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: -1.5px;
+  width: 280px;
+  height: 3px;
+  border-radius: 999px;
+  background: linear-gradient(to right, transparent, rgba(255, 243, 214, 0.5) 60%, #fff);
+}
+.star-streak::after {
+  content: '';
+  position: absolute;
+  right: -5px;
+  top: -5px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 16px 6px rgba(244, 239, 131, 0.75);
+}
+@keyframes star-streak {
+  0% {
+    opacity: 0;
+    transform: rotate(-28deg) translateX(0);
+  }
+  15% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.9;
+    transform: rotate(-28deg) translateX(120vmax);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .star-streak {
+    display: none;
+  }
+  .star-link__tail,
+  .star-link__star {
+    transition: none;
+  }
+}
