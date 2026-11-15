@@ -119,9 +119,17 @@ CTA chính tới `/where-are-you`. Không có hàng card lặp; bốn bước l�
 
 **SPHEREx đi theo (14/11):** một tàu duy nhất (`features/artwork/CraftGuide.tsx`, lộ trình thuần trong `craftTimeline.ts`). Ở đầu trang nó nằm đúng chỗ tàu hero. Khi section kế tiếp lộ ở đáy màn hình, tàu bay theo đường cong, thu nhỏ và đậu khi điểm đậu lên tới 30% màn hình. Điểm đậu được **chọn theo màn hình** (`craftDock.ts`): đo các khối chữ của section, ưu tiên lề trái ngang tiêu đề khi lề đủ rộng, nếu không thì phần đệm trên; cỡ co giãn 44–96 px; không bao giờ giao với chữ. Tàu vẽ dưới lớp chữ của section; đường bay vòng ra phía lề trái. Tàu lơ lửng nhẹ ở đó. Chùm sáng đi vào kính chỉ hiện ở hero. Chỉ animate `transform`.
 
-### 7.3 Story `/story` — 6 phần
+### 7.3 Story `/story` — 5 phần, viết cho người xem (15/11)
 
-Bố cục bài viết: mục lục dính bên trái (240 px) liệt kê 6 phần; cột chữ 68 ch. Mỗi phần: số thứ tự lớn bằng Averia, tiêu đề `h2`, đoạn văn, tuỳ chọn một hình minh hoạ hoặc bảng (ví dụ bảng detector D1–D6 ở "NASA data"). Phần nào chưa có nội dung thật hiển thị khối "Content pending from the team" rõ ràng, không bịa. Phân biệt "Planned" và "Verified" bằng nhãn chữ.
+Bố cục bài viết: mục lục dính bên trái (240 px) liệt kê 5 phần; cột chữ 68 ch. Mỗi phần: số thứ tự lớn bằng Averia, tiêu đề `h2`, đoạn văn, tuỳ chọn hình minh hoạ hoặc bảng. Thứ tự ưu tiên mục đích của người xem, phần về nhóm ngắn:
+
+1. **What you can do here** — trang dùng để làm gì, cho ai (học sinh/giáo viên, người yêu thiên văn, giám khảo).
+2. **How to use it** — 4 bước có số, lưới 2×2 nối bằng mũi tên (1 cột dưới 560 px), kèm giải thích thanh công cụ của The Eyes.
+3. **The science, in pictures** — 4 sơ đồ SVG (`pages/story/diagrams.tsx`), mỗi sơ đồ có `figcaption` bắt đầu bằng "Note:": bộ lọc đổi màu (102 màu, 0,75–5 µm), sao gần trôi trên lưới pixel 6,15″ (đúng tỉ lệ), ảnh hiệu, mốc thời gian khảo sát.
+4. **Reading it honestly** — giới hạn khi đọc ảnh, bảng detector D1–D6, 5 mục tiêu, nguồn dữ liệu; kết quả đo để "Results pending".
+5. **About us** — ảnh tròn 112 px của 6 thành viên (`TeamGrid.tsx`), tên và vai trò, rồi CTA "Open The Eyes".
+
+Không bịa số liệu; mọi con số trong sơ đồ đã có trong trang hoặc `shared/config/targets.ts`.
 
 ### 7.4 Where are you `/where-are-you`
 
@@ -203,8 +211,8 @@ Chi tiết: `docs/ui-design/` (phương án B + editor/diff của A). Tóm tắt
 
 ## 9. Giả định và điểm chưa có bằng chứng
 
-- Thành viên About Us lấy từ bảng vai trò trong `PROJECT_CONTEXT.md` (tên gọi + vai trò); chờ nhóm xác nhận link và tên đầy đủ.
-- Story chỉ viết các ý có căn cứ trong tài liệu; phần "Validation and impact" để "Content pending" đến khi có kết quả thật.
+- Thành viên About Us lấy từ bảng vai trò trong `PROJECT_CONTEXT.md` (tên gọi + vai trò); chờ nhóm xác nhận link và tên đầy đủ. Ảnh chân dung là bản WebP 320×320 trong `frontend/src/assets/team/` (cắt vuông theo khuôn mặt); ảnh gốc của thành viên không đưa vào Git.
+- Story chỉ viết các ý có căn cứ trong tài liệu; kết quả đo trong phần "Reading it honestly" để "Results pending" đến khi có kết quả thật.
 - Dữ liệu ảnh, quang trắc, astrometry là fixture tổng hợp bằng code cho tới Phase 6.
 - Biểu đồ dùng SVG tự viết (light curve, astrometry, spectrum có error bar) thay Plotly để giảm bundle; đổi sang Plotly nếu cần tương tác phức tạp.
 - Không thay đổi quyết định đã chốt nào.
