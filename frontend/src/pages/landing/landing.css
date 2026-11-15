@@ -128,8 +128,104 @@
   font-weight: 700;
   margin-top: var(--space-2);
 }
-.step p {
+.step__body {
   color: var(--muted);
+}
+.step__trigger {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  text-align: left;
+  cursor: default;
+  border-radius: 4px;
+}
+.step__trigger:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 4px;
+}
+.steps__hint {
+  margin-top: var(--space-2);
+}
+
+/* Mouse/trackpad: titles stay, only the selected step shows its text (HowItWorksSteps). */
+.steps[data-reveal] .step__num,
+.steps[data-reveal] .step__title {
+  cursor: pointer;
+}
+.steps[data-reveal] .step__trigger {
+  cursor: pointer;
+}
+.steps[data-reveal] .step__num {
+  transition:
+    background-color 220ms ease,
+    color 220ms ease,
+    box-shadow 260ms ease,
+    transform 260ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.steps[data-reveal] .step.is-reached .step__num {
+  background: color-mix(in srgb, var(--primary) 16%, var(--bg));
+}
+.steps[data-reveal] .step.is-active .step__num {
+  background: var(--primary);
+  color: var(--bg);
+  transform: scale(1.06);
+  box-shadow:
+    0 0 0 6px color-mix(in srgb, var(--primary) 16%, transparent),
+    0 0 28px color-mix(in srgb, var(--primary) 35%, transparent);
+}
+.steps[data-reveal] .step__title {
+  color: var(--muted);
+  transition: color 220ms ease;
+}
+.steps[data-reveal] .step.is-active .step__title,
+.steps[data-reveal] .step__title:hover {
+  color: var(--fg);
+}
+/* Fade and lift only: the text always keeps its space, so the centred section never jumps. */
+.steps[data-reveal] .step__body {
+  opacity: 0;
+  transform: translateY(8px);
+  transition:
+    opacity 150ms ease,
+    transform 150ms ease;
+}
+.steps[data-reveal] .step.is-active .step__body {
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity 240ms ease 40ms,
+    transform 280ms cubic-bezier(0.2, 0.7, 0.2, 1) 40ms;
+}
+/* Progress along the line: from the first number to the selected one. */
+.steps[data-reveal]::after {
+  content: '';
+  position: absolute;
+  left: 24px;
+  top: 24px;
+  height: 2px;
+  margin-top: -0.5px;
+  width: calc(var(--active, 0) * ((100% - 3 * var(--space-6)) / 4 + var(--space-6)));
+  background: linear-gradient(90deg, color-mix(in srgb, var(--primary) 40%, transparent), var(--primary));
+  box-shadow: 0 0 10px color-mix(in srgb, var(--primary) 45%, transparent);
+  transition: width 320ms cubic-bezier(0.2, 0.7, 0.2, 1);
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .steps[data-reveal] .step__body,
+  .steps[data-reveal] .step.is-active .step__body {
+    transform: none;
+    transition: opacity 80ms linear;
+  }
+  .steps[data-reveal] .step.is-active .step__num {
+    transform: none;
+  }
+  .steps[data-reveal] .step__num,
+  .steps[data-reveal]::after {
+    transition: none;
+  }
 }
 
 /* About */
@@ -224,7 +320,8 @@
   .steps {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  .steps::before {
+  .steps::before,
+  .steps[data-reveal]::after {
     display: none;
   }
   .hero__title {
