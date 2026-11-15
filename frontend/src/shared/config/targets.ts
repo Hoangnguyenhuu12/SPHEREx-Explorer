@@ -22,6 +22,10 @@ export interface TargetInfo {
   distance: string
   description: string
   lookFor: string
+  /** Plain-language analogy for beginners and younger explorers. */
+  funFact: string
+  speedAnalogy: string
+  temperatureAnalogy: string
   recommendedDetector: number
   /** What the observation sequence is meant to show. */
   change: 'motion' | 'brightness'
@@ -46,6 +50,9 @@ export const TARGETS: readonly TargetInfo[] = [
     description:
       'One of the closest stars to the Sun. It crosses the sky faster than any other star, about 10 arcseconds every year.',
     lookFor: 'Compare its position with the stars around it as the dates advance.',
+    funFact: 'It is our fourth-closest stellar neighbor after the three stars of Alpha Centauri.',
+    speedAnalogy: 'Covers the width of the full Moon in ~180 years — a sprint compared with background stars!',
+    temperatureAnalogy: 'About 3,200 K — cooler and dimmer than our Sun, glowing brightest in near-infrared light.',
     recommendedDetector: 6,
     change: 'motion',
     simbadId: "NAME Barnard's star",
@@ -67,6 +74,9 @@ export const TARGETS: readonly TargetInfo[] = [
     description:
       'The coldest brown dwarf known. It is almost invisible to the eye but glows in infrared light, which SPHEREx collects.',
     lookFor: 'Look for a faint dot that shifts between dates. The longest-wavelength detectors (D5–D6) suit it best.',
+    funFact: 'Too small to shine like a star, yet heavier than Jupiter — a free-floating “failed star” drifting in the dark.',
+    speedAnalogy: 'Moves across the sky by ~8.1 arcseconds per year (over 2 arcminutes between 2010 and 2025!).',
+    temperatureAnalogy: 'Around −23 °C (250 K) — as cold as winter at Earth’s North Pole, so only thermal infrared (D6 / W2) can spot it.',
     recommendedDetector: 6,
     change: 'motion',
     simbadId: 'WISEA J085510.74-071442.5',
@@ -88,6 +98,9 @@ export const TARGETS: readonly TargetInfo[] = [
     description:
       'Two brown dwarfs orbiting each other, travelling together with the star Epsilon Indi A. At SPHEREx resolution the pair appears as one source.',
     lookFor: 'Look for shared motion with its companion star when the field is wide enough to include both.',
+    funFact: 'It is actually a twin system of two brown dwarfs (Ba and Bb) dancing around each other.',
+    speedAnalogy: 'Glides ~4.7 arcseconds per year — crossing the Moon’s apparent diameter in ~380 years.',
+    temperatureAnalogy: 'About 600–1,300 K — like a cooling campfire ember that shines in infrared.',
     recommendedDetector: 6,
     change: 'motion',
     simbadId: '* eps Ind B',
@@ -109,6 +122,9 @@ export const TARGETS: readonly TargetInfo[] = [
     description:
       'A very young star system surrounded by dust. Its brightness drops irregularly when dust passes in front of the star.',
     lookFor: 'Compare its brightness between dates. Check the wavelength and quality notes before reading anything into a change.',
+    funFact: 'A baby star still wrapped in a swirling planet-forming disk of gas and cosmic dust.',
+    speedAnalogy: 'Stays almost fixed in place because it is hundreds of light-years away — watch its brightness instead!',
+    temperatureAnalogy: 'Its warm dust clouds glow brightly at longer infrared wavelengths (D4–D6).',
     recommendedDetector: 6,
     change: 'brightness',
     simbadId: 'V* RW Aur',
@@ -130,6 +146,9 @@ export const TARGETS: readonly TargetInfo[] = [
     description:
       'A giant star that swells and shrinks over about eight months, becoming much brighter and fainter as it pulses.',
     lookFor: 'Compare its brightness between dates. Bright frames may saturate the detector.',
+    funFact: 'Like a cosmic heartbeat, this aging giant expands and contracts every ~245 days.',
+    speedAnalogy: 'Barely shifts position, but its infrared glow swells and fades dramatically over months.',
+    temperatureAnalogy: 'Cool red giant outer layers (~3,000 K) that flood infrared detectors with light.',
     recommendedDetector: 6,
     change: 'brightness',
     simbadId: 'V* R Dra',

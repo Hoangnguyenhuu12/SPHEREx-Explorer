@@ -2,7 +2,7 @@ import { AlertCircle, Check, CheckCircle2, Circle, Eye, EyeOff, LoaderCircle } f
 import { useId, useRef, useState, type FormEvent } from 'react'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router'
 import { PATHS } from '../../app/config'
-import { logIn, signUp } from './authService'
+import { AuthServiceError, logIn, signUp } from './authService'
 import { loginPath, sanitizeReturnTo } from './returnTo'
 import { useSession } from './session'
 import {
@@ -21,6 +21,8 @@ import './auth.css'
 /** Router state passed from Sign up to Log in after a successful sign up. */
 export interface AuthLocationState {
   signedUpEmail?: string
+  /** Live sign-up: the email must be confirmed before logging in. */
+  confirmEmail?: boolean
 }
 
 const COPY = {
@@ -59,7 +61,9 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
   const [params] = useSearchParams()
   const session = useSession()
   const returnTo = sanitizeReturnTo(params.get('returnTo'))
-  const signedUpEmail = mode === 'login' ? (location.state as AuthLocationState | null)?.signedUpEmail : undefined
+  const signedUpState = mode === 'login' ? (location.state as AuthLocationState | null) : null
+  const signedUpEmail = signedUpState?.signedUpEmail
+  const confirmEmail = Boolean(signedUpState?.confirmEmail)
 
   const [values, setValues] = useState<AuthValues>({ email: signedUpEmail ?? '', password: '', confirmPassword: '' })
   const [errors, setErrors] = useState<AuthErrors>({})
@@ -105,15 +109,17 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
     try {
       const credentials = { email: values.email, password: values.password }
       if (mode === 'signup') {
-        const { email } = await signUp(credentials)
-        navigate(returnTo ? loginPath(returnTo) : PATHS.login, { state: { signedUpEmail: email } satisfies AuthLocationState })
+        const { email, needsConfirmation } = await signUp(credentials)
+        navigate(returnTo ? loginPath(returnTo) : PATHS.login, {
+          state: { signedUpEmail: email, confirmEmail: needsConfirmation } satisfies AuthLocationState,
+        })
         return
       }
       const { email } = await logIn(credentials)
       session.logIn(email)
       navigate(returnTo ?? PATHS.forum, { replace: true })
-    } catch {
-      setStatus({ kind: 'error', message: 'Something went wrong. Please try again.' })
+    } catch (err) {
+      setStatus({ kind: 'error', message: err instanceof AuthServiceError ? err.message : 'Something went wrong. Please try again.' })
     }
   }
 
@@ -195,7 +201,7 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
       {signedUpEmail && (
         <div className="notice notice--info auth-card__notice" role="status">
           <CheckCircle2 aria-hidden />
-          <span>Account created. Log in to continue.</span>
+          <span>{confirmEmail ? 'Account created. Open the confirmation link we emailed you, then log in.' : 'Account created. Log in to continue.'}</span>
         </div>
       )}
       {returnTo && !signedUpEmail && (

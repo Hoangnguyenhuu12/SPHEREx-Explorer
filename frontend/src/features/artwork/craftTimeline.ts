@@ -1,84 +1,100 @@
 /**
- * Scroll timeline for the landing-page SPHEREx guide: the craft rests in the hero, then flies to a
- * dock at the top-left of each following section and floats there. Pure maths, no DOM.
+ * Flight path of the landing-page SPHEREx guide. The craft is fixed to the viewport: when the
+ * page rests on a section, it floats at that section's dock; between sections it flies a curve
+ * from one dock to the next, driven by a (spring-smoothed) section progress. Pure maths, no DOM.
  */
 
 export interface Anchor {
-  /** Top-left of the anchor box, relative to the guide container (px). */
+  /** Top-left of the anchor box (px). Page coordinates when measured, viewport in a Stop. */
   x: number
   y: number
   /** Side length of the (square) anchor box (px). */
   size: number
 }
 
-export interface Timeline {
-  /** Scroll positions (px, ascending). */
-  input: number[]
-  x: number[]
-  y: number[]
-  scale: number[]
-  rotate: number[]
-  /** Opacity of the light drawn entering the telescope; only shown in the hero. */
-  beam: number[]
+/** Where the craft sits on screen while the page rests at `scroll`. */
+export interface Stop extends Anchor {
+  scroll: number
 }
 
-/** Departure: the next dock is this far up from the viewport bottom. */
-const DEPART_AT = 0.95
-/** Arrival: the next dock has reached this fraction of the viewport from the top. */
-const ARRIVE_AT = 0.3
+export interface Pose {
+  /** Viewport position of the craft box's top-left at full (hero) size, before scaling. */
+  x: number
+  y: number
+  scale: number
+  /** Opacity of the light drawn entering the telescope; only shown in the hero. */
+  beam: number
+}
+
 /** Sideways swing in the middle of a flight, as a fraction of the distance flown. */
-const ARC = 0.18
-const FLIGHT_TILT_DEG = 10
+const ARC = 0.22
+/** Extra dip mid-flight (fraction of viewport height), so short hops still read as flights. */
+const SWOOP = 0.05
+/** The craft grows a little mid-flight, as if passing closer to the reader. */
+const LIFT = 0.14
+/** The light fades out over the first part of the first flight. */
+const BEAM_FADE = 0.35
+const MAX_BANK_DEG = 12
 
 /**
- * @param anchors hero anchor first, then one dock per section (container coordinates)
- * @param containerTop page Y of the container's top edge
- * @param viewport viewport height
+ * @param anchors hero anchor first, then one dock per section (page coordinates)
+ * @param snaps scroll position at which each anchor's section rests under the header
  */
-export function buildTimeline(anchors: Anchor[], containerTop: number, viewport: number): Timeline {
-  const base = anchors[0].size || 1
-  const t: Timeline = { input: [], x: [], y: [], scale: [], rotate: [], beam: [] }
-  const push = (s: number, a: { x: number; y: number; size: number }, rotate: number, beam: number) => {
-    const last = t.input.at(-1)
-    t.input.push(last === undefined ? s : Math.max(s, last + 1))
-    t.x.push(a.x)
-    t.y.push(a.y)
-    t.scale.push(a.size / base)
-    t.rotate.push(rotate)
-    t.beam.push(beam)
-  }
-
-  push(0, anchors[0], 0, 1)
-  for (let i = 1; i < anchors.length; i++) {
-    const from = anchors[i - 1]
-    const to = anchors[i]
-    const dockPage = containerTop + to.y
-    const depart = Math.max(0, dockPage - viewport * DEPART_AT)
-    const arrive = dockPage - viewport * ARRIVE_AT
-    const dx = to.x - from.x
-    const dy = to.y - from.y
-    const dist = Math.hypot(dx, dy)
-    // Swing out towards the left margin, away from the text column.
-    const mid = {
-      x: Math.max(4, Math.min(from.x, to.x) - ARC * dist * 0.2),
-      y: (from.y + to.y) / 2,
-      size: (from.size + to.size) / 2,
-    }
-    push(depart, from, 0, i === 1 ? 1 : 0)
-    push((depart + arrive) / 2, mid, FLIGHT_TILT_DEG, 0)
-    push(arrive, to, 0, 0)
-  }
-  return t
+export function buildStops(anchors: Anchor[], snaps: number[]): Stop[] {
+  return anchors.map((a, i) => ({ scroll: snaps[i], x: a.x, y: a.y - snaps[i], size: a.size }))
 }
 
-/** Piecewise-linear interpolation, clamped at both ends. */
-export function interpolate(v: number, input: number[], output: number[]): number {
-  if (input.length === 0) return 0
-  if (v <= input[0]) return output[0]
-  const n = input.length - 1
-  if (v >= input[n]) return output[n]
-  let i = 1
-  while (input[i] < v) i++
-  const t = (v - input[i - 1]) / (input[i] - input[i - 1])
-  return output[i - 1] + (output[i] - output[i - 1]) * t
+/** Fractional section index at a scroll position: 0 in the hero, 1 at the first section, and so on. */
+export function progressAt(scroll: number, stops: Stop[]): number {
+  const n = stops.length
+  if (n === 0 || scroll <= stops[0].scroll) return 0
+  for (let i = 1; i < n; i++) {
+    if (scroll < stops[i].scroll) {
+      const span = stops[i].scroll - stops[i - 1].scroll
+      return i - 1 + (span > 0 ? (scroll - stops[i - 1].scroll) / span : 1)
+    }
+  }
+  return n - 1
+}
+
+/**
+ * Craft pose for a section progress `p` (may overshoot slightly; it is clamped).
+ * Past the last section (the footer) the craft rides up with the page.
+ */
+export function poseAt(p: number, scroll: number, stops: Stop[], viewport: number): Pose {
+  const n = stops.length
+  if (n === 0) return { x: 0, y: 0, scale: 1, beam: 1 }
+  const base = stops[0].size || 1
+  const last = stops[n - 1]
+  const ride = Math.max(0, scroll - last.scroll)
+  const beam = Math.min(1, Math.max(0, 1 - p / BEAM_FADE))
+  if (n === 1) return { x: last.x, y: last.y - ride, scale: last.size / base, beam }
+
+  const k = Math.min(n - 2, Math.max(0, Math.floor(p)))
+  const f = Math.min(1, Math.max(0, p - k))
+  const a = stops[k]
+  const b = stops[k + 1]
+  const dx = b.x - a.x
+  const dy = b.y - a.y
+  const dist = Math.hypot(dx, dy)
+  const bend = Math.sin(Math.PI * f)
+  // Perpendicular to the flight, turned towards the left margin (away from the text column).
+  let nx = dist ? dy / dist : 0
+  let ny = dist ? -dx / dist : 0
+  if (nx > 0) {
+    nx = -nx
+    ny = -ny
+  }
+  const size = (a.size + (b.size - a.size) * f) * (1 + LIFT * bend)
+  return {
+    x: a.x + dx * f + nx * ARC * dist * bend,
+    y: a.y + dy * f + ny * ARC * dist * bend + SWOOP * viewport * bend - ride,
+    scale: size / base,
+    beam,
+  }
+}
+
+/** Bank angle (deg) from how fast the section progress moves (sections per second). */
+export function bankAngle(velocity: number): number {
+  return Math.max(-MAX_BANK_DEG, Math.min(MAX_BANK_DEG, velocity * 7))
 }

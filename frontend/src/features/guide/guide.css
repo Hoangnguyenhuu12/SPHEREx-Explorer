@@ -1,0 +1,137 @@
+.guide-toggle {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  z-index: 22;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 44px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius);
+  border: 1px solid var(--line-strong);
+  background: rgb(23 23 31 / 0.94);
+  color: var(--fg);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+.guide-toggle svg {
+  width: 18px;
+  height: 18px;
+}
+.guide-toggle:hover {
+  background: var(--surface-2);
+}
+.guide-toggle:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+.guide-toggle[aria-pressed='true'] {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+.guide-toggle__state {
+  font-size: 12px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--muted);
+}
+.guide-toggle[aria-pressed='true'] .guide-toggle__state {
+  background: var(--primary);
+  color: var(--on-primary);
+}
+
+.guide-note {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin: var(--space-1) 0 var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius);
+  border: 1px dashed var(--primary);
+  background: rgb(244 239 131 / 0.08);
+  color: var(--fg);
+  font-size: 13px;
+  line-height: 18px;
+  flex-basis: 100%;
+  animation: guide-in 160ms ease-out;
+}
+.guide-note strong {
+  color: var(--primary);
+}
+.guide-note__step {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: var(--on-primary);
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 1;
+}
+.guide-note .sym-gaia {
+  color: #7ccdf2;
+  font-weight: 700;
+}
+.guide-note .sym-pred {
+  color: #f4ef83;
+  font-weight: 700;
+}
+
+/* Floating notes on the map (no target chosen yet, and above the dock). */
+.guide-float {
+  position: absolute;
+  z-index: 14;
+  max-width: min(340px, calc(100% - 2 * var(--space-3)));
+  margin: 0;
+  background: rgb(23 23 31 / 0.96);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.45);
+}
+.guide-float--start {
+  left: var(--space-3);
+  top: calc(44px + 2 * var(--space-3));
+}
+.guide-float--dock {
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(var(--dock-h, 52px) + 2 * var(--space-3));
+  max-width: min(560px, calc(100% - 2 * var(--space-3)));
+}
+
+@keyframes guide-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .guide-note {
+    animation: none;
+  }
+}
+/* Keep the details panel below the toggle wherever the two would meet. */
+@media (max-width: 940px) {
+  .eyes__stage:has(.guide-toggle) .popup--wide {
+    top: calc(44px + 2 * var(--space-3));
+  }
+}
+@media (max-width: 720px) {
+  .guide-toggle {
+    top: var(--space-2);
+    right: var(--space-2);
+  }
+  .guide-toggle > span:first-of-type {
+    display: none;
+  }
+  .eyes__stage:has(.guide-toggle) .popup,
+  .eyes__stage:has(.guide-toggle) .popup--wide {
+    top: calc(44px + 2 * var(--space-2));
+  }
+}

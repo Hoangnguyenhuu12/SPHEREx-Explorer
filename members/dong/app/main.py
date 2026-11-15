@@ -2,7 +2,14 @@
 
 import logging
 import os
+import sys
+from pathlib import Path
 from time import perf_counter
+
+if "pytest" not in sys.modules and "PYTEST_CURRENT_TEST" not in os.environ:
+    from dotenv import load_dotenv
+
+    load_dotenv(Path(__file__).resolve().parents[3] / ".env", override=False)
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -38,6 +45,7 @@ app.add_middleware(
     allow_origins=sorted(
         {
             "http://localhost:5173",
+            "http://127.0.0.1:5173",
             *(v.strip() for v in os.getenv("CORS_ALLOW_ORIGINS", "").split(",") if v.strip()),
         }
     ),

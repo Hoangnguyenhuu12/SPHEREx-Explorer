@@ -58,3 +58,23 @@ export function scaleForFov(fovArcmin: number, boxW: number, pixArcsec: number):
 export function centreOn(x: number, y: number, scale: number, boxW: number, boxH: number): Viewport {
   return { scale, offsetX: boxW / 2 - x * scale, offsetY: boxH / 2 - y * scale }
 }
+
+export interface SyncedView {
+  centerX: number
+  centerY: number
+  fovArcmin: number
+}
+
+export function viewportToSynced(v: Viewport, boxW: number, boxH: number, pixArcsec: number): SyncedView {
+  const c = screenToImage(v, boxW / 2, boxH / 2)
+  return {
+    centerX: c.x,
+    centerY: c.y,
+    fovArcmin: visibleFovArcmin(v, boxW, pixArcsec),
+  }
+}
+
+export function syncedToViewport(sv: SyncedView, boxW: number, boxH: number, pixArcsec: number): Viewport {
+  const scale = scaleForFov(sv.fovArcmin, boxW, pixArcsec)
+  return centreOn(sv.centerX, sv.centerY, scale, boxW, boxH)
+}

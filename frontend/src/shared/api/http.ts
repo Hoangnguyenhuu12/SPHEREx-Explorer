@@ -138,7 +138,7 @@ export const httpApi: ObservationApi = {
       'api/sky-archive/combined-timeline/gaia-overlays',
       { sequence_id: sequenceId, in_frame_only: 'true' },
       signal,
-      15_000,
+      70_000,
     )
     return res.json()
   },

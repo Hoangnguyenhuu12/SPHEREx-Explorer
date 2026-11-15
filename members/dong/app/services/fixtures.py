@@ -18,7 +18,13 @@ from ..api_models import (
 from .catalog import resolve_name, targets
 from . import combined_timeline, database_provider
 from .frame_rendering import NoCoverage
-from .live_cutouts import cached_result, harvest_mode, load_cutouts, workspace
+from .live_cutouts import (
+    cached_result,
+    harvest_mode,
+    load_cutouts,
+    load_database_spherex_frames,
+    workspace,
+)
 from .observed_frames import matching_cutouts, render_cached
 from .observed_science import measure
 from shared.pipeline.irsa import UpstreamError, UpstreamTimeout
@@ -129,12 +135,18 @@ def resolve(query: ResolveQuery):
 def frames(query: FramesQuery, response=None):
     requested_target = Target.model_validate(target(query))
     if query.timeline == 'combined':
-        if query.target_key != 'wise0855' or query.detector != 6:
-            fail(400, 'BAD_PARAM', 'The combined timeline is available for WISE 0855 and D6.')
+        if query.target_key not in combined_timeline.KNOWN_TIMELINE_TARGETS or query.detector != 6:
+            fail(400, 'BAD_PARAM', 'The combined timeline is available for D6 on the five challenge targets.')
         try:
             return combined_timeline.frames(query, requested_target)
         except (OSError, ValueError, KeyError, TypeError):
-            fail(503, 'TIMELINE_UNAVAILABLE', 'The prebuilt WISE 0855 timeline is unavailable.')
+            fail(503, 'TIMELINE_UNAVAILABLE', 'The prebuilt combined timeline for this target is unavailable.')
+    if database_provider.enabled():
+        db_spherex = load_database_spherex_frames(query, requested_target)
+        if db_spherex is not None:
+            if response is not None:
+                response.headers["X-Cache"] = "MISS"
+            return db_spherex
     if live_mode():
         def build():
             with workspace() as directory:
@@ -320,18 +332,44 @@ def astrometry(query: ScienceQuery):
 
 
 def spectrum(query: ScienceQuery):
-    """Read the selected sky position from each local harvest FITS."""
-    if not harvest_mode():
-        fail(404, "NO_SPECTRUM", "Spectrum-at-point requires DATA_MODE=harvest.")
+    """Read measured flux from FITS supplied by harvest, database, or IRSA.
+
+    The endpoint never classifies a source from a sparse spectrum. It returns
+    measured points and explicit warnings when the archive cannot provide FITS.
+    """
     from astropy.coordinates import SkyCoord
     from astropy.io import fits
     from astropy.wcs import WCS
-    root = ROOT / "data" / "harvest" / str(query.target_key) / "spherex"
-    if not root.is_dir():
-        fail(404, "NO_SPECTRUM", "No local harvest data for this target.")
+    paths = []
+    if harvest_mode():
+        root = ROOT / "data" / "harvest" / str(query.target_key) / "spherex"
+        if root.is_dir():
+            paths = sorted(root.glob("*.fits"))
+    elif live_mode():
+        from types import SimpleNamespace
+        spectrum_dir = ROOT / "data" / "cache" / "spectrum" / str(query.target_key)
+        spectrum_dir.mkdir(parents=True, exist_ok=True)
+        request = SimpleNamespace(
+            target_key=query.target_key,
+            ra=query.ra,
+            dec=query.dec,
+            detector=query.detector,
+            size=0.1,
+            max_frames=60,
+        )
+        try:
+            paths = [item.path for item in load_cutouts(request, spectrum_dir)]
+        except (UpstreamError, UpstreamTimeout, OSError, ValueError):
+            paths = []
+    if not paths:
+        fail(404, "NO_SPECTRUM", "No measured FITS spectrum covers this position.", {
+            "target_key": query.target_key,
+            "data_mode": os.getenv("DATA_MODE", "fixture"),
+            "source": "NASA/IPAC IRSA or sky_archive FITS",
+        })
     points = []
     sky = SkyCoord(query.ra, query.dec, unit="deg")
-    for path in sorted(root.glob("*.fits")):
+    for path in paths:
         if query.detector is not None and f"_D{query.detector}_" not in path.name:
             continue
         try:
@@ -372,7 +410,7 @@ def spectrum(query: ScienceQuery):
         # directly invertible after reprojection. Keep the tool usable by
         # returning the central detector pixel with an explicit quality warning.
         central = {1: 0.92, 2: 1.38, 3: 2.03, 4: 3.12, 5: 4.12, 6: 4.71}
-        for path in sorted(root.glob("*.fits")):
+        for path in paths:
             if query.detector is not None and f"_D{query.detector}_" not in path.name:
                 continue
             try:
@@ -388,4 +426,14 @@ def spectrum(query: ScienceQuery):
                 continue
         if not points:
             fail(404, "NO_SPECTRUM", "No valid spectral pixels cover this position.")
-    return {"api_version": "0.1", "mode": "harvest", "flux_unit": "mJy", "points": sorted(points, key=lambda p: p["wavelength_um"])}
+    return {
+        "api_version": "0.1",
+        "mode": os.getenv("DATA_MODE", "fixture"),
+        "position": {"ra": query.ra, "dec": query.dec},
+        "flux_unit": "mJy",
+        "points": sorted(points, key=lambda p: p["wavelength_um"]),
+        "warnings": [
+            "MEASURED_FLUX_ONLY",
+            "NO_AUTOMATIC_STELLAR_CLASSIFICATION",
+        ],
+    }

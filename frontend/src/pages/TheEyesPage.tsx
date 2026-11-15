@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { useReducedMotion } from 'motion/react'
-import { AlertTriangle, Eye, Grid3x3, HelpCircle, Layers, LocateFixed, Maximize2, Minimize2, Minus, Mountain, Orbit, Plus, Sparkles, X } from 'lucide-react'
+import { AlertTriangle, Eye, Globe2, Grid3x3, HelpCircle, Layers, LocateFixed, Maximize2, Minimize2, Minus, Mountain, Orbit, Plus, Sparkles, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useLocation, useSearchParams } from 'react-router'
 import { config, PATHS } from '../app/config'
@@ -12,23 +12,41 @@ import { useOverlay } from '../shared/layout/overlay'
 import { formatDecDms, formatRaHms } from '../features/target-search/coordinates'
 import { usePlayer } from '../features/blink/player'
 import { useFrameSession } from '../features/blink/useFrameSession'
+import { readExperienceMode, writeExperienceMode, type ExperienceMode } from '../features/experience-mode/mode'
 import { AladinMap, SURVEY, type GaiaStatusInfo, type SelectedGaiaSource, type SkyMapHandle, type SurveyInfo } from '../features/sky-map/AladinMap'
 import { DR1_MAP_MJD, mapPosition } from '../shared/config/epoch'
+import { computePlanetPositions, currentMjd, type PlanetKey, type PlanetSkyPosition } from '../shared/config/planets'
 import { TargetPopup } from '../features/target-details/TargetPopup'
 import type { ViewerToggles } from '../features/target-details/ObservationViewer'
 import { TargetSearch } from '../features/target-search/TargetSearch'
 import { parseSelection, resolveQuery, serializeSelection, type Selection } from '../features/target-search/explorer-url'
-import { HelpDialog, Tutorial } from './eyes/Help'
+import { HelpDialog } from './eyes/Help'
+import { GuideNote, GuideToggle } from '../features/guide/guide'
+import { GuideProvider, readGuide, writeGuide } from '../features/guide/guide-state'
 import { Horizon } from '../features/sky-map/Horizon'
 import './eyes/eyes.css'
 
-const DEFAULT_TOGGLES: ViewerToggles = { mode: 'original', crosshair: true, flags: false, trail: false, pick: false, gaiaOverlays: true }
+const DEFAULT_TOGGLES: ViewerToggles = { mode: 'original', crosshair: true, flags: false, trail: false, pick: true, gaiaOverlays: true }
+const COMBINED_TARGETS = new Set<TargetKey>(['wise0855', 'epsindib', 'barnard', 'rwaur', 'rdra'])
 const DEFAULT_MAP_FOV_DEG = 90
 const zoomFormat = new Intl.NumberFormat('en', { style: 'percent', maximumFractionDigits: 0 })
 
 function isTyping(el: EventTarget | null): boolean {
   const t = el as HTMLElement | null
   return !!t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)
+}
+
+function isInteractiveTarget(el: EventTarget | null): boolean {
+  const t = el as HTMLElement | null
+  return !!t && !!t.closest('button, a, summary, [role="tab"], input, textarea, select')
+}
+
+function formatLightTime(minutes: number): string {
+  if (minutes < 0.05) return '0 min'
+  if (minutes < 60) return `${minutes.toFixed(1)} min light-time`
+  const h = Math.floor(minutes / 60)
+  const m = Math.round(minutes % 60)
+  return `${h}h ${m}m light-time`
 }
 
 export default function TheEyesPage() {
@@ -48,13 +66,29 @@ export default function TheEyesPage() {
   const [skyMotion, setSkyMotion] = useState(false)
   const [gaia, setGaia] = useState(false)
   const [gaiaStatus, setGaiaStatus] = useState<GaiaStatusInfo>({ status: 'idle' })
+  const [planets, setPlanets] = useState(true)
+  const [planetEpochMode, setPlanetEpochMode] = useState<'survey' | 'now'>('survey')
+  const [selectedPlanetKey, setSelectedPlanetKey] = useState<PlanetKey | null>(null)
   const [fullscreen, setFullscreen] = useState(false)
   const [help, setHelp] = useState(false)
+  const [guide, setGuideState] = useState(() => !embed && readGuide(location.search))
+  const setGuide = useCallback((on: boolean) => {
+    setGuideState(on)
+    writeGuide(on)
+  }, [])
   const [source, setSource] = useState<SelectedGaiaSource | null>(null)
   const [backgroundMode, setBackgroundMode] = useState<'spherex' | 'wise'>('spherex')
   const [survey, setSurvey] = useState<SurveyInfo>(SURVEY)
-  const [toggles, setTogglesState] = useState<ViewerToggles>(DEFAULT_TOGGLES)
-  const setToggles = useCallback((patch: Partial<ViewerToggles>) => setTogglesState((t) => ({ ...t, ...patch })), [])
+  const [experienceMode, setExperienceModeState] = useState<ExperienceMode>(() => readExperienceMode(location.search))
+  const setExperienceMode = useCallback((next: ExperienceMode) => {
+    setExperienceModeState(next)
+    writeExperienceMode(next)
+  }, [])
+  const [toggles, setTogglesState] = useState<ViewerToggles>(() => ({
+    ...DEFAULT_TOGGLES,
+    crosshair: sel.pred !== undefined ? sel.pred : !(sel.compare || (rq.kind === 'target' && rq.key === 'wise0855')),
+    gaiaOverlays: sel.gaia !== undefined ? sel.gaia : true,
+  }))
 
   // One health check per visit for build/mode diagnostics; never blocks frame requests.
   const health = useQuery({ queryKey: ['health', config.apiBaseUrl], queryFn: ({ signal }) => api.health(signal), enabled: !config.useMock, staleTime: Infinity })
@@ -89,8 +123,8 @@ export default function TheEyesPage() {
 
   const title = target?.name ?? (rq.kind === 'name' && resolved.data ? resolved.data.name : coords ? 'Custom position' : '')
   const detector = sel.detector || target?.recommendedDetector || 6
-  const [spherexOnly, setSpherexOnly] = useState(false)
-  const canCombine = !config.useMock && target?.key === 'wise0855' && detector === 6
+  const spherexOnly = sel.seq === 'spherex'
+  const canCombine = target != null && COMBINED_TARGETS.has(target.key) && detector === 6
   const timeline = canCombine && !spherexOnly ? 'combined' as const : undefined
 
   const framesParams = useMemo(
@@ -110,7 +144,7 @@ export default function TheEyesPage() {
 
   // Selection change → back to the original image, no stale tool state.
   useEffect(() => {
-    setTogglesState((t) => ({ ...DEFAULT_TOGGLES, crosshair: t.crosshair }))
+    setTogglesState((t) => ({ ...DEFAULT_TOGGLES, crosshair: t.crosshair, gaiaOverlays: t.gaiaOverlays }))
   }, [framesParams])
 
   // Open details for a selection that arrives from the URL (deep link / Back).
@@ -119,9 +153,14 @@ export default function TheEyesPage() {
     if (!coords || lastQ.current === sel.q) return
     lastQ.current = sel.q
     setSkyMotion(false)
+    setTogglesState({
+      ...DEFAULT_TOGGLES,
+      crosshair: sel.pred !== undefined ? sel.pred : !(sel.compare || target?.key === 'wise0855'),
+      gaiaOverlays: sel.gaia !== undefined ? sel.gaia : true,
+    })
     open('target')
     if (mapCoords) mapRef.current?.focus(mapCoords.ra, mapCoords.dec, 0.6)
-  }, [coords, mapCoords, sel.q, open])
+  }, [coords, mapCoords, sel.q, sel.compare, sel.pred, sel.gaia, target?.key, open])
 
   const commit = useCallback(
     (next: Partial<Selection>, replace = false) => {
@@ -129,6 +168,45 @@ export default function TheEyesPage() {
       setSearchParams(serializeSelection(merged).replace(/^\?/, '') + (embed ? '&embed=1' : ''), { replace })
     },
     [sel, setSearchParams, embed],
+  )
+
+  const setToggles = useCallback(
+    (patch: Partial<ViewerToggles>) => {
+      setTogglesState((t) => ({ ...t, ...patch }))
+      const urlPatch: Partial<Selection> = {}
+      if (patch.gaiaOverlays !== undefined) urlPatch.gaia = patch.gaiaOverlays
+      if (patch.crosshair !== undefined) urlPatch.pred = patch.crosshair
+      if (Object.keys(urlPatch).length > 0 && (sel.compare || target?.key === 'wise0855' || sel.frameA || sel.frameB || sel.markA || sel.markB)) {
+        commit(urlPatch, true)
+      }
+    },
+    [commit, sel.compare, sel.frameA, sel.frameB, sel.markA, sel.markB, target?.key],
+  )
+
+  const compareSelection = useMemo(
+    () => ({
+      queryText: sel.q,
+      frameAId: sel.frameA,
+      frameBId: sel.frameB,
+      markA: sel.markA ?? null,
+      markB: sel.markB ?? null,
+      onFramePairChange: (frameAId: string, frameBId: string) =>
+        commit(
+          {
+            compare: true,
+            frameA: frameAId,
+            frameB: frameBId,
+            markA: frameAId === sel.frameA ? sel.markA : undefined,
+            markB: frameBId === sel.frameB ? sel.markB : undefined,
+          },
+          true,
+        ),
+      onMarkChange: (slot: 'A' | 'B', px: [number, number] | null) =>
+        commit(slot === 'A' ? { compare: true, markA: px ?? undefined } : { compare: true, markB: px ?? undefined }, true),
+      onClearAllMarks: () => commit({ markA: undefined, markB: undefined }, true),
+      onResetFrames: () => commit({ frameA: undefined, frameB: undefined, markA: undefined, markB: undefined }, true),
+    }),
+    [commit, sel.q, sel.frameA, sel.frameB, sel.markA, sel.markB],
   )
 
   const selectTarget = useCallback(
@@ -140,12 +218,44 @@ export default function TheEyesPage() {
         mapRef.current?.focus(p.ra, p.dec, 0.6)
         return
       }
-      commit({ q: key, detector: 0, fovArcmin: null })
+      commit(
+        {
+          q: key,
+          detector: 0,
+          fovArcmin: null,
+          compare: undefined,
+          seq: undefined,
+          band: undefined,
+          frameA: undefined,
+          frameB: undefined,
+          markA: undefined,
+          markB: undefined,
+          gaia: undefined,
+          pred: undefined,
+        },
+      )
     },
     [commit, open, sel.q],
   )
 
-  const submitQuery = useCallback((q: string) => commit({ q, detector: 0, fovArcmin: null }), [commit])
+  const submitQuery = useCallback(
+    (q: string) =>
+      commit({
+        q,
+        detector: 0,
+        fovArcmin: null,
+        compare: undefined,
+        seq: undefined,
+        band: undefined,
+        frameA: undefined,
+        frameB: undefined,
+        markA: undefined,
+        markB: undefined,
+        gaia: undefined,
+        pred: undefined,
+      }),
+    [commit],
+  )
 
   // FOV of the image viewer is display-only; record it in the URL lazily.
   const fovTimer = useRef<number | undefined>(undefined)
@@ -162,6 +272,14 @@ export default function TheEyesPage() {
   )
   useEffect(() => () => window.clearTimeout(fovTimer.current), [])
 
+  const [liveMjd, setLiveMjd] = useState(() => currentMjd())
+  const activePlanetEpochMjd = planetEpochMode === 'now' ? liveMjd : (survey.epochMjd ?? DR1_MAP_MJD)
+  const planetPositions = useMemo(() => computePlanetPositions(activePlanetEpochMjd), [activePlanetEpochMjd])
+  const selectedPlanet = useMemo(
+    () => (selectedPlanetKey ? (planetPositions.find((p) => p.key === selectedPlanetKey) ?? null) : null),
+    [planetPositions, selectedPlanetKey],
+  )
+
   useEffect(() => {
     if (mapStatus.s === 'ready') mapRef.current?.setGridVisible(grid)
   }, [grid, mapStatus.s])
@@ -175,6 +293,23 @@ export default function TheEyesPage() {
     mapRef.current?.setGaiaVisible(gaia, mapCoords ?? undefined, target?.key ?? null)
     if (!gaia) setGaiaStatus({ status: 'idle' })
   }, [gaia, mapCoords, target?.key, mapStatus.s])
+
+  useEffect(() => {
+    if (mapStatus.s !== 'ready') return
+    mapRef.current?.setPlanetsVisible(planets, activePlanetEpochMjd)
+  }, [planets, activePlanetEpochMjd, mapStatus.s])
+
+  const focusPlanet = useCallback((p: PlanetSkyPosition) => {
+    setSource(null)
+    setSelectedPlanetKey(p.key)
+    setSkyMotion(false)
+    if (p.isObserver) {
+      setGround(true)
+      return
+    }
+    if (!planets) setPlanets(true)
+    mapRef.current?.focus(p.ra, p.dec, 28)
+  }, [planets])
 
   useEffect(() => {
     const onFs = () => setFullscreen(document.fullscreenElement === stageRef.current)
@@ -201,7 +336,7 @@ export default function TheEyesPage() {
       if (document.querySelector('.modal-backdrop')) return
       switch (e.key) {
         case ' ':
-          if (!popupOpen) return
+          if (!popupOpen || isInteractiveTarget(e.target)) return
           e.preventDefault()
           dispatch({ type: 'toggle' })
           break
@@ -233,21 +368,27 @@ export default function TheEyesPage() {
         case '?':
           setHelp(true)
           break
+        case 't':
+        case 'T':
+          if (!embed) setGuide(!guide)
+          break
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [popupOpen, help, dispatch, center, session.total, toggles.mode, setToggles, overlay, close, reduceMotion, timeline])
+  }, [popupOpen, help, dispatch, center, session.total, toggles.mode, setToggles, overlay, close, reduceMotion, timeline, embed, guide, setGuide])
 
   const shareUrl = typeof window !== 'undefined' ? `${window.location.origin}${PATHS.explorer}${serializeSelection(sel)}` : ''
   const embedUrl = `${shareUrl}${shareUrl.includes('?') ? '&' : '?'}embed=1`
-  const dataLabel = config.useMock ? 'Observation data: Illustrative demo (generated)' : timeline ? 'Observation data: unWISE and SPHEREx' : 'Observation data: NASA/IPAC IRSA, SPHEREx'
+  const isMock = config.useMock || session.data?.mode === 'mock'
+  const dataLabel = isMock ? 'Observation data: Illustrative demo (generated)' : timeline ? 'Observation data: unWISE and SPHEREx' : 'Observation data: NASA/IPAC IRSA, SPHEREx'
   // In the TAN projection, scale is proportional to the inverse tangent of half the field of view.
   const zoomLabel = mapFovDeg === null ? '—' : zoomFormat.format(
     Math.tan(DEFAULT_MAP_FOV_DEG * Math.PI / 360) / Math.tan(mapFovDeg * Math.PI / 360),
   )
 
   return (
+    <GuideProvider value={guide}>
     <div className={`eyes${embed ? ' eyes--embed' : ''}`}>
       <a href="#sky" className="skip-link">
         Skip to sky map
@@ -285,7 +426,13 @@ export default function TheEyesPage() {
           onGaiaStatus={setGaiaStatus}
           onSourceSelected={(s) => {
             close('navigation')
+            setSelectedPlanetKey(null)
             setSource(s)
+          }}
+          onPlanetSelected={(p) => {
+            close('navigation')
+            setSource(null)
+            setSelectedPlanetKey(p.key)
           }}
           detector={detector}
           backgroundMode={backgroundMode}
@@ -332,6 +479,162 @@ export default function TheEyesPage() {
           </div>
         )}
 
+        {!popupOpen && !selectedPlanet && !embed && planets && mapStatus.s === 'ready' && (
+          <nav className="planet-strip" aria-label="Solar System planets">
+            {planetPositions.map((p) => (
+              <button
+                key={p.key}
+                type="button"
+                className={`planet-chip${selectedPlanetKey === p.key ? ' is-selected' : ''}`}
+                aria-pressed={selectedPlanetKey === p.key}
+                title={p.isObserver ? 'Earth (observer beneath low-Earth orbit)' : `${p.name} · ${p.geoAu.toFixed(2)} AU from Earth`}
+                onClick={() => focusPlanet(p)}
+              >
+                <span className="planet-chip__sym" style={{ color: p.color }} aria-hidden>
+                  {p.symbol}
+                </span>
+                <span>{p.name}</span>
+              </button>
+            ))}
+          </nav>
+        )}
+
+        {selectedPlanet && (
+          <section className="source-card planet-card" aria-label="Solar System planet">
+            <div className="source-card__head">
+              <h2 className="source-card__title">
+                <span style={{ color: selectedPlanet.color }} aria-hidden>
+                  {selectedPlanet.symbol}{' '}
+                </span>
+                {selectedPlanet.name}
+              </h2>
+              <button type="button" className="icon-btn icon-btn--sm" aria-label="Close planet details" onClick={() => setSelectedPlanetKey(null)}>
+                <X aria-hidden />
+              </button>
+            </div>
+            <div className="planet-card__meta">
+              <span className="pill">{selectedPlanet.category}</span>
+              {!selectedPlanet.isObserver && (
+                <div className="planet-card__epoch" role="group" aria-label="Planet position epoch">
+                  <button
+                    type="button"
+                    className={`planet-epoch-btn${planetEpochMode === 'survey' ? ' is-on' : ''}`}
+                    aria-pressed={planetEpochMode === 'survey'}
+                    onClick={() => setPlanetEpochMode('survey')}
+                  >
+                    {survey.epochLabel ?? 'Survey'}
+                  </button>
+                  <button
+                    type="button"
+                    className={`planet-epoch-btn${planetEpochMode === 'now' ? ' is-on' : ''}`}
+                    aria-pressed={planetEpochMode === 'now'}
+                    onClick={() => {
+                      setLiveMjd(currentMjd())
+                      setPlanetEpochMode('now')
+                    }}
+                  >
+                    Today
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {experienceMode === 'explore' ? (
+              <>
+                <dl className="facts">
+                  <div>
+                    <dt>Distance from Earth</dt>
+                    <dd className="num">
+                      {selectedPlanet.isObserver
+                        ? '0 AU — SPHEREx flies ~650 km overhead'
+                        : `${selectedPlanet.geoAu.toFixed(2)} AU (${formatLightTime(selectedPlanet.lightTimeMin)})`}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Distance from the Sun</dt>
+                    <dd className="num">{selectedPlanet.helioAu.toFixed(2)} AU</dd>
+                  </div>
+                </dl>
+                <p className="caption planet-card__fact">{selectedPlanet.funFact}</p>
+              </>
+            ) : (
+              <>
+                <dl className="facts">
+                  {selectedPlanet.isObserver ? (
+                    <>
+                      <div>
+                        <dt>Orbital radius (r)</dt>
+                        <dd className="num">{selectedPlanet.helioAu.toFixed(4)} AU</dd>
+                      </div>
+                      <div>
+                        <dt>Observer orbit</dt>
+                        <dd>~650 km Sun-synchronous LEO along the terminator</dd>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div>
+                        <dt>
+                          Apparent ICRS ({planetEpochMode === 'now' ? 'Live today' : (survey.epochLabel ?? `MJD ${DR1_MAP_MJD}`)})
+                        </dt>
+                        <dd className="num">
+                          {formatRaHms(selectedPlanet.ra)} {formatDecDms(selectedPlanet.dec)}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt>Heliocentric r / Geocentric Δ</dt>
+                        <dd className="num">
+                          {selectedPlanet.helioAu.toFixed(3)} AU / {selectedPlanet.geoAu.toFixed(3)} AU
+                        </dd>
+                      </div>
+                      <div>
+                        <dt>Solar elongation · Light time</dt>
+                        <dd className="num">
+                          {selectedPlanet.elongationDeg.toFixed(1)}° · {formatLightTime(selectedPlanet.lightTimeMin)}
+                        </dd>
+                      </div>
+                    </>
+                  )}
+                </dl>
+                <p className="caption planet-card__fact">{selectedPlanet.spherexNote}</p>
+              </>
+            )}
+
+            <div className="planet-card__actions">
+              {selectedPlanet.isObserver ? (
+                <button type="button" className="btn btn-secondary" onClick={() => setGround((g) => !g)}>
+                  <Mountain aria-hidden /> {ground ? 'Hide Earth horizon' : 'Show Earth horizon'}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => {
+                    if (!planets) setPlanets(true)
+                    mapRef.current?.focus(selectedPlanet.ra, selectedPlanet.dec, 28)
+                  }}
+                >
+                  <LocateFixed aria-hidden /> Center on {selectedPlanet.name}
+                </button>
+              )}
+              <div className="planet-card__jumper" aria-label="Jump to another planet">
+                {planetPositions.map((p) => (
+                  <button
+                    key={p.key}
+                    type="button"
+                    className={`planet-jump-btn${p.key === selectedPlanet.key ? ' is-selected' : ''}`}
+                    title={p.name}
+                    aria-label={p.name}
+                    onClick={() => focusPlanet(p)}
+                  >
+                    <span style={{ color: p.color }}>{p.symbol}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
+
         {source && (
           <section className="source-card" aria-label="Gaia DR3 star">
             <div className="source-card__head">
@@ -376,17 +679,47 @@ export default function TheEyesPage() {
           </section>
         )}
 
-        {!embed && <Tutorial hidden={overlay !== 'none'} />}
+        {!embed && <GuideToggle on={guide} onChange={setGuide} />}
+
+        {!popupOpen && (
+          <GuideNote step={1} className="guide-float guide-float--start">
+            <strong>Choose a target.</strong> Click one of the featured stars above, search a name or RA/Dec, or click a target marker on the sky. Steps 2–4 appear in the panel that opens.
+          </GuideNote>
+        )}
+        {!popupOpen && (
+          <GuideNote className="guide-float guide-float--dock">
+            Sky map tools: drag to look around, scroll or −/+ to zoom. <strong>Gaia stars</strong> here marks Gaia DR3 stars on the big sky map; the circles inside the image have their own switch.
+          </GuideNote>
+        )}
 
         {popupOpen && coords && (
             <TargetPopup
-              timelineControl={canCombine ? { combined: !spherexOnly, setCombined: (value) => setSpherexOnly(!value) } : undefined}
+              timelineControl={
+                canCombine
+                  ? {
+                      combined: !spherexOnly,
+                      setCombined: (value) =>
+                        commit(
+                          {
+                            seq: value ? 'combined' : 'spherex',
+                            frameA: undefined,
+                            frameB: undefined,
+                            markA: undefined,
+                            markB: undefined,
+                          },
+                          true,
+                        ),
+                    }
+                  : undefined
+              }
+              initialCompare={Boolean(sel.compare || target?.key === 'wise0855')}
+              compareSelection={compareSelection}
               key={`${coords.ra}:${coords.dec}`}
               target={target}
               title={title}
               coords={coords}
               detector={detector}
-              onDetector={(d) => commit({ detector: d })}
+              onDetector={(d) => commit({ detector: d, frameA: undefined, frameB: undefined, markA: undefined, markB: undefined })}
               session={session}
               player={player}
               dispatch={dispatch}
@@ -402,9 +735,32 @@ export default function TheEyesPage() {
               survey={survey}
               shareUrl={shareUrl}
               embedUrl={embedUrl}
+              experienceMode={experienceMode}
+              onExperienceModeChange={setExperienceMode}
             />
           )}
         <div className="dock" role="toolbar" aria-label="Sky tools">
+          <div className="dock__switch" role="group" aria-label="Experience mode">
+            <button
+              type="button"
+              className="dock__btn"
+              aria-pressed={experienceMode === 'explore'}
+              title="Explore mode for beginners & students"
+              onClick={() => setExperienceMode('explore')}
+            >
+              <span>Explore</span>
+            </button>
+            <button
+              type="button"
+              className="dock__btn"
+              aria-pressed={experienceMode === 'science'}
+              title="Science mode for citizen scientists & researchers"
+              onClick={() => setExperienceMode('science')}
+            >
+              <span>Science</span>
+            </button>
+          </div>
+          <span className="dock__sep" aria-hidden />
           <button type="button" className="dock__btn" aria-pressed={grid} title="RA/Dec grid (G)" onClick={() => setGrid((g) => !g)}>
             <Grid3x3 aria-hidden /> <span>RA/Dec</span>
           </button>
@@ -423,6 +779,20 @@ export default function TheEyesPage() {
           </button>
           <button type="button" className="dock__btn" aria-pressed={gaia} title="Gaia DR3 stars around the target" disabled={!coords} onClick={() => setGaia((g) => !g)}>
             <Sparkles aria-hidden /> <span>Gaia stars</span>
+          </button>
+          <button
+            type="button"
+            className="dock__btn"
+            aria-pressed={planets}
+            title={
+              experienceMode === 'explore'
+                ? 'Show or hide the 9 Solar System planets along the sky'
+                : 'Overlay Solar System planets along the ecliptic at the active epoch'
+            }
+            disabled={mapStatus.s !== 'ready'}
+            onClick={() => setPlanets((p) => !p)}
+          >
+            <Globe2 aria-hidden /> <span>Planets</span>
           </button>
           <span className="dock__sep" aria-hidden />
           <div className="dock__switch" role="group" aria-label="Sky background survey">
@@ -479,7 +849,7 @@ export default function TheEyesPage() {
           {survey.fromArchive ? ' · sky_archive' : ''}
         </span>
         <span className="sep">·</span>
-        <span className={config.useMock ? 'demo-tag' : undefined}>{dataLabel}</span>
+        <span className={isMock ? 'demo-tag' : undefined}>{dataLabel}</span>
         {!config.useMock && (
           <>
             <span className="sep">·</span>
@@ -492,5 +862,6 @@ export default function TheEyesPage() {
 
       {help && <HelpDialog onClose={() => setHelp(false)} />}
     </div>
+    </GuideProvider>
   )
 }

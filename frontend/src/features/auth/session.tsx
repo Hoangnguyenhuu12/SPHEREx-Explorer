@@ -1,11 +1,18 @@
 /* oxlint-disable react/only-export-components -- helpers live next to their provider/view on purpose */
 /**
- * Frontend-only session for the demo. It stands in for a real backend session (cookie + user ID +
- * role) until the team ships one. Nothing here is a security boundary: the real backend must check
- * identity and role on every request. Passwords are never stored.
+ * Session for the Forum.
+ *  - Demo mode (default): a frontend-only stand-in kept in sessionStorage, with a role switch.
+ *  - Live mode (VITE_FORUM_API=http): Supabase Auth owns the session; id, display name and role come
+ *    from GET /api/forum/me, which reads the role from the forum database, never from the token.
+ * Nothing here is a security boundary: the backend checks identity and role on every request.
+ * Passwords are never stored.
  */
 import { useQueryClient } from '@tanstack/react-query'
-import { createContext, useCallback, useContext, useMemo, useSyncExternalStore, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useSyncExternalStore, type ReactNode } from 'react'
+import { config } from '../../app/config'
+import { get, request } from '../forum/http/client'
+import type { WMe } from '../forum/http/wire'
+import { supabase } from './supabase'
 
 export type Role = 'member' | 'admin'
 
@@ -73,8 +80,60 @@ export function displayNameOf(userId: string): string | null {
 let cached: SessionUser | null | undefined
 const listeners = new Set<() => void>()
 
+// ------------------------------------------------------------------ live mode
+
+let liveUser: SessionUser | null = null
+let liveReady = !config.forumLive
+let liveStarted = false
+let loadSeq = 0
+
+function toUser(me: WMe, email: string): SessionUser {
+  return { id: me.profile.id, email, displayName: me.profile.display_name, role: me.role === 'admin' ? 'admin' : 'member' }
+}
+
+/** Re-read the Supabase session and the forum profile (/me). Resolves once the store is updated. */
+export async function refreshLiveSession(): Promise<SessionUser | null> {
+  const seq = ++loadSeq
+  const { data } = await supabase().auth.getSession()
+  const s = data.session
+  let next: SessionUser | null = null
+  if (s) {
+    try {
+      next = toUser(await get<WMe>('/me', { auth: true }), s.user.email ?? '')
+    } catch (e) {
+      // Forum backend asleep or not configured: stay logged in, without moderator rights.
+      console.warn('Could not load the forum profile', e)
+      next = { id: s.user.id, email: s.user.email ?? '', displayName: null, role: 'member' }
+    }
+  }
+  if (seq === loadSeq) {
+    const same = JSON.stringify(next) === JSON.stringify(liveUser)
+    if (!same) liveUser = next
+    if (!same || !liveReady) {
+      liveReady = true
+      emit()
+    }
+  }
+  return liveUser
+}
+
+function startLiveSession() {
+  if (liveStarted || !config.forumLive) return
+  liveStarted = true
+  void refreshLiveSession()
+  supabase().auth.onAuthStateChange((event) => {
+    // Supabase advises against awaiting its own calls inside this callback.
+    if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'USER_UPDATED') setTimeout(() => void refreshLiveSession(), 0)
+  })
+}
+
+function isReady(): boolean {
+  return liveReady
+}
+
 /** Current user, or null. Also used by the mock Forum API in place of a session cookie. */
 export function getSessionUser(): SessionUser | null {
+  if (config.forumLive) return liveUser
   if (cached !== undefined) return cached
   const stored = readJson<{ id: string; email: string }>(session(), SESSION_KEY)
   if (!stored) return (cached = null)
@@ -105,7 +164,10 @@ let loggedOutAt = 0
 
 export function endSession() {
   loggedOutAt = Date.now()
-  writeJson(session(), SESSION_KEY, null)
+  if (config.forumLive) {
+    liveUser = null
+    void supabase().auth.signOut()
+  } else writeJson(session(), SESSION_KEY, null)
   emit()
 }
 
@@ -116,9 +178,12 @@ export function justLoggedOut(): boolean {
 
 interface SessionApi {
   user: SessionUser | null
-  logIn: (email: string) => SessionUser
+  /** False while the live session is still being restored (page load); guards wait for it. */
+  ready: boolean
+  /** Demo: starts the stand-in session. Live: the login already happened in authService. */
+  logIn: (email: string) => SessionUser | null
   logOut: () => void
-  setDisplayName: (name: string) => void
+  setDisplayName: (name: string) => Promise<void>
   /** Demo only: switch between member and admin to show the moderation screens. */
   setDemoRole: (role: Role) => void
 }
@@ -128,6 +193,8 @@ const SessionContext = createContext<SessionApi | null>(null)
 export function AuthProvider({ children }: { children: ReactNode }) {
   const qc = useQueryClient()
   const user = useSyncExternalStore(subscribe, getSessionUser, () => null)
+  const ready = useSyncExternalStore(subscribe, isReady, () => !config.forumLive)
+  useEffect(startLiveSession, [])
 
   // Private Forum data (my posts, drafts, queue, notifications) must never leak to the next account.
   const dropForumCache = useCallback(() => qc.removeQueries({ queryKey: ['forum'] }), [qc])
@@ -135,7 +202,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logIn = useCallback(
     (email: string) => {
       dropForumCache()
-      return startSession(email)
+      return config.forumLive ? getSessionUser() : startSession(email)
     },
     [dropForumCache],
   )
@@ -143,16 +210,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     endSession()
     dropForumCache()
   }, [dropForumCache])
-  const setDisplayName = useCallback((name: string) => {
+  const setDisplayName = useCallback(async (name: string) => {
     const current = getSessionUser()
     if (!current) return
-    saveProfile(current.id, { displayName: name.trim() })
+    if (config.forumLive) {
+      const res = await request<WMe>('PATCH', '/me', { body: { display_name: name.trim() }, auth: true })
+      liveUser = toUser(res.data, current.email)
+    } else saveProfile(current.id, { displayName: name.trim() })
     emit()
   }, [])
   const setDemoRole = useCallback(
     (role: Role) => {
       const current = getSessionUser()
-      if (!current) return
+      // The real role lives in the forum database (granted with SQL), never in the browser.
+      if (!current || config.forumLive) return
       saveProfile(current.id, { role })
       emit()
       dropForumCache()
@@ -160,7 +231,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [dropForumCache],
   )
 
-  const value = useMemo(() => ({ user, logIn, logOut, setDisplayName, setDemoRole }), [user, logIn, logOut, setDisplayName, setDemoRole])
+  const value = useMemo(() => ({ user, ready, logIn, logOut, setDisplayName, setDemoRole }), [user, ready, logIn, logOut, setDisplayName, setDemoRole])
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>
 }
 

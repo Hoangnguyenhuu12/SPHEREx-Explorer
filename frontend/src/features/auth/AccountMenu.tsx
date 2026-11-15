@@ -8,6 +8,7 @@ import { useNotifications } from '../forum/queries'
 import { Dialog } from '../../shared/ui/Dialog'
 import { useLogOut } from './RequireAuth'
 import { useSession, type Role } from './session'
+import { USING_DEMO_DATA } from '../forum/api'
 
 /** Header control once logged in: who am I, my posts, demo tools, log out. */
 export function AccountMenu() {
@@ -101,6 +102,7 @@ export function AccountMenu() {
               </li>
             )}
           </ul>
+          {USING_DEMO_DATA && (
           <div className="account__demo">
             <p className="caption">Demo tools</p>
             <div className="segmented" role="radiogroup" aria-label="Demo role">
@@ -115,6 +117,7 @@ export function AccountMenu() {
               Reset demo posts
             </button>
           </div>
+          )}
           <button
             type="button"
             className="account__item"

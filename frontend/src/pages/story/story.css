@@ -208,3 +208,115 @@ ol.plain-list {
     grid-template-columns: 1fr;
   }
 }
+
+/* Diagram notes */
+.diagram-note {
+  max-width: 68ch;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 24px;
+}
+.diagram-note strong {
+  color: var(--heading);
+}
+
+/* How to use it: four numbered steps, joined by arrows */
+.steps {
+  list-style: none;
+  margin: var(--space-3) 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-5);
+}
+.step {
+  position: relative;
+  display: grid;
+  gap: var(--space-2);
+  align-content: start;
+  padding: var(--space-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+/* Arrows join the two steps of each row (1 → 2, 3 → 4). */
+.step:nth-child(odd)::after {
+  content: '→';
+  position: absolute;
+  top: 50%;
+  right: calc(-1 * var(--space-5));
+  width: var(--space-5);
+  transform: translateY(-50%);
+  text-align: center;
+  color: var(--heading);
+  font-size: 20px;
+}
+.step__num {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: var(--on-primary);
+  font-weight: 700;
+}
+.step__title {
+  color: var(--heading);
+  font-family: var(--font-display);
+  font-size: 20px;
+  line-height: 28px;
+}
+.step__text {
+  font-size: 15px;
+  line-height: 22px;
+}
+
+/* About us: circular portraits */
+.team-grid {
+  list-style: none;
+  margin: var(--space-4) 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-6) var(--space-4);
+}
+.team-card {
+  display: grid;
+  align-content: start;
+  justify-items: center;
+  gap: var(--space-1);
+  text-align: center;
+}
+.avatar {
+  width: 112px;
+  height: 112px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--line-strong);
+  background: var(--surface);
+}
+.team-card__name {
+  margin-top: var(--space-2);
+  color: var(--heading);
+}
+.team-card__role {
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 22px;
+}
+
+@media (max-width: 560px) {
+  .steps,
+  .team-grid {
+    grid-template-columns: 1fr;
+  }
+  .step::after {
+    display: none;
+  }
+}
+@media (min-width: 561px) and (max-width: 900px) {
+  .team-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

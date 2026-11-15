@@ -1,4 +1,4 @@
-export type ForumErrorCode = 'UNAUTHENTICATED' | 'FORBIDDEN' | 'NOT_FOUND' | 'CONFLICT' | 'VALIDATION' | 'NETWORK'
+export type ForumErrorCode = 'UNAUTHENTICATED' | 'FORBIDDEN' | 'NOT_FOUND' | 'CONFLICT' | 'VALIDATION' | 'NETWORK' | 'UNAVAILABLE'
 
 /** Sub-reasons carried in `details.reason` so the UI can explain conflicts precisely. */
 export type ConflictReason =
@@ -15,6 +15,8 @@ export interface ForumErrorDetails {
   state?: string
   by?: string | null
   fields?: Record<string, string>
+  /** Live backend only: the raw `details.reason` (STALE_VERSION, NO_CHANGE, SELF_REVIEW…). */
+  backendReason?: string
 }
 
 export class ForumError extends Error {
@@ -41,6 +43,8 @@ export function describeForumError(error: unknown): ForumErrorCopy {
   switch (error.code) {
     case 'NETWORK':
       return { title: 'Could not reach the Forum', body: 'Check your connection and try again.', retry: true }
+    case 'UNAVAILABLE':
+      return { title: 'The Forum server is not ready', body: 'It may be starting up, which can take about a minute. Try again shortly.', retry: true }
     case 'UNAUTHENTICATED':
       return { title: 'Please log in', body: 'Your session ended. Log in again to continue.', retry: false }
     case 'FORBIDDEN':
