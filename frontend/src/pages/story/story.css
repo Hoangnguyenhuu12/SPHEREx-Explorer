@@ -320,3 +320,91 @@ ol.plain-list {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+/* Background shooting stars. The layer sits at z-index 0 and the Story content at z-index 1,
+   so every word, card, table and diagram draws on top of it. (z-index -1 would hide it behind
+   body's own background.) It never takes clicks. */
+.story-head,
+.story {
+  position: relative;
+  z-index: 1;
+}
+.sky-fx {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.sky-fx__twinkle {
+  position: absolute;
+  width: 2px;
+  height: 2px;
+  border-radius: 50%;
+  background: #fff3d6;
+  opacity: 0.2;
+  animation: sky-twinkle 4.5s ease-in-out infinite;
+}
+.sky-fx__meteor {
+  position: absolute;
+  width: var(--meteor-length, 180px);
+  height: 2px;
+  border-radius: 999px;
+  /* Bright head on the left, fading tail to the right; rotated so it falls down-left. */
+  background: linear-gradient(to right, rgba(255, 243, 214, 0.95), rgba(255, 243, 214, 0.35) 30%, transparent);
+  opacity: 0;
+  transform-origin: left center;
+  transform: rotate(-30deg) translateX(0);
+  animation-name: sky-meteor;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+.sky-fx__meteor::before {
+  content: '';
+  position: absolute;
+  left: -2px;
+  top: -2px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 10px 3px rgba(244, 239, 131, 0.6);
+}
+/* Each meteor flies during the first ~12% of its cycle, then rests unseen, so only one or two
+   are on screen at a time. */
+@keyframes sky-meteor {
+  0% {
+    opacity: 0;
+    transform: rotate(-30deg) translateX(0);
+  }
+  2% {
+    opacity: 1;
+  }
+  10% {
+    opacity: 0.8;
+  }
+  12%,
+  100% {
+    opacity: 0;
+    transform: rotate(-30deg) translateX(-900px);
+  }
+}
+@keyframes sky-twinkle {
+  0%,
+  100% {
+    opacity: 0.15;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+@media (max-width: 560px) {
+  .sky-fx__meteor:nth-child(n + 21) {
+    display: none; /* keep only the first four meteors on phones */
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sky-fx {
+    display: none;
+  }
+}
