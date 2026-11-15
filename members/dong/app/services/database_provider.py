@@ -12,7 +12,7 @@ class DatabaseError(RuntimeError):
 
 
 def enabled():
-    return os.getenv("DATA_MODE") == "database"
+    return os.getenv("DATA_MODE") in {"database", "hybrid"}
 
 
 def _postgres_enabled():
