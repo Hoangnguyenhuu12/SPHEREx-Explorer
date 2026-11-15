@@ -20,6 +20,7 @@ import {
   X,
 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type Dispatch } from 'react'
+import { createPortal } from 'react-dom'
 import { Link } from 'react-router'
 import { PATHS } from '../../app/config'
 import { describeError } from '../../shared/api/errors'
@@ -1316,7 +1317,8 @@ export function ObservationViewer(props: Props) {
         )}
       </div>
 
-      {expanded && (
+      {/* Portal: the details panel is transformed, which would pin a fixed overlay to the panel and clip it. */}
+      {expanded && createPortal(
         <div className="modal-backdrop" role="presentation" onClick={() => setExpanded(false)}>
           <div
             className="modal modal--image"
@@ -1358,7 +1360,8 @@ export function ObservationViewer(props: Props) {
             </div>
             {!inCompare && timelineControls('expanded')}
           </div>
-        </div>
+        </div>,
+        document.fullscreenElement ?? document.body,
       )}
     </section>
   )

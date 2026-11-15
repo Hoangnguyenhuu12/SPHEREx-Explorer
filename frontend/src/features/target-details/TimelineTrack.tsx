@@ -13,6 +13,8 @@ interface Props {
 export function TimelineTrack({ frames, activeIndex, compareIndices, detector, onSelect }: Props) {
   if (frames.length === 0) return null
   const summary = analyzeTimeline(frames, detector)
+  // In-axis gap labels only where the gap is wide enough to hold the text; every gap is still listed above.
+  const minLabelGap = 0.16
 
   return (
     <div className="timeline-viz" aria-label="Observation timeline by mission and date">
@@ -32,7 +34,7 @@ export function TimelineTrack({ frames, activeIndex, compareIndices, detector, o
         ))}
       </div>
 
-      <div className="timeline-axis" role="group" aria-label="Observation dates">
+      <div className={`timeline-axis${summary.points.length > 14 ? ' timeline-axis--dense' : ''}`} role="group" aria-label="Observation dates">
         <div className="timeline-axis__rail" aria-hidden />
         {summary.gaps.map((g) => {
           const left = g.startPos * 100
@@ -44,7 +46,7 @@ export function TimelineTrack({ frames, activeIndex, compareIndices, detector, o
               style={{ left: `${left}%`, width: `${width}%` }}
               title={`${g.label} between observations`}
             >
-              <span className="timeline-axis__gap-label">{g.label}</span>
+              {g.endPos - g.startPos >= minLabelGap && <span className="timeline-axis__gap-label">{g.label}</span>}
             </div>
           )
         })}
