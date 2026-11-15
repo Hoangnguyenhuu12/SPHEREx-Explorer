@@ -71,6 +71,7 @@ interface Live extends SceneLive {
   layout: Layout
 }
 
+/** Starts settled in the first view, so the page opens there without a transition. */
 function createLive(initialView: SceneView = 'earth'): Live {
   const initialT = initialView === 'solar' ? 1 : 0
   const initialLayout = layout(initialT, EARTH_START_ANGLE)

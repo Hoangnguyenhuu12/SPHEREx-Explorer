@@ -3,7 +3,7 @@ import { AlertTriangle, Check, Copy, Info, Loader2 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { config } from '../../app/config'
 import { api } from '../../shared/api'
-import { describeError } from '../../shared/api/errors'
+import { ApiError, describeError } from '../../shared/api/errors'
 import type { FramesResponse } from '../../shared/api/types'
 import { DETECTORS, type TargetInfo } from '../../shared/config/targets'
 import { buildObservationsCsv, buildPythonSnippet, type ExperienceMode } from '../experience-mode/mode'
@@ -259,12 +259,16 @@ export function DataPanel({
   setFlags,
   picked,
   combined,
+  spectrumOpen,
+  onSpectrumOpenChange,
 }: Common & {
   onDetector: (d: number) => void
   flags: boolean
   setFlags: (v: boolean) => void
   picked: { ra: number; dec: number; x: number; y: number } | null
   combined: boolean
+  spectrumOpen: boolean
+  onSpectrumOpenChange: (open: boolean) => void
 }) {
   const f = data?.frames[activeIndex]
   const flagsQ = useQuery({
@@ -429,8 +433,8 @@ export function DataPanel({
           ) : null)}
       </section>
 
-      <details className="detail-block">
-        <summary className="detail-summary">Spectrum (D1–D6 brightness)</summary>
+      <details className="detail-block" open={spectrumOpen} onToggle={(event) => onSpectrumOpenChange(event.currentTarget.open)}>
+        <summary className="detail-summary">Spectrum (D1–D6 measured flux)</summary>
         <div className="detail-block__inner">
           <SpectrumResult
             position={
@@ -441,6 +445,7 @@ export function DataPanel({
                 y: Math.floor((data?.grid.height ?? 0) / 2),
               }
             }
+            target={target}
           />
         </div>
       </details>
@@ -471,11 +476,12 @@ export function useFlagsOverlay(frameId: string | null, enabled: boolean): HTMLI
   return img
 }
 
-export function SpectrumResult({ position }: { position: { ra: number; dec: number; x: number; y: number } | null }) {
+export function SpectrumResult({ position, target }: { position: { ra: number; dec: number; x: number; y: number } | null; target: TargetInfo | null }) {
   const q = useQuery({
     queryKey: ['spectrum', config.useMock, position?.ra ?? null, position?.dec ?? null],
-    queryFn: ({ signal }) => api.spectrum({ ra: position!.ra, dec: position!.dec }, signal),
+    queryFn: ({ signal }) => api.spectrum({ ra: position!.ra, dec: position!.dec, targetKey: target?.key }, signal),
     enabled: !!position,
+    retry: (count, err) => !(err instanceof ApiError && err.code === 'NO_SPECTRUM') && count < 2,
     staleTime: Infinity,
   })
   if (!position) return <p className="caption">Turn on “Pick a point” and click the image to see the brightness at each wavelength there.</p>
@@ -489,22 +495,46 @@ export function SpectrumResult({ position }: { position: { ra: number; dec: numb
       </div>
       {q.isPending ? (
         <Pending label="Loading spectrum…" />
-      ) : q.isError ? (
+      ) : q.isError && !(q.error instanceof ApiError && q.error.code === 'NO_SPECTRUM') ? (
         <Failed error={q.error} />
+      ) : q.isError || (q.data?.points.length ?? 0) === 0 ? (
+        <p className="caption">No measured spectral samples cover this position. No stellar properties are reported.</p>
       ) : (
-        <ErrorBarChart
-          points={(q.data?.points ?? []).map((p) => ({
-            x: p.wavelength_um,
-            y: p.flux_mjy,
-            err: p.err_mjy,
-            flagged: p.flagged,
-            label: `D${p.detector} ${p.wavelength_um.toFixed(2)} µm: ${p.flux_mjy ?? '—'} mJy`,
-          }))}
-          xLabel="Wavelength (µm)"
-          yLabel="Flux (mJy)"
-          formatX={(x) => x.toFixed(1)}
-          title="Spectrum at the selected point"
-        />
+        <>
+          <ErrorBarChart
+            points={(q.data?.points ?? []).map((p) => ({
+              x: p.wavelength_um,
+              y: p.flux_mjy,
+              err: p.err_mjy,
+              flagged: p.flagged,
+              label: `D${p.detector} ${p.wavelength_um.toFixed(2)} µm: ${p.flux_mjy ?? '—'} mJy`,
+            }))}
+            xLabel="Wavelength (µm)"
+            yLabel="Flux (mJy)"
+            formatX={(x) => x.toFixed(1)}
+            title="Spectrum at the selected point"
+          />
+          <p className="caption">
+            These are measured SPHEREx flux samples from the selected position. The viewer does not infer a stellar class, temperature, distance, or planet from this chart. Use the target catalog and the cited archive products for any physical interpretation.
+          </p>
+          {target ? (
+            <>
+              <dl className="facts">
+                <div><dt>Catalog object classification</dt><dd>{target.kind}</dd></div>
+                <div><dt>Catalog distance</dt><dd>{target.distance}</dd></div>
+                <div><dt>Catalog notes</dt><dd>{target.temperatureAnalogy}</dd></div>
+                <div><dt>Catalog source</dt><dd>Team target catalog, linked from the target record</dd></div>
+              </dl>
+              {target.kind.toLowerCase().includes('brown dwarf') && (
+                <p className="caption">
+                  A brown dwarf is a substellar object. It does not sustain hydrogen fusion like a main-sequence star.
+                </p>
+              )}
+            </>
+          ) : (
+            <p className="caption">No catalog match was found at this position, so no stellar properties are reported.</p>
+          )}
+        </>
       )}
     </div>
   )

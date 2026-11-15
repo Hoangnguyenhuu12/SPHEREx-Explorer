@@ -61,6 +61,7 @@ export function TargetPopup(p: Props) {
   const [tab, setTab] = useState<Tab>('Overview')
   const [picked, setPicked] = useState<{ ra: number; dec: number; x: number; y: number } | null>(null)
   const [rulerMeasurement, setRulerMeasurement] = useState<RulerMeasurement | null>(null)
+  const [spectrumOpen, setSpectrumOpen] = useState(false)
   const [wideCompare, setWideCompare] = useState(false)
   const experienceMode = p.experienceMode ?? 'explore'
   const data = p.session.data
@@ -323,6 +324,12 @@ export function TargetPopup(p: Props) {
           onPixelClick={onPixelClick}
           onClearPick={() => setPicked(null)}
           onRulerChange={setRulerMeasurement}
+          onShowSpectrum={() => {
+            const enabled = !spectrumOpen
+            setSpectrumOpen(enabled)
+            if (enabled) setTab('Details')
+          }}
+          spectrumEnabled={spectrumOpen}
           detector={p.detector}
           onDetectorChange={p.onDetector}
           fovArcmin={p.fovArcmin}
@@ -380,6 +387,8 @@ export function TargetPopup(p: Props) {
               setFlags={(v) => p.setToggles({ flags: v })}
               picked={picked}
               combined={combinedActive}
+              spectrumOpen={spectrumOpen}
+              onSpectrumOpenChange={setSpectrumOpen}
             />
           )}
           {tab === 'More tools' && (

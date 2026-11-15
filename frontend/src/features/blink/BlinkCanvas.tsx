@@ -67,6 +67,8 @@ interface Props {
   label: string
   onFovChange?: (arcmin: number, byUser: boolean) => void
   onPixelClick?: (x: number, y: number) => void
+  /** Tutorial on: spell out what the first Gaia circle and the crosshair mean. */
+  guide?: boolean
 }
 
 function drawTag(ctx: CanvasRenderingContext2D, x: number, y: number, text: string, color: string) {
@@ -103,6 +105,7 @@ export const BlinkCanvas = forwardRef<BlinkCanvasHandle, Props>(function BlinkCa
     label,
     onFovChange,
     onPixelClick,
+    guide = false,
   },
   ref,
 ) {
@@ -168,7 +171,19 @@ export const BlinkCanvas = forwardRef<BlinkCanvasHandle, Props>(function BlinkCa
     // 1. Gaia DR3 reference stars: cyan hollow circles (+ optional motion vector in science mode)
     if (gaiaMarkers && gaiaMarkers.length) {
       const r = Math.max(5, Math.min(8, v.scale * 1.4))
-      gaiaMarkers.forEach((m) => {
+      // The long guide label reads to the right, so give it to the left-most marker in view.
+      let guideIdx = -1
+      if (guide) {
+        let best = Infinity
+        gaiaMarkers.forEach((m, idx) => {
+          const s = pixelCentreToScreen(v, m.px)
+          if (s.x >= 0 && s.y >= 8 && s.y <= h - 8 && s.x < best) {
+            best = s.x
+            guideIdx = idx
+          }
+        })
+      }
+      gaiaMarkers.forEach((m, idx) => {
         const s = pixelCentreToScreen(v, m.px)
         const selected = m.sourceId === selectedSourceId
         ctx.save()
@@ -188,6 +203,8 @@ export const BlinkCanvas = forwardRef<BlinkCanvasHandle, Props>(function BlinkCa
         ctx.restore()
         if (selected) {
           drawTag(ctx, s.x + r + 8, s.y, `Selected · …${m.sourceId.slice(-6)}`, '#34D399')
+        } else if (idx === guideIdx) {
+          drawTag(ctx, s.x + r + 4, s.y, 'Gaia star: should stay put', m.propagated ? '#7CCDF2' : '#C9C2B7')
         }
       })
     }
@@ -236,7 +253,7 @@ export const BlinkCanvas = forwardRef<BlinkCanvasHandle, Props>(function BlinkCa
       drawTag(ctx, s1.x + 6, s1.y - 8, 'A', '#FDE68A')
       drawTag(ctx, s2.x + 6, s2.y + 8, `B · ${ruler.label}`, '#FBBF24')
     }
-  }, [bitmap, gridW, gridH, flagsOverlay, trail, gaiaMarkers, selectedSourceId, picked, pickedLabel, ruler, stretch])
+  }, [bitmap, gridW, gridH, flagsOverlay, trail, gaiaMarkers, selectedSourceId, picked, pickedLabel, ruler, stretch, guide])
 
   const drawRef = useRef(draw)
   drawRef.current = draw

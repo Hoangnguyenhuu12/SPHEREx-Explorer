@@ -20,7 +20,7 @@ class Versioned(Model):
 
 class Health(Versioned):
     status: Literal["ok", "degraded"]
-    mode: Literal["fixture", "live", "local", "harvest", "database"]
+    mode: Literal["fixture", "live", "local", "harvest", "database", "hybrid"]
     fixture_targets: list[str]
     irsa_reachable: bool | None
     git_sha: str

@@ -16,6 +16,7 @@ export default function WhereAreYouPage() {
   const [userPaused, setUserPaused] = useState(false)
   const [hover, setHover] = useState(false)
   const [earthReady, setEarthReady] = useState(false)
+  // Open on the whole Solar System first; Earth and the SPHEREx orbit are one click away.
   const [view, setView] = useState<SceneView>('solar')
   const onReady = useCallback(() => setEarthReady(true), [])
   const sunRef = useRef<HTMLSpanElement>(null)

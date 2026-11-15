@@ -121,6 +121,8 @@
   font-size: 22px;
   font-weight: 700;
   position: relative;
+  /* Above the connecting line and its progress glow, so the line stops at the circle's edge. */
+  z-index: 1;
 }
 .step__title {
   font-size: 22px;

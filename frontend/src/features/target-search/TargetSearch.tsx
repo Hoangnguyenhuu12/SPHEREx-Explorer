@@ -39,7 +39,7 @@ export function TargetSearch({ value, selectedKey, busy, onSubmit, onPreset }: P
   }
 
   return (
-    <div className="search">
+    <div className="search" data-tour="targets">
       <form className="search__form" role="search" onSubmit={submit} noValidate>
         <label htmlFor="target-search" className="sr-only">
           Search a star name or RA/Dec

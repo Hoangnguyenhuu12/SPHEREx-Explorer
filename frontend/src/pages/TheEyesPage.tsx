@@ -20,7 +20,9 @@ import { TargetPopup } from '../features/target-details/TargetPopup'
 import type { ViewerToggles } from '../features/target-details/ObservationViewer'
 import { TargetSearch } from '../features/target-search/TargetSearch'
 import { parseSelection, resolveQuery, serializeSelection, type Selection } from '../features/target-search/explorer-url'
-import { HelpDialog, Tutorial } from './eyes/Help'
+import { HelpDialog } from './eyes/Help'
+import { GuideToggle, GuideTour, type TourStep } from '../features/guide/guide'
+import { GuideProvider, readGuide, writeGuide } from '../features/guide/guide-state'
 import { Horizon } from '../features/sky-map/Horizon'
 import './eyes/eyes.css'
 
@@ -69,6 +71,11 @@ export default function TheEyesPage() {
   const [selectedPlanetKey, setSelectedPlanetKey] = useState<PlanetKey | null>(null)
   const [fullscreen, setFullscreen] = useState(false)
   const [help, setHelp] = useState(false)
+  const [guide, setGuideState] = useState(() => !embed && readGuide(location.search))
+  const setGuide = useCallback((on: boolean) => {
+    setGuideState(on)
+    writeGuide(on)
+  }, [])
   const [source, setSource] = useState<SelectedGaiaSource | null>(null)
   const [backgroundMode, setBackgroundMode] = useState<'spherex' | 'wise'>('spherex')
   const [survey, setSurvey] = useState<SurveyInfo>(SURVEY)
@@ -320,7 +327,7 @@ export default function TheEyesPage() {
   // Page shortcuts; never while typing, and the image canvas handles its own keys.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (isTyping(e.target) || e.metaKey || e.ctrlKey || e.altKey || help) return
+      if (isTyping(e.target) || e.metaKey || e.ctrlKey || e.altKey || help || guide) return
       if (document.querySelector('.modal-backdrop')) return
       switch (e.key) {
         case ' ':
@@ -356,11 +363,15 @@ export default function TheEyesPage() {
         case '?':
           setHelp(true)
           break
+        case 't':
+        case 'T':
+          if (!embed) setGuide(!guide)
+          break
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [popupOpen, help, dispatch, center, session.total, toggles.mode, setToggles, overlay, close, reduceMotion, timeline])
+  }, [popupOpen, help, dispatch, center, session.total, toggles.mode, setToggles, overlay, close, reduceMotion, timeline, embed, guide, setGuide])
 
   const shareUrl = typeof window !== 'undefined' ? `${window.location.origin}${PATHS.explorer}${serializeSelection(sel)}` : ''
   const embedUrl = `${shareUrl}${shareUrl.includes('?') ? '&' : '?'}embed=1`
@@ -371,7 +382,88 @@ export default function TheEyesPage() {
     Math.tan(DEFAULT_MAP_FOV_DEG * Math.PI / 360) / Math.tan(mapFovDeg * Math.PI / 360),
   )
 
+  const tourCombined = canCombine && !spherexOnly
+  const tourSteps = useMemo<TourStep[]>(() => {
+    const steps: TourStep[] = [
+      {
+        anchors: ['targets'],
+        title: 'Choose a target',
+        body: (
+          <p>
+            Click one of the five featured stars, or type a star name or RA/Dec and press <strong>Go</strong>.
+            {popupOpen ? '' : ' Press Next and we will open Barnard’s Star for you.'}
+          </p>
+        ),
+      },
+      {
+        anchors: ['detectors'],
+        needsTarget: true,
+        title: 'Pick an infrared channel',
+        body: <p>SPHEREx has six detectors, from D1 (0.75 µm) to D6 (5 µm). Cold objects such as the brown dwarf WISE 0855 show best in D5–D6.</p>,
+      },
+      {
+        anchors: ['player', 'view-mode'],
+        needsTarget: true,
+        title: 'Step through the dates',
+        body: <p>Press <strong>Play</strong> to run the observations like a short film, drag the slider, or use ← →. The date above the image is when that frame was taken.</p>,
+      },
+      {
+        anchors: ['image'],
+        needsTarget: true,
+        title: 'Read the image',
+        body: tourCombined ? (
+          <>
+            <p>
+              <span className="sym-gaia">○ Yellow circles</span> mark Gaia DR3 stars. They barely move, so use them as reference: your target is the one that shifts or changes brightness.
+            </p>
+            <p>The <strong>+</strong> cross is where the target should be on this date. Click the image to mark a star; scroll or use − / + to zoom.</p>
+          </>
+        ) : (
+          <p>The <strong>+</strong> cross is where the target should be on this date. Click the image to mark a star; scroll or use − / + to zoom.</p>
+        ),
+      },
+    ]
+    if (tourCombined) {
+      steps.push({
+        anchors: ['source'],
+        needsTarget: true,
+        title: 'Hide the yellow circles',
+        body: <p>The circles are drawn into the combined WISE + SPHEREx images. Choose <strong>SPHEREx only</strong> here to see the images without them.</p>,
+      })
+    }
+    steps.push(
+      {
+        anchors: ['markers'],
+        needsTarget: true,
+        title: 'Markers on or off',
+        body: <p><strong>Show predicted position</strong> turns the + cross on or off, so you can try to spot the target yourself first.</p>,
+      },
+      {
+        anchors: ['display', 'view-mode'],
+        needsTarget: true,
+        title: 'Spot what changed',
+        body: (
+          <p>
+            <strong>Compare two dates</strong> puts two observations side by side. In Timeline, <strong>Difference</strong> subtracts the first date: still stars vanish and a bright–dark pair marks something that moved.
+          </p>
+        ),
+      },
+      {
+        anchors: ['tour-toggle'],
+        title: 'That’s it',
+        body: <p>Open this tutorial again any time with the <strong>Tutorial</strong> button or the T key.</p>,
+      },
+    )
+    return steps
+  }, [tourCombined, popupOpen])
+
+  const ensureTourTarget = useCallback(() => {
+    if (coords) open('target')
+    else selectTarget('barnard')
+  }, [coords, open, selectTarget])
+
   return (
+    <GuideProvider value={guide}>
     <div className={`eyes${embed ? ' eyes--embed' : ''}`}>
       <a href="#sky" className="skip-link">
         Skip to sky map
@@ -662,7 +754,9 @@ export default function TheEyesPage() {
           </section>
         )}
 
-        {!embed && <Tutorial hidden={overlay !== 'none'} />}
+        {!embed && <GuideToggle on={guide} onChange={setGuide} />}
+        {guide && !embed && <GuideTour steps={tourSteps} hasTarget={popupOpen} ensureTarget={ensureTourTarget} onClose={() => setGuide(false)} />}
+
 
         {popupOpen && coords && (
             <TargetPopup
@@ -834,5 +928,6 @@ export default function TheEyesPage() {
 
       {help && <HelpDialog onClose={() => setHelp(false)} />}
     </div>
+    </GuideProvider>
   )
 }

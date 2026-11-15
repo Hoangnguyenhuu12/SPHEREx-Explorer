@@ -1,0 +1,185 @@
+.guide-toggle {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  z-index: 22;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 44px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius);
+  border: 1px solid var(--line-strong);
+  background: rgb(23 23 31 / 0.94);
+  color: var(--fg);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+.guide-toggle svg {
+  width: 18px;
+  height: 18px;
+}
+.guide-toggle:hover {
+  background: var(--surface-2);
+}
+.guide-toggle:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+.guide-toggle[aria-pressed='true'] {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+.guide-toggle__state {
+  font-size: 12px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--muted);
+}
+.guide-toggle[aria-pressed='true'] .guide-toggle__state {
+  background: var(--primary);
+  color: var(--on-primary);
+}
+
+/* Spotlight tour */
+.tour {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  pointer-events: none;
+}
+.tour__dim,
+.tour__spot {
+  position: fixed;
+  pointer-events: none;
+}
+.tour__dim {
+  inset: 0;
+  background: rgb(5 5 10 / 0.72);
+}
+.tour__spot {
+  border-radius: 10px;
+  box-shadow:
+    0 0 0 2px var(--primary),
+    0 0 0 9999px rgb(5 5 10 / 0.72);
+  transition:
+    top 260ms cubic-bezier(0.2, 0.7, 0.2, 1),
+    left 260ms cubic-bezier(0.2, 0.7, 0.2, 1),
+    width 260ms cubic-bezier(0.2, 0.7, 0.2, 1),
+    height 260ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.tour__block {
+  position: fixed;
+  pointer-events: auto;
+}
+.tour__card {
+  position: fixed;
+  width: min(340px, calc(100vw - 24px));
+  padding: var(--space-4);
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--primary);
+  box-shadow: 0 12px 40px rgb(0 0 0 / 0.55);
+  color: var(--fg);
+  pointer-events: auto;
+  display: grid;
+  gap: var(--space-2);
+  transition:
+    top 260ms cubic-bezier(0.2, 0.7, 0.2, 1),
+    left 260ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.tour--still .tour__spot,
+.tour--still .tour__card {
+  transition: none;
+}
+.tour__arrow {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  background: var(--surface);
+  border: 1px solid var(--primary);
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+/* The arrow sits on the card edge that faces the highlighted control. */
+.tour__card--bottom .tour__arrow {
+  top: 0;
+  border-right: 0;
+  border-bottom: 0;
+}
+.tour__card--top .tour__arrow {
+  top: 100%;
+  border-left: 0;
+  border-top: 0;
+}
+.tour__card--right .tour__arrow {
+  left: 0;
+  border-right: 0;
+  border-top: 0;
+}
+.tour__card--left .tour__arrow {
+  left: 100%;
+  border-left: 0;
+  border-bottom: 0;
+}
+.tour__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.tour__count {
+  font-size: 12px;
+  color: var(--muted);
+}
+.tour__title {
+  font-size: 18px;
+  line-height: 24px;
+  color: var(--heading);
+  margin: 0;
+}
+.tour__body {
+  font-size: 14px;
+  line-height: 20px;
+  display: grid;
+  gap: var(--space-2);
+}
+.tour__body p {
+  margin: 0;
+}
+.tour__body strong {
+  color: var(--primary);
+}
+.tour__body .sym-gaia {
+  color: #f4ef83;
+  font-weight: 700;
+}
+.tour__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+}
+.tour__spacer {
+  flex: 1;
+}
+
+/* Keep the details panel below the toggle wherever the two would meet. */
+@media (max-width: 940px) {
+  .eyes__stage:has(.guide-toggle) .popup--wide {
+    top: calc(44px + 2 * var(--space-3));
+  }
+}
+@media (max-width: 720px) {
+  .guide-toggle {
+    top: var(--space-2);
+    right: var(--space-2);
+  }
+  .guide-toggle > span:first-of-type {
+    display: none;
+  }
+  .eyes__stage:has(.guide-toggle) .popup,
+  .eyes__stage:has(.guide-toggle) .popup--wide {
+    top: calc(44px + 2 * var(--space-2));
+  }
+}

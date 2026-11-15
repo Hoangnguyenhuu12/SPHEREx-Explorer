@@ -179,3 +179,30 @@ def test_png_marker_and_difference_zero(client):
         # Outside the artificial source and FIX label, zero difference is gray 128.
         difference = Image.open(io.BytesIO(client.get(frame["diff_png"]).content))
         assert difference.getpixel((0, 0)) == 128
+
+
+def test_hybrid_routes_only_coordinate_queries_to_sia2(client, monkeypatch):
+    from unittest.mock import Mock
+
+    from app.services import fixtures, live_cutouts
+
+    saved = client.get("/api/frames", params=QUERY)
+    assert saved.status_code == 200
+    monkeypatch.setenv("DATA_MODE", "hybrid")
+    database_frames = Mock(return_value=saved.json())
+    sia2 = Mock(return_value=[])
+    monkeypatch.setattr(fixtures, "load_database_spherex_frames", database_frames)
+    monkeypatch.setattr(live_cutouts.irsa, "find_images", sia2)
+
+    keyed = client.get("/api/frames", params={**QUERY, "size": 0.05})
+    assert keyed.status_code == 200
+    assert keyed.json()["frames"] == saved.json()["frames"]
+    database_frames.assert_called_once()
+    sia2.assert_not_called()
+
+    coordinate = client.get("/api/frames", params={"ra": 20, "dec": 30, "detector": 4})
+    assert coordinate.status_code == 404
+    assert coordinate.json()["error"]["code"] == "NO_FRAMES"
+    assert sia2.call_args.args[:2] == (20, 30)
+    assert sia2.call_args.args[3] == 4
+    database_frames.assert_called_once()

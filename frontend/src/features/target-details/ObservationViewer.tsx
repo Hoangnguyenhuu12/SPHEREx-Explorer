@@ -19,10 +19,12 @@ import {
   X,
 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type Dispatch } from 'react'
+import { createPortal } from 'react-dom'
 import { Link } from 'react-router'
 import { PATHS } from '../../app/config'
 import { describeError } from '../../shared/api/errors'
 import { DETECTORS, type TargetInfo } from '../../shared/config/targets'
+import { useGuide } from '../guide/guide-state'
 import { BlinkCanvas, type BlinkCanvasHandle, type GaiaOverlayMarker, type RulerOverlay, type TrailPoint } from '../blink/BlinkCanvas'
 import { SPEEDS, type PlayerAction, type PlayerState } from '../blink/player'
 import type { FrameSession } from '../blink/useFrameSession'
@@ -97,6 +99,8 @@ interface Props {
   onPixelClick: (x: number, y: number) => void
   onClearPick?: () => void
   onRulerChange?: (measurement: RulerMeasurement | null) => void
+  onShowSpectrum?: () => void
+  spectrumEnabled?: boolean
   detector: number
   onDetectorChange?: (detector: number) => void
   timelineControl?: { combined: boolean; setCombined: (value: boolean) => void }
@@ -132,6 +136,7 @@ function getWideViewport(): boolean {
 
 export function ObservationViewer(props: Props) {
   const { session, player, dispatch, toggles, setToggles, targetName } = props
+  const guideOn = useGuide()
   const canvasRef = useRef<BlinkCanvasHandle>(null)
   const canvasBRef = useRef<BlinkCanvasHandle>(null)
   const expandedRef = useRef<BlinkCanvasHandle>(null)
@@ -416,6 +421,7 @@ export function ObservationViewer(props: Props) {
         flagsOverlay={toggles.flags ? props.flagsOverlay : null}
         trail={toggles.trail ? props.trail : undefined}
         gaiaMarkers={markersFor(frameIdx)}
+        guide={guideOn}
         selectedSourceId={selectedStar?.sourceId}
         onStarSelect={identifyStars && catalogAvailable && toggles.gaiaOverlays && !rulerActive && !markingSlot && !isDiff && (markersFor(frameIdx)?.length ?? 0) > 0
           ? (star) => selectStar(star, cSlot)
@@ -553,7 +559,7 @@ export function ObservationViewer(props: Props) {
         )}
       </div>
 
-      <div className="viewer-player">
+      <div className="viewer-player" data-tour={idSuffix === 'main' ? 'player' : undefined}>
         <button type="button" className="icon-btn" aria-label="Previous observation" disabled={!canPlay} onClick={() => dispatch({ type: 'prev' })}>
           <SkipBack aria-hidden />
         </button>
@@ -616,7 +622,7 @@ export function ObservationViewer(props: Props) {
       )}
 
       <div className="viewer-tools">
-        <div className="segmented" role="group" aria-label="Image display">
+        <div className="segmented" role="group" aria-label="Image display" data-tour={idSuffix === 'main' ? 'display' : undefined}>
           <button type="button" aria-pressed={!isDiff} onClick={() => setToggles({ mode: 'original' })}>
             Original
           </button>
@@ -657,7 +663,7 @@ export function ObservationViewer(props: Props) {
     <section className="viewer" aria-label="Observation viewer">
       {/* Priority bar: Compare / Play / Source timeline switcher */}
       <div className="viewer-priority">
-        <div className="segmented" role="group" aria-label="Comparison view">
+        <div className="segmented" role="group" aria-label="Comparison view" data-tour="view-mode">
           <button
             type="button"
             aria-pressed={viewMode === 'compare'}
@@ -694,7 +700,7 @@ export function ObservationViewer(props: Props) {
         </button>
 
         {props.onDetectorChange && (
-          <div className="segmented segmented--detectors" role="group" aria-label="SPHEREx detector">
+          <div className="segmented segmented--detectors" role="group" aria-label="SPHEREx detector" data-tour="detectors">
             {DETECTORS.map((d) => (
               <button
                 key={d.id}
@@ -710,7 +716,7 @@ export function ObservationViewer(props: Props) {
         )}
 
         {props.timelineControl && (
-          <label className="viewer-source-select">
+          <label className="viewer-source-select" data-tour="source">
             <span className="sr-only">Observation sources</span>
             <select
               className="select select--compact"
@@ -806,7 +812,7 @@ export function ObservationViewer(props: Props) {
           )}
 
           {sideBySide ? (
-            <div className="compare-grid" aria-label="Side-by-side comparison at matched zoom and center">
+            <div className="compare-grid" data-tour="image" aria-label="Side-by-side comparison at matched zoom and center">
               <div className="compare-card">
                 {compareSlotHeader('A', indexA)}
                 <div className={`viewer-frame${markingSlot === 'A' ? ' viewer-frame--marking' : ''}`}>
@@ -855,7 +861,7 @@ export function ObservationViewer(props: Props) {
               </div>
             </div>
           ) : (
-            <div className="compare-single">
+            <div className="compare-single" data-tour="image">
               <div className={`viewer-frame${markingSlot === activeSlot ? ' viewer-frame--marking' : ''}`}>
                 {renderCanvasFor(activeFlipIndex, canvasRef, `Date ${activeSlot}`, { reportFov: true, compareSlot: activeSlot })}
                 {renderFrameState(activeFlipIndex)}
@@ -1060,7 +1066,7 @@ export function ObservationViewer(props: Props) {
         </div>
       ) : (
         <>
-          <div className="viewer-frame">
+          <div className="viewer-frame" data-tour="image">
             {renderCanvasFor(displayIndex, canvasRef, `Observation ${displayIndex + 1}`, { reportFov: true })}
             {renderFrameState(displayIndex)}
             {data && (
@@ -1107,7 +1113,7 @@ export function ObservationViewer(props: Props) {
             : 'Watch the surrounding field stars stay nearly fixed, click to mark what moves across observation dates.'}
         </p>
 
-        <div className="viewer-prompt__actions">
+        <div className="viewer-prompt__actions" data-tour="markers">
           {catalogAvailable && (
             <button
               type="button"
@@ -1122,6 +1128,16 @@ export function ObservationViewer(props: Props) {
 
           {experienceMode === 'science' && (
             <>
+              <button
+                type="button"
+                className="btn btn-secondary btn--compact"
+                aria-pressed={props.spectrumEnabled}
+                onClick={props.onShowSpectrum}
+                title="Read measured SPHEREx flux by wavelength at the selected position"
+              >
+                <Sparkles aria-hidden />
+                <span>Spectrum at point</span>
+              </button>
               <button
                 type="button"
                 className="btn btn-secondary btn--compact"
@@ -1291,7 +1307,8 @@ export function ObservationViewer(props: Props) {
         )}
       </div>
 
-      {expanded && (
+      {/* Portal: the details panel is transformed, which would pin a fixed overlay to the panel and clip it. */}
+      {expanded && createPortal(
         <div className="modal-backdrop" role="presentation" onClick={() => setExpanded(false)}>
           <div
             className="modal modal--image"
@@ -1333,7 +1350,8 @@ export function ObservationViewer(props: Props) {
             </div>
             {!inCompare && timelineControls('expanded')}
           </div>
-        </div>
+        </div>,
+        document.fullscreenElement ?? document.body,
       )}
     </section>
   )
