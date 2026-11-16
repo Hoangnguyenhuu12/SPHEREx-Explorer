@@ -26,7 +26,7 @@ import { GuideProvider, readGuide, writeGuide } from '../features/guide/guide-st
 import { Horizon } from '../features/sky-map/Horizon'
 import './eyes/eyes.css'
 
-const DEFAULT_TOGGLES: ViewerToggles = { mode: 'original', flags: false, trail: false, pick: true, gaiaOverlays: true }
+const DEFAULT_TOGGLES: ViewerToggles = { mode: 'original', crosshair: false, flags: false, trail: false, pick: true, gaiaOverlays: true }
 const COMBINED_TARGETS = new Set<TargetKey>(['wise0855', 'epsindib', 'barnard', 'rwaur', 'rdra'])
 const DEFAULT_MAP_FOV_DEG = 90
 const zoomFormat = new Intl.NumberFormat('en', { style: 'percent', maximumFractionDigits: 0 })
@@ -141,7 +141,7 @@ export default function TheEyesPage() {
 
   // Selection change → back to the original image, no stale tool state.
   useEffect(() => {
-    setTogglesState((t) => ({ ...DEFAULT_TOGGLES, gaiaOverlays: t.gaiaOverlays }))
+    setTogglesState((t) => ({ ...DEFAULT_TOGGLES, crosshair: t.crosshair, gaiaOverlays: t.gaiaOverlays }))
   }, [framesParams])
 
   // Open details for a selection that arrives from the URL (deep link / Back).

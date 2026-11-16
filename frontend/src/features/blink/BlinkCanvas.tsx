@@ -51,6 +51,8 @@ interface Props {
   gridW: number
   gridH: number
   pixArcsec: number
+  crosshair?: [number, number] | null
+  showCrosshair?: boolean
   flagsOverlay?: HTMLImageElement | null
   trail?: TrailPoint[]
   gaiaMarkers?: GaiaOverlayMarker[]
@@ -89,6 +91,8 @@ export const BlinkCanvas = forwardRef<BlinkCanvasHandle, Props>(function BlinkCa
     gridW,
     gridH,
     pixArcsec,
+    crosshair = null,
+    showCrosshair = false,
     flagsOverlay,
     trail,
     gaiaMarkers,
@@ -209,6 +213,28 @@ export const BlinkCanvas = forwardRef<BlinkCanvasHandle, Props>(function BlinkCa
       })
     }
 
+    // 2. Predicted target position: yellow crosshair (+)
+    if (showCrosshair && crosshair) {
+      const s = pixelCentreToScreen(v, crosshair)
+      const gap = Math.max(6, v.scale * 1.5)
+      const len = gap + 12
+      ctx.save()
+      ctx.strokeStyle = '#F4EF83'
+      ctx.lineWidth = 1.75
+      ctx.beginPath()
+      ctx.moveTo(s.x - len, s.y)
+      ctx.lineTo(s.x - gap, s.y)
+      ctx.moveTo(s.x + gap, s.y)
+      ctx.lineTo(s.x + len, s.y)
+      ctx.moveTo(s.x, s.y - len)
+      ctx.lineTo(s.x, s.y - gap)
+      ctx.moveTo(s.x, s.y + gap)
+      ctx.lineTo(s.x, s.y + len)
+      ctx.stroke()
+      ctx.restore()
+      drawTag(ctx, s.x + len + 4, s.y - 6, guide ? 'Predicted target' : 'Pred', '#F4EF83')
+    }
+
     // 3. User's own pick: pink diamond (◇)
     if (picked) {
       const s = pixelCentreToScreen(v, picked)
@@ -253,7 +279,7 @@ export const BlinkCanvas = forwardRef<BlinkCanvasHandle, Props>(function BlinkCa
       drawTag(ctx, s1.x + 6, s1.y - 8, 'A', '#FDE68A')
       drawTag(ctx, s2.x + 6, s2.y + 8, `B · ${ruler.label}`, '#FBBF24')
     }
-  }, [bitmap, gridW, gridH, flagsOverlay, trail, gaiaMarkers, selectedSourceId, picked, pickedLabel, ruler, stretch, guide])
+  }, [bitmap, gridW, gridH, flagsOverlay, trail, gaiaMarkers, selectedSourceId, showCrosshair, crosshair, picked, pickedLabel, ruler, stretch, guide])
 
   const drawRef = useRef(draw)
   drawRef.current = draw

@@ -268,7 +268,8 @@
   width: 15px;
   height: 15px;
 }
-.btn--compact[aria-pressed='true'] {
+.btn--compact[aria-pressed='true'],
+.btn--compact[aria-pressed='true']:hover:not(:disabled) {
   background: var(--primary);
   border-color: var(--primary);
   color: var(--on-primary);
@@ -444,6 +445,9 @@
   font-family: var(--font-mono);
   font-weight: 700;
   font-size: 14px;
+}
+.marker-sym--pred {
+  color: #f4ef83;
 }
 .marker-sym--gaia {
   color: #7ce3ff;

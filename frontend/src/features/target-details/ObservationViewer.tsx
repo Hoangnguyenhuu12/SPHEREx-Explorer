@@ -3,6 +3,7 @@ import {
   Check,
   Columns2,
   Copy,
+  Crosshair,
   Expand,
   Layers,
   Loader2,
@@ -52,6 +53,7 @@ export type ImageMode = 'original' | 'difference'
 
 export interface ViewerToggles {
   mode: ImageMode
+  crosshair?: boolean
   flags: boolean
   trail: boolean
   pick: boolean
@@ -162,6 +164,7 @@ export function ObservationViewer(props: Props) {
   const isWideViewport = useSyncExternalStore(subscribeWideViewport, getWideViewport, () => false)
   const data = session.data
   const frames = useMemo(() => data?.frames ?? [], [data])
+  const hasPredictedCrosshair = useMemo(() => frames.some((item) => item.predicted_px != null), [frames])
   const seqKey = data ? `${data.target?.name ?? ''}:${data.detector}:${frames.length}:${frames[0]?.id ?? ''}:${frames[frames.length - 1]?.id ?? ''}` : ''
 
   const pairResolution = useMemo(
@@ -427,6 +430,8 @@ export function ObservationViewer(props: Props) {
         gridW={data.grid.width}
         gridH={data.grid.height}
         pixArcsec={data.grid.pixscale_arcsec}
+        crosshair={f?.predicted_px ?? null}
+        showCrosshair={Boolean(toggles.crosshair)}
         flagsOverlay={toggles.flags ? props.flagsOverlay : null}
         trail={toggles.trail ? props.trail : undefined}
         gaiaMarkers={markersFor(frameIdx)}
@@ -1125,6 +1130,18 @@ export function ObservationViewer(props: Props) {
         </p>
 
         <div className="viewer-prompt__actions" data-tour="markers">
+          {hasPredictedCrosshair && (
+            <button
+              type="button"
+              className="btn btn-secondary btn--compact"
+              aria-pressed={Boolean(toggles.crosshair)}
+              title="Toggle predicted target crosshair (+) from API coordinates"
+              onClick={() => setToggles({ crosshair: !toggles.crosshair })}
+            >
+              <Crosshair aria-hidden />
+              <span>Target crosshair</span>
+            </button>
+          )}
           {catalogAvailable && (
             <button
               type="button"
@@ -1284,6 +1301,12 @@ export function ObservationViewer(props: Props) {
         )}
 
         <ul className="marker-legend" aria-label="Image marker symbols">
+          {hasPredictedCrosshair && (
+            <li>
+              <span className="marker-sym marker-sym--pred" aria-hidden>+</span>
+              <span>Predicted {targetName} ({toggles.crosshair ? 'shown' : 'hidden'})</span>
+            </li>
+          )}
           {catalogAvailable && (
             <li>
               <span className="marker-sym marker-sym--gaia" aria-hidden>○</span>
