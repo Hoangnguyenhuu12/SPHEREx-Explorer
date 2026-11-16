@@ -855,7 +855,7 @@ export default function TheEyesPage() {
           </button>
           <button
             type="button"
-            className="dock__btn"
+            className="dock__btn dock__wide-only"
             aria-pressed={skyMotion}
             title={reduceMotion ? 'Turned off because reduced motion is on' : 'Turn the whole sky as Earth rotates (M)'}
             disabled={!!reduceMotion || mapStatus.s !== 'ready'}
@@ -863,7 +863,7 @@ export default function TheEyesPage() {
           >
             <Orbit aria-hidden /> <span>Sky motion</span>
           </button>
-          <button type="button" className="dock__btn" aria-pressed={ground} title="Show the ground and horizon" onClick={() => setGround((g) => !g)}>
+          <button type="button" className="dock__btn dock__wide-only" aria-pressed={ground} title="Show the ground and horizon" onClick={() => setGround((g) => !g)}>
             <Mountain aria-hidden /> <span>Ground</span>
           </button>
           <button type="button" className="dock__btn" aria-pressed={gaia} title="Gaia DR3 stars around the target" disabled={!coords} onClick={() => setGaia((g) => !g)}>
@@ -910,20 +910,20 @@ export default function TheEyesPage() {
           <button type="button" className="dock__btn" title="Center on the selected target (C)" disabled={!coords} onClick={center}>
             <LocateFixed aria-hidden /> <span>Center</span>
           </button>
-          <button type="button" className="dock__icon" aria-label="Zoom out map" title="Zoom out map" onClick={() => mapRef.current?.zoomOut()}>
+          <button type="button" className="dock__icon dock__wide-only" aria-label="Zoom out map" title="Zoom out map" onClick={() => mapRef.current?.zoomOut()}>
             <Minus aria-hidden />
           </button>
-          <span className="dock__zoom" aria-label={`Map zoom ${mapFovDeg === null ? 'unavailable' : zoomLabel}`} title="Zoom relative to the default sky view">
+          <span className="dock__zoom dock__wide-only" aria-label={`Map zoom ${mapFovDeg === null ? 'unavailable' : zoomLabel}`} title="Zoom relative to the default sky view">
             {zoomLabel}
           </span>
-          <button type="button" className="dock__icon" aria-label="Zoom in map" title="Zoom in map" onClick={() => mapRef.current?.zoomIn()}>
+          <button type="button" className="dock__icon dock__wide-only" aria-label="Zoom in map" title="Zoom in map" onClick={() => mapRef.current?.zoomIn()}>
             <Plus aria-hidden />
           </button>
           <span className="dock__sep" aria-hidden />
           <button type="button" className="dock__icon" aria-label="Help and shortcuts" title="Help (?)" onClick={() => setHelp(true)}>
             <HelpCircle aria-hidden />
           </button>
-          <button type="button" className="dock__icon" aria-label={fullscreen ? 'Exit full screen' : 'Full screen'} title="Full screen" onClick={toggleFullscreen}>
+          <button type="button" className="dock__icon dock__wide-only" aria-label={fullscreen ? 'Exit full screen' : 'Full screen'} title="Full screen" onClick={toggleFullscreen}>
             {fullscreen ? <Minimize2 aria-hidden /> : <Maximize2 aria-hidden />}
           </button>
         </div>

@@ -332,6 +332,10 @@ kbd {
   .dock__switch--mode {
     display: none;
   }
+  /* Pinch zooms on a phone; decorative and full-screen tools stay on larger screens. */
+  .dock__wide-only {
+    display: none;
+  }
 }
 .sky-motion-note {
   position: absolute;
