@@ -70,6 +70,11 @@ export default function WhereAreYouPage() {
             {gl ? (
               <>
                 {!earthReady && !solar && <img className="where__static" src="/textures/earth-static.png" alt="" width={392} height={392} />}
+                {!earthReady && solar && (
+                  <p className="where__loading" role="status">
+                    Loading the 3D Solar System…
+                  </p>
+                )}
                 <Suspense fallback={null}>
                   <EarthScene
                     view={view}

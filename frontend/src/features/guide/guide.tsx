@@ -184,8 +184,10 @@ export function GuideTour({
       const left = clampX(cx - cw / 2)
       set(lit.top - GAP - ch, left, 'top', arrowX(left))
     } else {
-      // Phones: the panel fills the screen. Dock the card at the edge away from the control.
-      const top = cy < vh / 2 ? vh - ch - EDGE : EDGE
+      // Phones: the panel fills the screen. Dock the card at the bottom so the target name and image
+      // stay visible; move it to the top only when the control itself sits under the card.
+      const bottomTop = vh - ch - EDGE
+      const top = ring.top + ring.height > bottomTop - GAP ? EDGE : bottomTop
       set(top, clampX((vw - cw) / 2), 'none')
     }
   }, [ring, lit, index, done])
