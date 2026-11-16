@@ -95,7 +95,11 @@ export function GuideTour({
   const last = index >= steps.length - 1
   const done = doneFor === index
 
-  const go = (d: number) => setIndex((i) => Math.min(Math.max(0, i + d), steps.length - 1))
+  const go = (d: number) => {
+    const nextIndex = Math.min(Math.max(0, index + d), steps.length - 1)
+    if (steps[nextIndex]?.needsTarget && !hasTarget) ensureTarget()
+    setIndex(nextIndex)
+  }
 
   // Choosing a target on the first step is the action itself: move on once the panel opens.
   useEffect(() => {
@@ -109,7 +113,7 @@ export function GuideTour({
   }, [step, hasTarget, ensureTarget])
 
   // Follow the anchor every frame: panels animate, scroll and resize.
-  useEffect(() => {
+  useLayoutEffect(() => {
     let raf = 0
     const tick = () => {
       const el = step.anchors.length ? findAnchor(step.anchors) : null
@@ -121,8 +125,8 @@ export function GuideTour({
         if (box) {
           const r = el.getBoundingClientRect()
           const b = box.getBoundingClientRect()
-          if (r.top < b.top || r.bottom > b.bottom) {
-            box.scrollTo({ top: box.scrollTop + r.top - b.top - Math.max(0, (b.height - r.height) / 2), behavior: reduce ? 'auto' : 'smooth' })
+          if (r.top < b.top + PAD || r.bottom > b.bottom - PAD) {
+            box.scrollTop = Math.max(0, box.scrollTop + r.top - b.top - Math.max(0, (b.height - r.height) / 2))
           }
         }
       }
@@ -135,7 +139,7 @@ export function GuideTour({
     }
     tick()
     return () => cancelAnimationFrame(raf)
-  }, [step, index, reduce])
+  }, [step, index])
 
   // A click on the highlighted control completes the step.
   useEffect(() => {
@@ -162,6 +166,10 @@ export function GuideTour({
           : { top, left, arrow, side },
       )
     if (!ring || !lit) {
+      if (step.anchors.length > 0) {
+        setCardPos((prev) => prev ?? { top: Math.max(EDGE, (vh - ch) / 2), left: Math.max(EDGE, (vw - cw) / 2), arrow: {}, side: 'none' })
+        return
+      }
       set(Math.max(EDGE, (vh - ch) / 2), Math.max(EDGE, (vw - cw) / 2), 'none')
       return
     }
@@ -188,7 +196,7 @@ export function GuideTour({
       const top = cy < vh / 2 ? vh - ch - EDGE : EDGE
       set(top, clampX((vw - cw) / 2), 'none')
     }
-  }, [ring, lit, index, done])
+  }, [ring, lit, index, done, step.anchors.length])
 
   useEffect(() => {
     nextRef.current?.focus({ preventScroll: true })

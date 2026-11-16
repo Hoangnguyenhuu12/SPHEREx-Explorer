@@ -78,7 +78,7 @@ body:has(.eyes) {
 .map-epoch-warn {
   position: absolute;
   right: var(--space-3);
-  top: var(--space-3);
+  top: calc(44px + 2 * var(--space-3));
   z-index: 15;
   max-width: 380px;
   background: rgb(23 23 31 / 0.94);
@@ -114,7 +114,7 @@ body:has(.eyes) {
 
 .source-card {
   position: absolute;
-  right: 72px;
+  right: var(--space-3);
   top: calc(44px + 2 * var(--space-3));
   z-index: 18;
   width: 300px;
@@ -219,6 +219,9 @@ kbd {
   display: flex;
   align-items: center;
   gap: 2px;
+  max-width: calc(100vw - 2 * var(--space-3));
+  overflow-x: auto;
+  scrollbar-width: none;
   height: var(--dock-h);
   padding: 6px;
   border-radius: 14px;
@@ -297,36 +300,33 @@ kbd {
   border-radius: 8px;
   padding: 0 var(--space-2);
 }
+@media (max-width: 1180px) {
+  .dock__btn {
+    padding: 0 var(--space-2);
+    font-size: 13px;
+    gap: 5px;
+  }
+  .dock__sep {
+    margin: 0 2px;
+  }
+}
 @media (max-width: 740px) {
   .dock {
     max-width: calc(100% - 12px);
     overflow-x: auto;
   }
-  .dock__btn,
+  .dock__btn {
+    flex: 0 0 auto;
+    padding: 0 var(--space-2);
+    font-size: 12px;
+    gap: 4px;
+  }
   .dock__icon {
-    flex: 0 0 34px;
+    flex: 0 0 36px;
     padding: 0;
   }
   .dock__sep {
     display: none;
-  }
-  .dock__btn span {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-  }
-  /* Text-only buttons (WISE) keep their label, or they would be blank squares. */
-  .dock__btn:not(:has(svg)) {
-    flex: 0 0 auto;
-    padding: 0 var(--space-2);
-  }
-  .dock__btn:not(:has(svg)) span {
-    position: static;
-    width: auto;
-    height: auto;
-    clip-path: none;
   }
   /* Explore / Science is also in the target panel; on a phone the dock keeps only the sky tools. */
   .dock__switch--mode {
@@ -375,6 +375,12 @@ kbd {
     max-width: 100vw;
     min-width: 0;
   }
+  .map-epoch-warn {
+    top: calc(44px + 2 * var(--space-2));
+    right: var(--space-2);
+    left: var(--space-2);
+    max-width: none;
+  }
 }
 
 .planet-strip {
@@ -400,13 +406,13 @@ kbd {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  height: 26px;
-  padding: 0 8px;
+  height: 34px;
+  padding: 0 10px;
   border: 0;
   border-radius: 999px;
   background: transparent;
   color: var(--fg);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   cursor: pointer;
   transition: background-color var(--dur-hover) var(--ease-out);
@@ -470,7 +476,7 @@ kbd {
 .planet-jump-btn {
   display: grid;
   place-items: center;
-  height: 28px;
+  height: 34px;
   border-radius: 6px;
   border: 1px solid var(--line);
   background: var(--surface-2);
@@ -484,10 +490,10 @@ kbd {
   border-color: #f6c453;
   background: rgb(246 196 83 / 0.16);
 }
-@media (max-width: 1240px) {
+@media (max-width: 1360px) {
   .planet-card ~ .planet-strip,
   .planet-strip {
-    max-width: calc(100vw - 380px);
+    max-width: calc(100vw - 440px);
   }
 }
 @media (max-width: 820px) {

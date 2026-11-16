@@ -9,6 +9,7 @@ import { pixelToSky, skyToPixel } from '../blink/wcs'
 import { positionAt } from '../../shared/config/epoch'
 import type { GaiaFrameOverlay } from '../../shared/api/types'
 import type { ExperienceMode, RulerMeasurement } from '../experience-mode/mode'
+import { useGuide } from '../guide/guide-state'
 import type { GaiaStatusInfo, SurveyInfo } from '../sky-map/AladinMap'
 import { warningText } from './format'
 import { MoreTools } from './MoreTools'
@@ -58,6 +59,7 @@ interface Props {
 
 export function TargetPopup(p: Props) {
   const reduce = useReducedMotion()
+  const guideOn = useGuide()
   const [tab, setTab] = useState<Tab>('Overview')
   const [picked, setPicked] = useState<{ ra: number; dec: number; x: number; y: number } | null>(null)
   const [rulerMeasurement, setRulerMeasurement] = useState<RulerMeasurement | null>(null)
@@ -257,8 +259,8 @@ export function TargetPopup(p: Props) {
     <motion.aside
       className={wideCompare ? 'popup popup--wide' : 'popup'}
       aria-label={`${p.title} details`}
-      initial={reduce ? { opacity: 0 } : { opacity: 0, x: -24 }}
-      animate={reduce ? { opacity: 1 } : { opacity: 1, x: 0 }}
+      initial={reduce || guideOn ? { opacity: 0 } : { opacity: 0, x: -24 }}
+      animate={reduce || guideOn ? { opacity: 1 } : { opacity: 1, x: 0 }}
       transition={{ duration: 0.22, ease: [0.2, 0.8, 0.2, 1] }}
     >
       <header className="popup__head">
@@ -327,7 +329,10 @@ export function TargetPopup(p: Props) {
           onShowSpectrum={() => {
             const enabled = !spectrumOpen
             setSpectrumOpen(enabled)
-            if (enabled) setTab('Details')
+            if (enabled) {
+              setTab('Details')
+              requestAnimationFrame(() => document.getElementById('viewer-spectrum-details')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }))
+            }
           }}
           spectrumEnabled={spectrumOpen}
           detector={p.detector}

@@ -46,6 +46,12 @@ export interface RulerOverlay {
   label: string
 }
 
+export interface MotionVectorOverlay {
+  dxMasYr: number
+  dyMasYr: number
+  totalArcsecYr: number
+}
+
 interface Props {
   bitmap: ImageBitmap | null
   gridW: number
@@ -53,6 +59,7 @@ interface Props {
   pixArcsec: number
   crosshair?: [number, number] | null
   showCrosshair?: boolean
+  motionVector?: MotionVectorOverlay | null
   flagsOverlay?: HTMLImageElement | null
   trail?: TrailPoint[]
   gaiaMarkers?: GaiaOverlayMarker[]
@@ -93,6 +100,7 @@ export const BlinkCanvas = forwardRef<BlinkCanvasHandle, Props>(function BlinkCa
     pixArcsec,
     crosshair = null,
     showCrosshair = false,
+    motionVector = null,
     flagsOverlay,
     trail,
     gaiaMarkers,
@@ -233,6 +241,36 @@ export const BlinkCanvas = forwardRef<BlinkCanvasHandle, Props>(function BlinkCa
       ctx.stroke()
       ctx.restore()
       drawTag(ctx, s.x + len + 4, s.y - 6, guide ? 'Predicted target' : 'Pred', '#F4EF83')
+
+      if (motionVector && motionVector.totalArcsecYr >= 0.05) {
+        const dxScreen = -motionVector.dxMasYr
+        const dyScreen = -motionVector.dyMasYr
+        const mag = Math.hypot(dxScreen, dyScreen)
+        if (mag > 0) {
+          const ux = dxScreen / mag
+          const uy = dyScreen / mag
+          const startDist = gap + 2
+          const endDist = Math.max(34, gap + 22)
+          const sx = s.x + ux * startDist
+          const sy = s.y + uy * startDist
+          const ex = s.x + ux * endDist
+          const ey = s.y + uy * endDist
+          const ang = Math.atan2(uy, ux)
+          ctx.save()
+          ctx.strokeStyle = '#34D399'
+          ctx.lineWidth = 2
+          ctx.beginPath()
+          ctx.moveTo(sx, sy)
+          ctx.lineTo(ex, ey)
+          ctx.moveTo(ex, ey)
+          ctx.lineTo(ex - 6 * Math.cos(ang - 0.5), ey - 6 * Math.sin(ang - 0.5))
+          ctx.moveTo(ex, ey)
+          ctx.lineTo(ex - 6 * Math.cos(ang + 0.5), ey - 6 * Math.sin(ang + 0.5))
+          ctx.stroke()
+          ctx.restore()
+          drawTag(ctx, ex + ux * 8 - (ux < -0.3 ? 34 : 0), ey + uy * 8, `${motionVector.totalArcsecYr.toFixed(1)}″/yr`, '#34D399')
+        }
+      }
     }
 
     // 3. User's own pick: pink diamond (◇)
@@ -279,7 +317,63 @@ export const BlinkCanvas = forwardRef<BlinkCanvasHandle, Props>(function BlinkCa
       drawTag(ctx, s1.x + 6, s1.y - 8, 'A', '#FDE68A')
       drawTag(ctx, s2.x + 6, s2.y + 8, `B · ${ruler.label}`, '#FBBF24')
     }
-  }, [bitmap, gridW, gridH, flagsOverlay, trail, gaiaMarkers, selectedSourceId, showCrosshair, crosshair, picked, pickedLabel, ruler, stretch, guide])
+
+    // 6. Sky compass (North up, East left) and angular scale bar
+    if (w >= 140 && h >= 140) {
+      const cx = w - 16
+      const cy = 78
+      ctx.save()
+      ctx.lineCap = 'round'
+      ctx.strokeStyle = 'rgba(9, 9, 13, 0.92)'
+      ctx.lineWidth = 3.5
+      ctx.beginPath()
+      ctx.moveTo(cx, cy)
+      ctx.lineTo(cx, cy - 16)
+      ctx.moveTo(cx, cy)
+      ctx.lineTo(cx - 16, cy)
+      ctx.stroke()
+      ctx.strokeStyle = 'rgba(244, 241, 234, 0.85)'
+      ctx.lineWidth = 1.5
+      ctx.beginPath()
+      ctx.moveTo(cx, cy)
+      ctx.lineTo(cx, cy - 16)
+      ctx.moveTo(cx, cy)
+      ctx.lineTo(cx - 16, cy)
+      ctx.stroke()
+      ctx.restore()
+      drawTag(ctx, cx - 4, cy - 24, 'N', 'rgba(244, 241, 234, 0.9)')
+      drawTag(ctx, cx - 28, cy, 'E', 'rgba(244, 241, 234, 0.9)')
+
+      if (pixArcsec > 0) {
+        const pxPerArcsec = v.scale / pixArcsec
+        const raw60 = 60 * pxPerArcsec
+        const arcsec = raw60 < 28 ? 120 : raw60 <= w * 0.42 ? 60 : 30
+        const barPx = Math.min(w * 0.42, Math.max(16, arcsec * pxPerArcsec))
+        const barLabel = arcsec === 120 ? '2′' : arcsec === 60 ? '1′' : '30″'
+        const bx = 12
+        const by = h - 14
+        ctx.save()
+        ctx.strokeStyle = 'rgba(9, 9, 13, 0.92)'
+        ctx.lineWidth = 4
+        ctx.beginPath()
+        ctx.moveTo(bx, by - 4)
+        ctx.lineTo(bx, by)
+        ctx.lineTo(bx + barPx, by)
+        ctx.lineTo(bx + barPx, by - 4)
+        ctx.stroke()
+        ctx.strokeStyle = 'rgba(244, 241, 234, 0.88)'
+        ctx.lineWidth = 1.5
+        ctx.beginPath()
+        ctx.moveTo(bx, by - 4)
+        ctx.lineTo(bx, by)
+        ctx.lineTo(bx + barPx, by)
+        ctx.lineTo(bx + barPx, by - 4)
+        ctx.stroke()
+        ctx.restore()
+        drawTag(ctx, bx + barPx + 6, by - 2, barLabel, 'rgba(244, 241, 234, 0.92)')
+      }
+    }
+  }, [bitmap, gridW, gridH, pixArcsec, flagsOverlay, trail, gaiaMarkers, selectedSourceId, showCrosshair, crosshair, motionVector, picked, pickedLabel, ruler, stretch, guide])
 
   const drawRef = useRef(draw)
   drawRef.current = draw

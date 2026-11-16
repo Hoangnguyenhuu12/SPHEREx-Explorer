@@ -3,13 +3,15 @@ import {
   SPHEREX_SURVEY,
   spherexSurveyFromHipsLayer,
   SURVEY_MIRRORS,
+  TWOMASS_MIRRORS,
+  TWOMASS_SURVEY,
   WISE_MIRRORS,
   WISE_SURVEY,
   type HipsLayerInput,
   type SurveyInfo,
 } from './surveys'
 
-export type BackgroundMode = 'spherex' | 'wise'
+export type BackgroundMode = 'spherex' | 'wise' | 'twomass'
 
 const DISCOVERY_MS = 4000
 const ARCHIVE_METADATA_MS = 750
@@ -21,6 +23,7 @@ const dssSurveys = SURVEY_MIRRORS.map((url) => ({ ...DSS_SURVEY, url }))
 const primarySurveys = {
   spherex: [SPHEREX_SURVEY],
   wise: WISE_MIRRORS.map((url) => ({ ...WISE_SURVEY, url })),
+  twomass: TWOMASS_MIRRORS.map((url) => ({ ...TWOMASS_SURVEY, url })),
 }
 
 interface SavedSurvey {

@@ -98,7 +98,7 @@
 }
 .note {
   padding: var(--space-3) var(--space-4);
-  border-left: 3px solid var(--warn);
+  box-shadow: inset 3px 0 0 var(--warn);
   background: var(--surface);
   border-radius: 0 var(--radius) var(--radius) 0;
 }

@@ -26,7 +26,7 @@ import { GuideProvider, readGuide, writeGuide } from '../features/guide/guide-st
 import { Horizon } from '../features/sky-map/Horizon'
 import './eyes/eyes.css'
 
-const DEFAULT_TOGGLES: ViewerToggles = { mode: 'original', crosshair: false, flags: false, trail: false, pick: true, gaiaOverlays: true }
+const DEFAULT_TOGGLES: ViewerToggles = { mode: 'original', crosshair: true, flags: false, trail: false, pick: true, gaiaOverlays: true }
 const COMBINED_TARGETS = new Set<TargetKey>(['wise0855', 'epsindib', 'barnard', 'rwaur', 'rdra'])
 const DEFAULT_MAP_FOV_DEG = 90
 const zoomFormat = new Intl.NumberFormat('en', { style: 'percent', maximumFractionDigits: 0 })
@@ -77,7 +77,7 @@ export default function TheEyesPage() {
     writeGuide(on)
   }, [])
   const [source, setSource] = useState<SelectedGaiaSource | null>(null)
-  const [backgroundMode, setBackgroundMode] = useState<'spherex' | 'wise'>('spherex')
+  const [backgroundMode, setBackgroundMode] = useState<'spherex' | 'wise' | 'twomass'>('spherex')
   const [survey, setSurvey] = useState<SurveyInfo>(SURVEY)
   const [experienceMode, setExperienceModeState] = useState<ExperienceMode>(() => readExperienceMode(location.search))
   const setExperienceMode = useCallback((next: ExperienceMode) => {
@@ -150,6 +150,8 @@ export default function TheEyesPage() {
     if (!coords || lastQ.current === sel.q) return
     lastQ.current = sel.q
     setSkyMotion(false)
+    setSelectedPlanetKey(null)
+    setSource(null)
     setTogglesState({
       ...DEFAULT_TOGGLES,
       gaiaOverlays: sel.gaia !== undefined ? sel.gaia : true,
@@ -207,8 +209,10 @@ export default function TheEyesPage() {
   const selectTarget = useCallback(
     (key: TargetKey) => {
       const t = TARGET_BY_KEY.get(key)!
+      open('target')
+      setSelectedPlanetKey(null)
+      setSource(null)
       if (sel.q === key) {
-        open('target')
         const p = mapPosition(t)
         mapRef.current?.focus(p.ra, p.dec, 0.6)
         return
@@ -233,7 +237,9 @@ export default function TheEyesPage() {
   )
 
   const submitQuery = useCallback(
-    (q: string) =>
+    (q: string) => {
+      setSelectedPlanetKey(null)
+      setSource(null)
       commit({
         q,
         detector: 0,
@@ -246,7 +252,8 @@ export default function TheEyesPage() {
         markA: undefined,
         markB: undefined,
         gaia: undefined,
-      }),
+      })
+    },
     [commit],
   )
 
@@ -293,6 +300,7 @@ export default function TheEyesPage() {
   }, [planets, activePlanetEpochMjd, mapStatus.s])
 
   const focusPlanet = useCallback((p: PlanetSkyPosition) => {
+    close('target')
     setSource(null)
     setSelectedPlanetKey(p.key)
     setSkyMotion(false)
@@ -302,7 +310,7 @@ export default function TheEyesPage() {
     }
     if (!planets) setPlanets(true)
     mapRef.current?.focus(p.ra, p.dec, 28)
-  }, [planets])
+  }, [close, planets])
 
   useEffect(() => {
     const onFs = () => setFullscreen(document.fullscreenElement === stageRef.current)
@@ -524,11 +532,13 @@ export default function TheEyesPage() {
           onGaiaStatus={setGaiaStatus}
           onSourceSelected={(s) => {
             close('navigation')
+            close('target')
             setSelectedPlanetKey(null)
             setSource(s)
           }}
           onPlanetSelected={(p) => {
             close('navigation')
+            close('target')
             setSource(null)
             setSelectedPlanetKey(p.key)
           }}
@@ -561,7 +571,15 @@ export default function TheEyesPage() {
         )}
 
         {!popupOpen && coords && title && (
-          <button type="button" className="reopen" onClick={() => open('target')}>
+          <button
+            type="button"
+            className="reopen"
+            onClick={() => {
+              setSelectedPlanetKey(null)
+              setSource(null)
+              open('target')
+            }}
+          >
             <Eye aria-hidden /> Show {title}
           </button>
         )}
@@ -829,27 +847,31 @@ export default function TheEyesPage() {
             />
           )}
         <div className="dock" role="toolbar" aria-label="Sky tools">
-          <div className="dock__switch dock__switch--mode" role="group" aria-label="Experience mode">
-            <button
-              type="button"
-              className="dock__btn"
-              aria-pressed={experienceMode === 'explore'}
-              title="Explore mode for beginners & students"
-              onClick={() => setExperienceMode('explore')}
-            >
-              <span>Explore</span>
-            </button>
-            <button
-              type="button"
-              className="dock__btn"
-              aria-pressed={experienceMode === 'science'}
-              title="Science mode for citizen scientists & researchers"
-              onClick={() => setExperienceMode('science')}
-            >
-              <span>Science</span>
-            </button>
-          </div>
-          <span className="dock__sep" aria-hidden />
+          {!popupOpen && (
+            <>
+              <div className="dock__switch dock__switch--mode" role="group" aria-label="Experience mode">
+                <button
+                  type="button"
+                  className="dock__btn"
+                  aria-pressed={experienceMode === 'explore'}
+                  title="Explore mode for beginners & students"
+                  onClick={() => setExperienceMode('explore')}
+                >
+                  <span>Explore</span>
+                </button>
+                <button
+                  type="button"
+                  className="dock__btn"
+                  aria-pressed={experienceMode === 'science'}
+                  title="Science mode for citizen scientists & researchers"
+                  onClick={() => setExperienceMode('science')}
+                >
+                  <span>Science</span>
+                </button>
+              </div>
+              <span className="dock__sep" aria-hidden />
+            </>
+          )}
           <button type="button" className="dock__btn" aria-pressed={grid} title="RA/Dec grid (G)" onClick={() => setGrid((g) => !g)}>
             <Grid3x3 aria-hidden /> <span>RA/Dec</span>
           </button>
@@ -904,6 +926,16 @@ export default function TheEyesPage() {
               onClick={() => setBackgroundMode('wise')}
             >
               <span>WISE</span>
+            </button>
+            <button
+              type="button"
+              className="dock__btn"
+              aria-pressed={backgroundMode === 'twomass'}
+              title="2MASS high-resolution near-infrared color sky atlas (J/H/Ks)"
+              disabled={mapStatus.s !== 'ready'}
+              onClick={() => setBackgroundMode('twomass')}
+            >
+              <span>2MASS</span>
             </button>
           </div>
           <span className="dock__sep" aria-hidden />

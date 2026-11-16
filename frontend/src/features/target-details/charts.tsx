@@ -9,6 +9,12 @@ export interface ChartPoint {
   label: string
 }
 
+export interface ChartBand {
+  xMin: number
+  xMax: number
+  label: string
+}
+
 interface Props {
   points: ChartPoint[]
   xLabel: string
@@ -16,6 +22,7 @@ interface Props {
   formatX?: (x: number) => string
   height?: number
   title: string
+  bands?: ChartBand[]
 }
 
 const W = 400
@@ -33,7 +40,7 @@ function niceTicks(min: number, max: number, count = 4): number[] {
   return ticks
 }
 
-export function ErrorBarChart({ points, xLabel, yLabel, formatX = (x) => x.toFixed(2), height = 220, title }: Props) {
+export function ErrorBarChart({ points, xLabel, yLabel, formatX = (x) => x.toFixed(2), height = 220, title, bands }: Props) {
   const valid = points.filter((p) => p.y != null) as (ChartPoint & { y: number })[]
   const H = height
   if (valid.length === 0) {
@@ -51,10 +58,27 @@ export function ErrorBarChart({ points, xLabel, yLabel, formatX = (x) => x.toFix
   const sx = (x: number) => PAD.l + ((x - (x0 - padX)) / (x1 - x0 + 2 * padX)) * (W - PAD.l - PAD.r)
   const sy = (y: number) => PAD.t + (1 - (y - y0) / (y1 - y0)) * (H - PAD.t - PAD.b)
   const yTicks = niceTicks(y0, y1)
+  const plotLeft = PAD.l
+  const plotRight = W - PAD.r
+  const visibleBands = (bands ?? []).flatMap((b) => {
+    if (b.xMax < x0 - padX || b.xMin > x1 + padX) return []
+    const rx0 = Math.max(plotLeft, Math.min(plotRight, sx(b.xMin)))
+    const rx1 = Math.max(plotLeft, Math.min(plotRight, sx(b.xMax)))
+    if (rx1 <= rx0) return []
+    return [{ ...b, rx0, rx1 }]
+  })
 
   return (
     <figure className="chart">
       <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={title}>
+        {visibleBands.map((b, idx) => (
+          <g key={`${b.label}-${idx}`}>
+            <rect x={b.rx0} y={PAD.t} width={Math.max(2, b.rx1 - b.rx0)} height={H - PAD.t - PAD.b} className="chart-band-bg" />
+            <text x={(b.rx0 + b.rx1) / 2} y={PAD.t + 12} textAnchor="middle" className="chart-band-label">
+              {b.label}
+            </text>
+          </g>
+        ))}
         {yTicks.map((t) => (
           <g key={t}>
             <line x1={PAD.l} x2={W - PAD.r} y1={sy(t)} y2={sy(t)} className="chart-grid" />
