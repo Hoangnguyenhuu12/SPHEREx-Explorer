@@ -15,7 +15,7 @@
 /* Hero */
 .hero {
   overflow: hidden;
-  min-height: calc(100vh - var(--header-h));
+  min-height: calc(100dvh - var(--header-h));
   display: grid;
   align-items: center;
   padding-block: var(--space-8);
@@ -510,7 +510,7 @@
 .intro,
 .about,
 .cta {
-  min-height: calc(100vh - var(--header-h));
+  min-height: calc(100dvh - var(--header-h));
   display: grid;
   align-content: center;
 }

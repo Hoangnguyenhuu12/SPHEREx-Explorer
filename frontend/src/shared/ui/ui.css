@@ -294,30 +294,21 @@ button.chip {
   padding: 0;
 }
 
-/* Dialog (shared/ui/Dialog.tsx) */
-.dialog-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 400;
-  display: grid;
-  place-items: center;
-  padding: var(--space-4);
-  background: rgb(0 0 0 / 0.72);
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  animation: dialog-fade var(--dur-panel) var(--ease-out);
-}
+/* Dialog (shared/ui/Dialog.tsx): native <dialog>; backdrop and scroll lock live in styles/global.css. */
 .dialog {
-  width: min(480px, 100%);
-  max-height: calc(100vh - 2 * var(--space-4));
+  width: min(480px, calc(100% - 2 * var(--space-4)));
+  max-height: calc(100dvh - 2 * var(--space-4));
   overflow: auto;
-  overscroll-behavior: contain;
-  display: grid;
-  gap: var(--space-4);
   padding: var(--space-5);
+  color: var(--fg);
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--radius);
+}
+.dialog[open] {
+  display: grid;
+  gap: var(--space-4);
+  animation: dialog-fade var(--dur-panel) var(--ease-out);
 }
 .dialog__head {
   display: flex;

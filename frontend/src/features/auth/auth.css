@@ -1,7 +1,7 @@
 .auth-page {
   position: relative;
   isolation: isolate;
-  min-height: calc(100vh - var(--header-h));
+  min-height: calc(100dvh - var(--header-h));
   display: grid;
   place-items: center;
   padding: var(--space-8) var(--gutter);

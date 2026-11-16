@@ -326,7 +326,7 @@ export default function TheEyesPage() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (isTyping(e.target) || e.metaKey || e.ctrlKey || e.altKey || help) return
-      if (document.querySelector('.modal-backdrop')) return
+      if (document.querySelector('dialog:modal')) return
       switch (e.key) {
         case ' ':
           if (!popupOpen || isInteractiveTarget(e.target)) return

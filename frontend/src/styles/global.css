@@ -22,7 +22,7 @@ body {
 }
 
 body {
-  min-height: 100vh;
+  min-height: 100dvh;
 }
 
 h1,
@@ -140,10 +140,29 @@ select {
   color: var(--warn);
 }
 
+/* Native modal <dialog> elements (opened with showModal()).
+   The page behind is locked with CSS only: no overflow: hidden on <body>, which removes the
+   scrollbar and shifts the layout. */
+dialog:modal {
+  overscroll-behavior: contain;
+}
+dialog::backdrop {
+  overflow: hidden;
+  overscroll-behavior: contain;
+  background: rgb(0 0 0 / 0.72);
+  animation: backdrop-fade var(--dur-panel) var(--ease-out);
+}
+@keyframes backdrop-fade {
+  from {
+    opacity: 0;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
-  *::after {
+  *::after,
+  ::backdrop {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;

@@ -8,7 +8,7 @@ body:has(.eyes) {
   --chat-top: calc(var(--eyes-header-h) + 44px + 2 * var(--space-3));
 }
 .eyes {
-  height: 100vh;
+  height: 100dvh;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   grid-template-rows: var(--eyes-header-h) 1fr var(--eyes-footer-h);
@@ -30,7 +30,7 @@ body:has(.eyes) {
 }
 .eyes__stage:fullscreen {
   width: 100vw;
-  height: 100vh;
+  height: 100dvh;
 }
 
 .map-tools {
@@ -297,7 +297,9 @@ kbd {
   border-radius: 8px;
   padding: 0 var(--space-2);
 }
-@media (max-width: 740px) {
+/* The full dock with labels is about 1280 px wide: below that, icons only (labels stay for screen
+   readers and in the tooltips); on phones, secondary tools are dropped too. */
+@media (max-width: 1320px) {
   .dock {
     max-width: calc(100% - 12px);
     overflow-x: auto;
@@ -328,6 +330,8 @@ kbd {
     height: auto;
     clip-path: none;
   }
+}
+@media (max-width: 740px) {
   /* Explore / Science is also in the target panel; on a phone the dock keeps only the sky tools. */
   .dock__switch--mode {
     display: none;

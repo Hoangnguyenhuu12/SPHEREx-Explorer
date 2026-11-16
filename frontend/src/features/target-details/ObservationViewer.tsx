@@ -20,8 +20,9 @@ import {
   Sparkles,
   X,
 } from 'lucide-react'
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type Dispatch } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type Dispatch, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
+import { useModalDialog } from '../../shared/ui/useModalDialog'
 import { Link } from 'react-router'
 import { PATHS } from '../../app/config'
 import { describeError } from '../../shared/api/errors'
@@ -135,6 +136,17 @@ function subscribeWideViewport(callback: () => void): () => void {
 function getWideViewport(): boolean {
   if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false
   return window.matchMedia('(min-width: 920px)').matches
+}
+
+/** Expanded image view: a native modal <dialog>; Esc and a click on the backdrop close it. */
+function ImageDialog({ label, onClose, children }: { label: string; onClose: () => void; children: ReactNode }) {
+  const ref = useRef<HTMLDialogElement>(null)
+  const closedBy = useModalDialog(ref, onClose, { lightDismiss: true })
+  return (
+    <dialog ref={ref} className="modal modal--image" {...({ closedby: closedBy } as Record<string, string>)} aria-label={label}>
+      {children}
+    </dialog>
+  )
 }
 
 const PREVIEW_STARS: [number, number, number][] = [
@@ -1385,17 +1397,9 @@ export function ObservationViewer(props: Props) {
         )}
       </div>
 
-      {/* Portal: the details panel is transformed, which would pin a fixed overlay to the panel and clip it. */}
+      {/* Native modal <dialog> in the top layer; portalled into the full-screen element when there is one. */}
       {expanded && createPortal(
-        <div className="modal-backdrop" role="presentation" onClick={() => setExpanded(false)}>
-          <div
-            className="modal modal--image"
-            role="dialog"
-            aria-modal="true"
-            aria-label={`${targetName} — expanded observation`}
-            onClick={(e) => e.stopPropagation()}
-            onKeyDown={(e) => e.key === 'Escape' && setExpanded(false)}
-          >
+        <ImageDialog label={`${targetName} — expanded observation`} onClose={() => setExpanded(false)}>
             <div className="modal__head">
               <h3>{targetName}</h3>
               <button type="button" className="icon-btn" aria-label="Close expanded image" onClick={() => setExpanded(false)} autoFocus>
@@ -1427,8 +1431,7 @@ export function ObservationViewer(props: Props) {
               )}
             </div>
             {!inCompare && timelineControls('expanded')}
-          </div>
-        </div>,
+        </ImageDialog>,
         document.fullscreenElement ?? document.body,
       )}
     </section>

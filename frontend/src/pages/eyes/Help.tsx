@@ -1,5 +1,6 @@
 import { X } from 'lucide-react'
-import { useEffect, useRef } from 'react'
+import { useRef } from 'react'
+import { useModalDialog } from '../../shared/ui/useModalDialog'
 
 const SHORTCUTS: [string, string][] = [
   ['Space', 'Play or pause the observations'],
@@ -15,20 +16,10 @@ const SHORTCUTS: [string, string][] = [
 ]
 
 export function HelpDialog({ onClose }: { onClose: () => void }) {
-  const ref = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    const prev = document.activeElement as HTMLElement | null
-    ref.current?.querySelector<HTMLElement>('button')?.focus()
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
-    window.addEventListener('keydown', onKey)
-    return () => {
-      window.removeEventListener('keydown', onKey)
-      prev?.focus()
-    }
-  }, [onClose])
+  const ref = useRef<HTMLDialogElement>(null)
+  const closedBy = useModalDialog(ref, onClose, { lightDismiss: true })
   return (
-    <div className="modal-backdrop" role="presentation" onClick={onClose}>
-      <div ref={ref} className="modal help" role="dialog" aria-modal="true" aria-labelledby="help-title" onClick={(e) => e.stopPropagation()}>
+    <dialog ref={ref} className="modal help" {...({ closedby: closedBy } as Record<string, string>)} aria-labelledby="help-title">
         <div className="modal__head">
           <h2 id="help-title" className="help__title">
             How The Eyes works
@@ -59,7 +50,6 @@ export function HelpDialog({ onClose }: { onClose: () => void }) {
             ))}
           </tbody>
         </table>
-      </div>
-    </div>
+    </dialog>
   )
 }

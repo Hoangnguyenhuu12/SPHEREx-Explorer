@@ -1,6 +1,6 @@
 .where {
   position: relative;
-  min-height: calc(100vh - var(--header-h));
+  min-height: calc(100dvh - var(--header-h));
   display: grid;
   overflow: hidden;
   background:
@@ -13,7 +13,7 @@
   grid-template-rows: auto 1fr auto auto auto;
   justify-items: center;
   padding-block: var(--space-5) var(--space-4);
-  min-height: calc(100vh - var(--header-h));
+  min-height: calc(100dvh - var(--header-h));
 }
 .where__title {
   font-size: 52px;
@@ -24,7 +24,7 @@
 .where__earth {
   position: relative;
   width: min(1100px, 100%);
-  height: clamp(340px, calc(100vh - var(--header-h) - 250px), 540px);
+  height: clamp(340px, calc(100dvh - var(--header-h) - 250px), 540px);
   align-self: center;
   transition: filter 520ms cubic-bezier(0.6, 0, 0.9, 0.4);
 }

@@ -871,30 +871,23 @@
   color: var(--muted);
 }
 
-/* Modal */
-.modal-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 300;
-  background: rgb(0 0 0 / 0.72);
-  display: grid;
-  place-items: center;
-  padding: var(--space-4);
-  overflow-y: auto;
-}
+/* Modal: native <dialog> opened with showModal() (backdrop and scroll lock in shared/ui/ui.css) */
 .modal {
+  color: var(--fg);
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--radius);
   padding: var(--space-4);
+  max-width: calc(100% - 2 * var(--space-4));
+  max-height: calc(100dvh - 2 * var(--space-4));
+  overflow: auto;
+}
+.modal[open] {
   display: grid;
   gap: var(--space-3);
-  max-height: calc(100vh - 2 * var(--space-4));
-  overflow: auto;
 }
 .modal--image {
   width: min(760px, 100%);
-  max-height: calc(100dvh - 2 * var(--space-4));
 }
 .modal__head {
   display: flex;
