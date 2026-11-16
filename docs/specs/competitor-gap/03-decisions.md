@@ -73,3 +73,15 @@ Mỗi ADR gồm: bối cảnh → quyết định → hệ quả. Trạng thái 
 
 - **Quyết định.** Dùng `i18next` (hoặc map JSON tự viết), ưu tiên landing, The Eyes, thẻ sao. Lưu ngôn ngữ trong `localStorage` và tham số `?lang=`.
 - **Hệ quả.** Mọi chuỗi mới phải đi qua `t()`. Có test kiểm tra không thiếu key.
+
+## ADR-009
+
+**Xử lý giấy phép GPL-3 của Aladin Lite trước khi thương mại hóa**
+
+- **Bối cảnh.** `frontend/package.json` dùng `aladin-lite` ^3.8.2, và `package.json` của gói này khai báo `"license": "GPL-3"`.
+  Gói được import (`import A from 'aladin-lite'`) và đóng gói vào bundle JS. Phân phối bundle chứa mã GPL có thể kéo các phần liên quan của frontend
+  vào nghĩa vụ GPL. Điều này mâu thuẫn với giấy phép MIT của dự án và có thể chặn một số mô hình bán hàng.
+- **Quyết định (đề xuất, cần ý kiến pháp lý).** Giai đoạn hackathon/pilot: giữ nguyên nhưng ghi rõ trong `THIRD-PARTY-NOTICES` và công khai mã nguồn.
+  Trước giai đoạn G1 thương mại: chọn một trong ba hướng: (a) tải Aladin Lite như một thành phần tách riêng (script từ CDN, không đóng gói chung),
+  giao tiếp qua một interface hẹp; (b) liên hệ CDS về điều khoản sử dụng; (c) thay bằng thư viện có giấy phép permissive cho bản thương mại.
+- **Hệ quả.** Viết lớp `SkyMapAdapter` để viewer không phụ thuộc trực tiếp vào API của Aladin, giúp việc thay thế về sau dễ hơn.

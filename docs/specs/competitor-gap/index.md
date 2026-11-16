@@ -5,11 +5,28 @@
 - [README](README.md): đọc gì trước
 - [01 Research](01-research.md): khảo sát 3 hệ thống
 - [02 RFC](02-rfc.md): đề xuất
-- [03 Decisions](03-decisions.md): ADR-001 đến ADR-008
+- [03 Decisions](03-decisions.md): ADR-001 đến ADR-009
 - [04 Plan](04-plan.md): lộ trình P0 → P3
 - [05 Spec](05-spec.md): chức năng và API
 - [06 Verification](06-verification.md): nghiệm thu
 - [07 Guide](07-guide.md): chạy, demo, phát triển
+- [08 Value & market](08-value-and-market.md): persona, use case, giá trị, đối thủ ngoài hackathon, kiểm chứng giả định
+- [09 Business model](09-business-model.md): Lean Canvas, doanh thu, chi phí, **giấy phép và pháp lý**
+- [10 Scalability](10-scalability.md): kiến trúc mở rộng, mô hình tải, đa sứ mệnh, SLO
+- [11 Maturity scorecard](11-maturity-scorecard.md): chấm 8 tiêu chí, TRL từng module, tiêu chí sẵn sàng thương mại
+
+### Bản đồ 8 tiêu chí cốt lõi → tài liệu
+
+| Tiêu chí | Tài liệu chính |
+| --- | --- |
+| Trải nghiệm người dùng | [ui/](ui/), [08 §2](08-value-and-market.md#2-chân-dung-người-dùng-persona), [06 §3](06-verification.md#3-ui-và-khả-năng-truy-cập) |
+| Khả năng mở rộng | [10-scalability](10-scalability.md), [ADR-004](03-decisions.md#adr-004) |
+| Chất lượng giải pháp | [06-verification](06-verification.md), [ADR-006](03-decisions.md#adr-006) |
+| Tính thương mại | [09-business-model](09-business-model.md) |
+| Tiềm năng khai thác thực tế | [08 §3](08-value-and-market.md#3-trường-hợp-sử-dụng-thực-tế) |
+| Khả năng tạo giá trị | [08 §4](08-value-and-market.md#4-giá-trị-tạo-ra) |
+| Lợi thế cạnh tranh | [08 §5](08-value-and-market.md#5-bối-cảnh-cạnh-tranh-ngoài-hackathon), ma trận bên dưới, [02-rfc](02-rfc.md) |
+| Mức độ hoàn thiện | [11-maturity-scorecard](11-maturity-scorecard.md) |
 
 ### modules/
 
