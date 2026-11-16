@@ -133,6 +133,29 @@
     top: 20%;
   }
 }
+@media (max-width: 640px) {
+  .where__title {
+    font-size: 34px;
+    line-height: 40px;
+    padding-inline: var(--gutter);
+    text-align: center;
+  }
+  .where__earth {
+    height: clamp(320px, 62vh, 480px);
+  }
+  .where__actions {
+    padding-inline: var(--gutter);
+  }
+}
+.where__loading {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  font-size: 14px;
+  pointer-events: none;
+}
 
 .where__stars {
   position: absolute;

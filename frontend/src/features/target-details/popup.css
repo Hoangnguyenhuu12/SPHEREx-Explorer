@@ -182,6 +182,47 @@
 .viewer-state__title {
   font-weight: 700;
 }
+.viewer-state .caption {
+  max-width: 36ch;
+}
+.viewer-state svg.blink-preview {
+  width: min(220px, 60vw);
+  height: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #05050a;
+}
+.viewer-state svg.spin--inline {
+  width: 16px;
+  height: 16px;
+  vertical-align: -3px;
+}
+.blink-preview__star {
+  fill: #cfd6e6;
+}
+.blink-preview__mover {
+  fill: var(--primary);
+  animation: blink-preview 1.6s steps(1, end) infinite;
+}
+.blink-preview__mover--b {
+  animation-delay: -0.8s;
+}
+@keyframes blink-preview {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .blink-preview__mover {
+    animation: none;
+  }
+  .blink-preview__mover--b {
+    opacity: 0.4;
+  }
+}
 .viewer-state progress {
   width: 180px;
   accent-color: var(--primary);
@@ -286,6 +327,9 @@
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
+}
+.viewer-play {
+  min-height: 44px;
 }
 .viewer-source-select {
   margin-left: auto;

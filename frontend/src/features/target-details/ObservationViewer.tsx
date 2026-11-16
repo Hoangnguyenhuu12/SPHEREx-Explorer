@@ -16,6 +16,7 @@ import {
   RotateCw,
   SkipBack,
   SkipForward,
+  SlidersHorizontal,
   Sparkles,
   X,
 } from 'lucide-react'
@@ -136,6 +137,24 @@ function getWideViewport(): boolean {
   return window.matchMedia('(min-width: 920px)').matches
 }
 
+const PREVIEW_STARS: [number, number, number][] = [
+  [18, 22, 2.2], [64, 14, 1.4], [102, 30, 2.8], [140, 18, 1.6], [30, 62, 1.5], [86, 70, 2.4],
+  [150, 58, 1.8], [12, 104, 2.6], [58, 100, 1.4], [120, 108, 2], [160, 96, 1.3], [44, 130, 1.7],
+]
+
+/** Illustration (not data) of what a blink shows: fixed stars, one dot that changes place. */
+function BlinkPreview() {
+  return (
+    <svg className="blink-preview" viewBox="0 0 176 140" aria-hidden>
+      {PREVIEW_STARS.map(([x, y, r]) => (
+        <circle key={`${x}-${y}`} cx={x} cy={y} r={r} className="blink-preview__star" />
+      ))}
+      <circle cx={78} cy={46} r={2.6} className="blink-preview__mover blink-preview__mover--a" />
+      <circle cx={92} cy={40} r={2.6} className="blink-preview__mover blink-preview__mover--b" />
+    </svg>
+  )
+}
+
 export function ObservationViewer(props: Props) {
   const { session, player, dispatch, toggles, setToggles, targetName } = props
   const guideOn = useGuide()
@@ -160,6 +179,9 @@ export function ObservationViewer(props: Props) {
   const [identifyStars, setIdentifyStars] = useState(true)
   const [starSelection, setStarSelection] = useState<{ key: string; star: GaiaOverlayMarker | null } | null>(null)
   const experienceMode = props.experienceMode ?? 'explore'
+  // Beginners see one action (Play); channel and source pickers wait behind "More options".
+  const [optionsOpen, setOptionsOpen] = useState(false)
+  const showOptions = optionsOpen || guideOn || experienceMode === 'science'
 
   const isWideViewport = useSyncExternalStore(subscribeWideViewport, getWideViewport, () => false)
   const data = session.data
@@ -463,9 +485,19 @@ export function ObservationViewer(props: Props) {
     if (session.status === 'fetching')
       return (
         <div className="viewer-state" role="status">
-          <Loader2 className="spin" aria-hidden />
-          <p>Requesting observations…</p>
-          {elapsed >= 5 && <p className="caption">Waiting {elapsed} s. The image service may take a minute to respond.</p>}
+          <BlinkPreview />
+          <p>
+            <Loader2 className="spin spin--inline" aria-hidden /> Requesting real observations…
+          </p>
+          <p className="caption">
+            Illustration while you wait: field stars stay put, a moving object hops between dates. In the real images, look for
+            that one dot.
+          </p>
+          {elapsed >= 5 && (
+            <p className="caption">
+              Waiting {elapsed} s. The image service wakes up after being idle; the first request can take up to a minute.
+            </p>
+          )}
           <button type="button" className="btn btn-secondary" onClick={session.cancel}>
             Cancel
           </button>
@@ -679,6 +711,24 @@ export function ObservationViewer(props: Props) {
     <section className="viewer" aria-label="Observation viewer">
       {/* Priority bar: Compare / Play / Source timeline switcher */}
       <div className="viewer-priority">
+        <button
+          type="button"
+          className="btn btn-primary viewer-play"
+          disabled={!canPlay}
+          aria-pressed={player.playing && viewMode === 'timeline'}
+          onClick={() => {
+            if (viewMode === 'compare') {
+              setViewMode('timeline')
+              if (!player.playing) dispatch({ type: 'toggle' })
+            } else {
+              dispatch({ type: 'toggle' })
+            }
+          }}
+        >
+          {player.playing && viewMode === 'timeline' ? <Pause aria-hidden /> : <Play aria-hidden />}
+          <span>{player.playing && viewMode === 'timeline' ? 'Pause' : 'Play observations'}</span>
+        </button>
+
         <div className="segmented" role="group" aria-label="Comparison view" data-tour="view-mode">
           <button
             type="button"
@@ -697,25 +747,19 @@ export function ObservationViewer(props: Props) {
           </button>
         </div>
 
-        <button
-          type="button"
-          className="btn btn-secondary btn--compact"
-          disabled={!canPlay}
-          aria-pressed={player.playing && viewMode === 'timeline'}
-          onClick={() => {
-            if (viewMode === 'compare') {
-              setViewMode('timeline')
-              if (!player.playing) dispatch({ type: 'toggle' })
-            } else {
-              dispatch({ type: 'toggle' })
-            }
-          }}
-        >
-          {player.playing && viewMode === 'timeline' ? <Pause aria-hidden /> : <Play aria-hidden />}
-          <span>{player.playing && viewMode === 'timeline' ? 'Pause' : 'Play'}</span>
-        </button>
+        {!guideOn && experienceMode !== 'science' && (props.onDetectorChange || props.timelineControl) && (
+          <button
+            type="button"
+            className="btn btn-ghost btn--compact"
+            aria-expanded={optionsOpen}
+            onClick={() => setOptionsOpen((o) => !o)}
+          >
+            <SlidersHorizontal aria-hidden />
+            <span>{optionsOpen ? 'Fewer options' : 'More options'}</span>
+          </button>
+        )}
 
-        {props.onDetectorChange && (
+        {showOptions && props.onDetectorChange && (
           <div className="segmented segmented--detectors" role="group" aria-label="SPHEREx detector" data-tour="detectors">
             {DETECTORS.map((d) => (
               <button
@@ -731,7 +775,7 @@ export function ObservationViewer(props: Props) {
           </div>
         )}
 
-        {props.timelineControl && (
+        {showOptions && props.timelineControl && (
           <label className="viewer-source-select" data-tour="source">
             <span className="sr-only">Observation sources</span>
             <select
