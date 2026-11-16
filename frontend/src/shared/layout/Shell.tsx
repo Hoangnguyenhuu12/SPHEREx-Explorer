@@ -179,17 +179,19 @@ export function SiteHeader({ variant = 'default', children }: { variant?: Header
   return (
     <header className={`site-header${isEyes ? ' site-header--eyes' : ''}${isLanding ? ' site-header--landing' : ''}`}>
       <div className={`site-header__inner${isEyes ? '' : ' wrap'}`}>
-        {isLanding ? (
+        {isEyes ? (
+          <MenuButton />
+        ) : (
           <span className="landing-menu">
             <MenuButton />
           </span>
-        ) : (
-          <MenuButton />
         )}
         <Link to={PATHS.home} className="wordmark" translate="no">
           SPHEREx Explorer
         </Link>
-        {isLanding ? (
+        {isEyes ? (
+          children
+        ) : (
           <>
             <span className="site-header__spacer" />
             <nav aria-label="Pages" className="topnav">
@@ -203,20 +205,22 @@ export function SiteHeader({ variant = 'default', children }: { variant?: Header
                 ))}
               </ul>
             </nav>
-            <div className="auth-actions" role="group" aria-label="Account">
-              <AuthActions />
-            </div>
+            {isLanding ? (
+              <div className="auth-actions" role="group" aria-label="Account">
+                <AuthActions />
+              </div>
+            ) : (
+              (children ?? (
+                <>
+                  <span className="site-header__spacer" />
+                  <Link to={PATHS.explorer} className="btn btn-secondary" aria-label="Open The Eyes">
+                    <Eye aria-hidden />
+                    <span className="hide-narrow">Open The Eyes</span>
+                  </Link>
+                </>
+              ))
+            )}
           </>
-        ) : (
-          (children ?? (
-            <>
-              <span className="site-header__spacer" />
-              <Link to={PATHS.explorer} className="btn btn-secondary" aria-label="Open The Eyes">
-                <Eye aria-hidden />
-                <span className="hide-narrow">Open The Eyes</span>
-              </Link>
-            </>
-          ))
         )}
       </div>
     </header>

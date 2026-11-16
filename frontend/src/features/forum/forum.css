@@ -235,8 +235,7 @@
   gap: var(--space-3);
   padding: var(--space-3) var(--space-4);
   background: var(--surface);
-  border: 1px solid var(--line);
-  border-left: 3px solid var(--blue);
+  border: 1px solid color-mix(in srgb, var(--blue) 45%, var(--line));
   border-radius: var(--radius);
 }
 .obs-card__icon {
@@ -616,7 +615,7 @@
 }
 .comment--hidden {
   opacity: 0.7;
-  border-left: 3px solid var(--danger);
+  box-shadow: inset 3px 0 0 var(--danger);
   padding-left: var(--space-3);
 }
 .comment__head {

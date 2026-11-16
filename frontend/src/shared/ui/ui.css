@@ -35,8 +35,10 @@
   background: var(--primary);
   color: var(--on-primary);
 }
-.btn-primary:hover:not(:disabled) {
-  background: var(--primary-hover);
+@media (hover: hover) {
+  .btn-primary:hover:not(:disabled) {
+    background: var(--primary-hover);
+  }
 }
 
 .btn-secondary {
@@ -44,16 +46,20 @@
   border-color: var(--line-strong);
   color: var(--fg);
 }
-.btn-secondary:hover:not(:disabled) {
-  background: var(--surface-2);
+@media (hover: hover) {
+  .btn-secondary:hover:not(:disabled) {
+    background: var(--surface-2);
+  }
 }
 
 .btn-ghost {
   background: transparent;
   color: var(--fg);
 }
-.btn-ghost:hover:not(:disabled) {
-  background: var(--surface-2);
+@media (hover: hover) {
+  .btn-ghost:hover:not(:disabled) {
+    background: var(--surface-2);
+  }
 }
 
 .btn-lg {
@@ -75,8 +81,10 @@
   cursor: pointer;
   transition: background-color var(--dur-hover) var(--ease-out);
 }
-.icon-btn:hover:not(:disabled) {
-  background: var(--surface-2);
+@media (hover: hover) {
+  .icon-btn:hover:not(:disabled) {
+    background: var(--surface-2);
+  }
 }
 .icon-btn[aria-pressed='true'] {
   background: var(--primary);
@@ -120,7 +128,7 @@
   gap: 2px;
 }
 .segmented button {
-  height: 34px;
+  height: 30px;
   padding: 0 var(--space-3);
   border: 0;
   border-radius: 6px;
@@ -135,8 +143,10 @@
   background: var(--primary);
   color: var(--on-primary);
 }
-.segmented button:hover:not([aria-pressed='true']):not([aria-checked='true']):not(:disabled) {
-  background: var(--surface-2);
+@media (hover: hover) {
+  .segmented button:hover:not([aria-pressed='true']):not([aria-checked='true']):not(:disabled) {
+    background: var(--surface-2);
+  }
 }
 .segmented button:disabled {
   opacity: 0.45;
@@ -197,10 +207,13 @@
   margin-top: var(--space-2);
   max-width: 100%;
   overflow-x: auto;
+  scroll-snap-type: inline proximity;
   scrollbar-width: none;
 }
 .tabs button {
+  flex: none;
   height: 40px;
+  min-block-size: 40px;
   padding: 0 var(--space-3);
   border: 0;
   background: transparent;
@@ -211,9 +224,21 @@
   border-bottom: 2px solid transparent;
   margin-bottom: -1px;
   white-space: nowrap;
+  scroll-snap-align: start;
 }
-.tabs button:hover {
-  color: var(--fg);
+.tabs button:focus-visible {
+  outline-offset: -2px;
+}
+@media (hover: hover) {
+  .tabs button:hover {
+    color: var(--fg);
+  }
+}
+@media (pointer: coarse) {
+  .tabs button {
+    height: 44px;
+    min-block-size: 44px;
+  }
 }
 .tabs button[aria-selected='true'] {
   color: var(--fg);

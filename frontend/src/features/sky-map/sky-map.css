@@ -15,7 +15,9 @@
 .sky-map {
   font-family: var(--font-body);
 }
-/* Aladin's logo/attribution must stay above our decorative horizon. */
+/* Aladin's logo/attribution stays visible above our decorative horizon, clear of both the dock and chat launcher. */
 .sky-map .aladin-logo-container {
-  z-index: 20;
+  z-index: 8;
+  bottom: calc(var(--dock-h, 52px) + 14px) !important;
+  right: 78px !important;
 }

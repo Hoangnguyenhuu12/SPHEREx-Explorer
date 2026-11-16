@@ -3,7 +3,7 @@
   padding: 0 clamp(16px, 5vw, 76px) 28px;
   background: radial-gradient(ellipse at 41% 46%, #122243, #090e1e 51%, #060a14 86%);
   color: #f0f5ff;
-  font-family: "Instrument Sans", "Segoe UI", system-ui, sans-serif;
+  font-family: var(--font-body);
 }
 
 .globe-header, .globe-layout {
