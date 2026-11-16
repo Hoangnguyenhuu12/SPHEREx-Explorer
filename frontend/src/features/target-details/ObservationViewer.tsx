@@ -4,6 +4,7 @@ import {
   Columns2,
   Copy,
   Crosshair,
+  Download,
   Expand,
   Layers,
   Loader2,
@@ -26,9 +27,12 @@ import { Link } from 'react-router'
 import { PATHS } from '../../app/config'
 import { describeError } from '../../shared/api/errors'
 import { DETECTORS, type TargetInfo } from '../../shared/config/targets'
+import wiseReferenceConfig from '../../shared/config/wise-reference.json'
 import { useGuide } from '../guide/guide-state'
 import { BlinkCanvas, type BlinkCanvasHandle, type GaiaOverlayMarker, type RulerOverlay, type TrailPoint } from '../blink/BlinkCanvas'
+import { renderSequenceGif } from '../blink/gifExporter'
 import { canStep, SPEEDS, type PlayerAction, type PlayerState } from '../blink/player'
+import { RgbView, UnwiseBlink } from './MoreTools'
 import type { FrameSession } from '../blink/useFrameSession'
 import type { SyncedView } from '../blink/viewport'
 import { formatDecDms, formatRaHms } from '../target-search/coordinates'
@@ -178,6 +182,9 @@ export function ObservationViewer(props: Props) {
   const [copiedLink, setCopiedLink] = useState(false)
   const [identifyStars, setIdentifyStars] = useState(true)
   const [starSelection, setStarSelection] = useState<{ key: string; star: GaiaOverlayMarker | null } | null>(null)
+  const [showRealUnwise, setShowRealUnwise] = useState(false)
+  const [rgbOpen, setRgbOpen] = useState(false)
+  const [gifSaved, setGifSaved] = useState(false)
   const experienceMode = props.experienceMode ?? 'explore'
   // Beginners see one action (Play); channel and source pickers wait behind "More options".
   const [optionsOpen, setOptionsOpen] = useState(false)
@@ -187,6 +194,19 @@ export function ObservationViewer(props: Props) {
   const data = session.data
   const frames = useMemo(() => data?.frames ?? [], [data])
   const hasPredictedCrosshair = useMemo(() => frames.some((item) => item.predicted_px != null), [frames])
+  const hasRealUnwise = Boolean(props.target && props.target.key in wiseReferenceConfig.blinkManifests)
+  const motionVector = useMemo(() => {
+    if (!props.target) return null
+    const dx = props.target.pmRaCosDecMasYr
+    const dy = props.target.pmDecMasYr
+    const totalArcsecYr = Math.hypot(dx, dy) / 1000
+    return totalArcsecYr >= 0.05 ? { dxMasYr: dx, dyMasYr: dy, totalArcsecYr } : null
+  }, [props.target])
+  const rgbCoords = props.target
+    ? { ra: props.target.raDeg, dec: props.target.decDeg }
+    : data?.target
+      ? { ra: data.target.ra, dec: data.target.dec }
+      : null
   const seqKey = data ? `${data.target?.name ?? ''}:${data.detector}:${frames.length}:${frames[0]?.id ?? ''}:${frames[frames.length - 1]?.id ?? ''}` : ''
 
   const pairResolution = useMemo(
@@ -372,6 +392,7 @@ export function ObservationViewer(props: Props) {
 
   const startMarking = (slot: 'A' | 'B') => {
     if (viewMode !== 'compare' && hasMultipleFrames) switchToMode('compare')
+    setRulerActive(false)
     setActiveSlot(slot)
     setMarkingSlot((curr) => (curr === slot ? null : slot))
   }
@@ -454,6 +475,7 @@ export function ObservationViewer(props: Props) {
         pixArcsec={data.grid.pixscale_arcsec}
         crosshair={f?.predicted_px ?? null}
         showCrosshair={Boolean(toggles.crosshair)}
+        motionVector={motionVector}
         flagsOverlay={toggles.flags ? props.flagsOverlay : null}
         trail={toggles.trail ? props.trail : undefined}
         gaiaMarkers={markersFor(frameIdx)}
@@ -690,7 +712,63 @@ export function ObservationViewer(props: Props) {
             Difference
           </button>
         </div>
+        {rgbCoords && (
+          <button
+            type="button"
+            className="btn btn-secondary btn--compact"
+            aria-pressed={rgbOpen}
+            title="Combine detectors D6 (red), D4 (green), D2 (blue) into a false-color RGB view"
+            onClick={() => setRgbOpen((v) => !v)}
+          >
+            <Layers aria-hidden />
+            <span>False-color RGB</span>
+          </button>
+        )}
+        {frames.length >= 2 && (
+          <button
+            type="button"
+            className="btn btn-secondary btn--compact"
+            disabled={session.originals.filter(Boolean).length < 2}
+            title="Export loaded observations as an animated GIF"
+            onClick={() => {
+              const bitmaps: ImageBitmap[] = []
+              const labels: string[] = []
+              frames.forEach((item, idx) => {
+                const bmp = session.originals[idx]
+                if (bmp) {
+                  bitmaps.push(bmp)
+                  labels.push(item.iso.slice(0, 10))
+                }
+              })
+              if (bitmaps.length < 2) return
+              const blob = renderSequenceGif(bitmaps, labels, player.fps)
+              const url = URL.createObjectURL(blob)
+              const a = document.createElement('a')
+              a.href = url
+              a.download = `${props.target?.key ?? 'spherex'}_blink.gif`
+              a.click()
+              URL.revokeObjectURL(url)
+              setGifSaved(true)
+              window.setTimeout(() => setGifSaved(false), 2000)
+            }}
+          >
+            {gifSaved ? <Check aria-hidden /> : <Download aria-hidden />}
+            <span>{gifSaved ? 'Saved GIF' : 'Download GIF'}</span>
+          </button>
+        )}
       </div>
+
+      {rgbOpen && rgbCoords && idSuffix === 'main' && (
+        <div className="viewer-rgb-inline">
+          <RgbView
+            target={props.target ?? null}
+            coords={rgbCoords}
+            data={data ?? null}
+            originals={session.originals}
+            activeIndex={displayIndex}
+          />
+        </div>
+      )}
 
       {isDiff ? (
         <p className="caption viewer-legend">
@@ -777,7 +855,7 @@ export function ObservationViewer(props: Props) {
 
         {showOptions && props.timelineControl && (
           <label className="viewer-source-select" data-tour="source">
-            <span className="sr-only">Observation sources</span>
+            <span className="viewer-source-select__label">Source</span>
             <select
               className="select select--compact"
               value={combined ? 'combined' : 'spherex'}
@@ -789,6 +867,26 @@ export function ObservationViewer(props: Props) {
           </label>
         )}
       </div>
+
+      {demo && hasRealUnwise && props.target && (
+        <div className="viewer-real-callout">
+          <span className="caption">
+            Offline demo active — Real NASA unWISE infrared sequence (2010–2024) is available
+          </span>
+          <button
+            type="button"
+            className="btn btn-secondary btn--compact"
+            aria-pressed={showRealUnwise}
+            onClick={() => setShowRealUnwise((v) => !v)}
+          >
+            {showRealUnwise ? 'Hide real NASA unWISE blink' : 'Show real NASA unWISE blink'}
+          </button>
+        </div>
+      )}
+
+      {demo && hasRealUnwise && showRealUnwise && props.target && (
+        <UnwiseBlink key={`inline-${props.target.key}`} target={props.target} inline />
+      )}
 
       {inCompare ? (
         <div className="compare-block">
@@ -1160,6 +1258,80 @@ export function ObservationViewer(props: Props) {
         </>
       )}
 
+      {experienceMode === 'science' && (
+        <div className="viewer-science" role="toolbar" aria-label="Science measurement tools">
+          <div className="viewer-science__row">
+            <span className="viewer-science__tag">Science tools</span>
+            <button
+              type="button"
+              className="btn btn-secondary btn--compact"
+              aria-pressed={props.spectrumEnabled}
+              onClick={props.onShowSpectrum}
+              title="Read measured SPHEREx flux by wavelength at the selected position"
+            >
+              <Sparkles aria-hidden />
+              <span>Spectrum at point</span>
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary btn--compact"
+              aria-pressed={rulerActive}
+              onClick={() => {
+                const next = !rulerActive
+                if (next) setMarkingSlot(null)
+                setRulerActive(next)
+                if (!next) {
+                  setRulerStart(null)
+                  setRulerMeasurement(null)
+                  props.onRulerChange?.(null)
+                }
+              }}
+            >
+              <span>{rulerActive ? 'Ruler A→B (active)' : 'Measure offset (A→B)'}</span>
+            </button>
+            <label className="viewer-source-select">
+              <span className="sr-only">Image contrast stretch</span>
+              <select
+                className="select select--compact"
+                value={stretch}
+                onChange={(e) => setStretch(e.target.value as CanvasStretch)}
+                aria-label="Image contrast stretch"
+              >
+                <option value="default">Stretch: Standard</option>
+                <option value="high-contrast">Stretch: High contrast</option>
+                <option value="invert">Stretch: Inverted (print)</option>
+              </select>
+            </label>
+          </div>
+          {rulerActive && (
+            <div className="notice" role="status">
+              <div>
+                {rulerMeasurement ? (
+                  <>
+                    <strong>
+                      Ruler A → B: Δθ = {rulerMeasurement.sepArcsec.toFixed(2)}″ (ΔRA* = {rulerMeasurement.draArcsec.toFixed(2)}″, ΔDec = {rulerMeasurement.ddecArcsec.toFixed(2)}″) · PA = {rulerMeasurement.paDeg.toFixed(1)}°
+                    </strong>
+                    <p className="caption num">
+                      {rulerMeasurement.properMotionMasYr != null && rulerMeasurement.baselineYears != null
+                        ? `Baseline Δt = ${rulerMeasurement.baselineYears.toFixed(2)} yr → apparent motion μ ≈ ${rulerMeasurement.properMotionMasYr.toFixed(0)} mas/yr. Click again to start a new measurement.`
+                        : 'Measured on the same epoch. Tip: click point A on Date A, switch to Date B, and click point B to compute proper motion (mas/yr).'}
+                    </p>
+                  </>
+                ) : rulerStart ? (
+                  <p className="caption">
+                    Point A set at pixel ({rulerStart.px[0]}, {rulerStart.px[1]}). Now click point B (you can switch to Date B first to measure motion across time).
+                  </p>
+                ) : (
+                  <p className="caption">
+                    Astrometry Ruler active: click point A on the image, then click point B to measure angular separation (″), position angle (°), and proper motion (mas/yr).
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Guiding question & Gaia overlay legend */}
       <div className="viewer-prompt">
         <p className="viewer-prompt__question">
@@ -1198,50 +1370,6 @@ export function ObservationViewer(props: Props) {
             </button>
           )}
 
-          {experienceMode === 'science' && (
-            <>
-              <button
-                type="button"
-                className="btn btn-secondary btn--compact"
-                aria-pressed={props.spectrumEnabled}
-                onClick={props.onShowSpectrum}
-                title="Read measured SPHEREx flux by wavelength at the selected position"
-              >
-                <Sparkles aria-hidden />
-                <span>Spectrum at point</span>
-              </button>
-              <button
-                type="button"
-                className="btn btn-secondary btn--compact"
-                aria-pressed={rulerActive}
-                onClick={() => {
-                  const next = !rulerActive
-                  setRulerActive(next)
-                  if (!next) {
-                    setRulerStart(null)
-                    setRulerMeasurement(null)
-                    props.onRulerChange?.(null)
-                  }
-                }}
-              >
-                <span>{rulerActive ? 'Ruler A→B (active)' : 'Measure offset (A→B)'}</span>
-              </button>
-              <label className="viewer-source-select">
-                <span className="sr-only">Image contrast stretch</span>
-                <select
-                  className="select select--compact"
-                  value={stretch}
-                  onChange={(e) => setStretch(e.target.value as CanvasStretch)}
-                  aria-label="Image contrast stretch"
-                >
-                  <option value="default">Stretch: Standard</option>
-                  <option value="high-contrast">Stretch: High contrast</option>
-                  <option value="invert">Stretch: Inverted (print)</option>
-                </select>
-              </label>
-            </>
-          )}
-
           {inCompare && (markA || markB) ? (
             <button
               type="button"
@@ -1274,10 +1402,19 @@ export function ObservationViewer(props: Props) {
         {catalogAvailable && toggles.gaiaOverlays && (
           <div className="star-picker" aria-label="Identify catalog stars">
             <label className="check">
-              <input type="checkbox" checked={identifyStars} onChange={(e) => setIdentifyStars(e.target.checked)} />
+              <input
+                type="checkbox"
+                checked={identifyStars}
+                disabled={rulerActive || Boolean(markingSlot)}
+                onChange={(e) => setIdentifyStars(e.target.checked)}
+              />
               Select a star on the image
             </label>
-            <p className="caption">Click a blue circle or choose a star below. Turn off star selection to mark freely. Catalog positions do not confirm a detection in this image.</p>
+            <p className="caption">
+              {rulerActive || Boolean(markingSlot)
+                ? 'Star click selection is paused while measuring offset or marking positions.'
+                : 'Click a blue circle or choose a star below. Turn off star selection to mark freely. Catalog positions do not confirm a detection in this image.'}
+            </p>
             {props.gaiaOverlayMeta?.loading ? <p role="status">Loading star catalog…</p>
               : props.gaiaOverlayMeta?.error ? <p role="status">Star identification is unavailable because the catalog could not be loaded.</p>
               : visibleStars.length === 0 ? <p role="status">No selectable catalog stars in this frame.</p>
@@ -1314,33 +1451,6 @@ export function ObservationViewer(props: Props) {
                 </div>
               </div>
             )}
-          </div>
-        )}
-
-        {experienceMode === 'science' && rulerActive && (
-          <div className="notice" role="status">
-            <div>
-              {rulerMeasurement ? (
-                <>
-                  <strong>
-                    Ruler A → B: Δθ = {rulerMeasurement.sepArcsec.toFixed(2)}″ (ΔRA* = {rulerMeasurement.draArcsec.toFixed(2)}″, ΔDec = {rulerMeasurement.ddecArcsec.toFixed(2)}″) · PA = {rulerMeasurement.paDeg.toFixed(1)}°
-                  </strong>
-                  <p className="caption num">
-                    {rulerMeasurement.properMotionMasYr != null && rulerMeasurement.baselineYears != null
-                      ? `Baseline Δt = ${rulerMeasurement.baselineYears.toFixed(2)} yr → apparent motion μ ≈ ${rulerMeasurement.properMotionMasYr.toFixed(0)} mas/yr. Click again to start a new measurement.`
-                      : 'Measured on the same epoch. Tip: click point A on Date A, switch to Date B, and click point B to compute proper motion (mas/yr).'}
-                  </p>
-                </>
-              ) : rulerStart ? (
-                <p className="caption">
-                  Point A set at pixel ({rulerStart.px[0]}, {rulerStart.px[1]}). Now click point B (you can switch to Date B first to measure motion across time).
-                </p>
-              ) : (
-                <p className="caption">
-                  Astrometry Ruler active: click point A on the image, then click point B to measure angular separation (″), position angle (°), and proper motion (mas/yr).
-                </p>
-              )}
-            </div>
           </div>
         )}
 

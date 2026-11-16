@@ -81,7 +81,7 @@ interface UnwiseFrame {
   image_url: string
 }
 
-function UnwiseBlink({ target }: { target: TargetInfo }) {
+export function UnwiseBlink({ target, inline = false }: { target: TargetInfo; inline?: boolean }) {
   const sources = (wiseReferenceConfig.blinkManifests as Record<string, Partial<Record<'W1' | 'W2', string>>>)[target.key] ?? {}
   const [playing, setPlaying] = useState(false)
   const [index, setIndex] = useState(0)
@@ -106,26 +106,60 @@ function UnwiseBlink({ target }: { target: TargetInfo }) {
     return () => window.clearInterval(timer)
   }, [playing, frames.length])
   if (!manifestUrl) return <p className="caption">No unWISE sequence is available for this band.</p>
-  if (query.isPending) return <p className="caption" role="status">Loading unWISE sequence…</p>
+  if (query.isPending) return <p className="caption" role="status">Loading real NASA unWISE sequence…</p>
   if (query.isError || frames.length < 2) return <p className="caption" role="status">unWISE sequence is temporarily unavailable.</p>
-  const frame = frames[index % frames.length]
+  const clampedIdx = index % frames.length
+  const frame = frames[clampedIdx]
   return (
-    <div className="wise-reference">
-      <h4>{target.name} · unWISE blink</h4>
+    <div className={inline ? 'viewer-unwise-inline' : 'wise-reference'}>
+      <div className="panel-head">
+        <h4>{target.name} · unWISE blink</h4>
+        <span className="viewer-real-badge">Real NASA unWISE data</span>
+      </div>
       <div className="wise-blink__controls" aria-label="Select WISE band">
         {(['W1', 'W2'] as const).filter((choice) => sources[choice]).map((choice) => (
-          <button key={choice} className="btn btn-secondary" type="button" aria-pressed={band === choice} onClick={() => { setPlaying(false); setIndex(0); setBand(choice) }}>{choice}</button>
+          <button
+            key={choice}
+            className="btn btn-secondary btn--compact"
+            type="button"
+            aria-pressed={band === choice}
+            onClick={() => { setPlaying(false); setIndex(0); setBand(choice) }}
+          >
+            {choice === 'W1' ? 'W1 (3.4 µm)' : 'W2 (4.6 µm)'}
+          </button>
         ))}
       </div>
       <p className="caption">Time-resolved {band} coadds · same sky grid · {frames.length} epochs · visual comparison only.</p>
       <img className="wise-blink__image" src={frame.image_url} alt={`unWISE ${band} field at epoch ${frame.epoch}`} />
-      <p className="caption" aria-live={playing ? 'off' : 'polite'}>Epoch {frame.epoch} · {frame.date.slice(0, 10)} UTC · {index + 1}/{frames.length}</p>
+      <input
+        type="range"
+        className="viewer-unwise-slider"
+        min={0}
+        max={Math.max(0, frames.length - 1)}
+        step={1}
+        value={clampedIdx}
+        aria-label="Real unWISE observation epoch"
+        onChange={(e) => { setPlaying(false); setIndex(Number(e.target.value)) }}
+      />
+      <p className="caption num" aria-live={playing ? 'off' : 'polite'}>
+        Epoch {frame.epoch} · {frame.date.slice(0, 10)} UTC · {clampedIdx + 1}/{frames.length}
+      </p>
       <div className="wise-blink__controls">
-        <button className="btn btn-secondary" type="button" onClick={() => { setPlaying(false); setIndex((index + frames.length - 1) % frames.length) }}>Previous</button>
-        <button className="btn btn-secondary" type="button" onClick={() => setPlaying(!playing)}>{playing ? 'Pause' : 'Play'}</button>
-        <button className="btn btn-secondary" type="button" onClick={() => { setPlaying(false); setIndex((index + 1) % frames.length) }}>Next</button>
+        <button className="btn btn-secondary btn--compact" type="button" onClick={() => { setPlaying(false); setIndex((clampedIdx + frames.length - 1) % frames.length) }}>Previous</button>
+        <button
+          className="btn btn-secondary btn--compact"
+          type="button"
+          aria-label={playing ? 'Pause real unWISE sequence' : 'Play real unWISE sequence'}
+          aria-pressed={playing}
+          onClick={() => setPlaying(!playing)}
+        >
+          {playing ? 'Pause' : 'Play'}
+        </button>
+        <button className="btn btn-secondary btn--compact" type="button" onClick={() => { setPlaying(false); setIndex((clampedIdx + 1) % frames.length) }}>Next</button>
       </div>
-      <p className="caption">Each frame has its background removed and shares the same display stretch. Bright sources may saturate. Apparent movement is not a confirmed measurement.</p>
+      {!inline && (
+        <p className="caption">Each frame has its background removed and shares the same display stretch. Bright sources may saturate. Apparent movement is not a confirmed measurement.</p>
+      )}
     </div>
   )
 }
@@ -164,7 +198,7 @@ function WiseReference({ target }: { target: TargetInfo }) {
   )
 }
 
-function RgbView({ target, coords, data, originals, activeIndex }: Pick<Props, 'target' | 'coords' | 'data' | 'originals' | 'activeIndex'>) {
+export function RgbView({ target, coords, data, originals, activeIndex }: Pick<Props, 'target' | 'coords' | 'data' | 'originals' | 'activeIndex'>) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const pixels = useRef(new Map<string, Uint8ClampedArray<ArrayBuffer>>())
   const params = (d: number) => ({ ra: coords.ra, dec: coords.dec, detector: d, size: config.cutoutSizeDeg, maxFrames: config.maxFrames, targetKey: target?.key })

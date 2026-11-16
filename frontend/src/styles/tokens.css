@@ -58,3 +58,9 @@
     --gutter: 16px;
   }
 }
+
+@media (pointer: coarse) {
+  :root {
+    --control-h: 44px;
+  }
+}

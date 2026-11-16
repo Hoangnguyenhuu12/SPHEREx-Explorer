@@ -2,7 +2,7 @@ import { ALLWISE_MAP_MJD, DR1_MAP_MJD } from '../../shared/config/epoch'
 
 /** Background sky surveys for The Eyes and the cube-slice maths (no Aladin import: testable in Node). */
 
-export type SurveyKey = 'spherex' | 'wise' | 'dss2'
+export type SurveyKey = 'spherex' | 'wise' | 'twomass' | 'dss2'
 
 export interface SurveyInfo {
   key?: SurveyKey
@@ -58,6 +58,24 @@ export const WISE_SURVEY: SurveyInfo = {
   cube: false,
   epochMjd: ALLWISE_MAP_MJD,
   epochLabel: '2010 (AllWISE, MJD 55396)',
+}
+
+/** Public 2MASS near-infrared (J/H/Ks) HiPS mirrors (CDS / IRSA). */
+export const TWOMASS_MIRRORS = [
+  'https://alasky.cds.unistra.fr/2MASS/Color',
+  'https://alaskybis.cds.unistra.fr/2MASS/Color',
+  'https://irsa.ipac.caltech.edu/data/hips/CDS/2MASS/Color',
+]
+
+export const TWOMASS_SURVEY: SurveyInfo = {
+  key: 'twomass',
+  id: 'ivo://CDS/P/2MASS/color',
+  label: '2MASS near-infrared color atlas',
+  credit: '2MASS / IPAC-Caltech / UMass, HiPS by CDS',
+  url: TWOMASS_MIRRORS[0],
+  cube: false,
+  epochMjd: 51544,
+  epochLabel: '1997–2001 (2MASS, J2000)',
 }
 
 /** Official HiPS mirrors of CDS/P/DSS2/color: fallback when the primary survey cannot be reached. */

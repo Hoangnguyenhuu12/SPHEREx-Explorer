@@ -84,7 +84,7 @@ export function OverviewPanel({ target, coords, data, experienceMode = 'explore'
             <p>{target.lookFor}</p>
             <p className="caption">A viewing tip, not a guaranteed result. Small movements may not be visible across these dates.</p>
           </div>
-          {experienceMode === 'explore' && (
+          {experienceMode === 'explore' ? (
             <div className="look-for" aria-label="Plain-language science guide">
               <h4>Why is this object special?</h4>
               <p>{target.funFact}</p>
@@ -96,6 +96,26 @@ export function OverviewPanel({ target, coords, data, experienceMode = 'explore'
                 <div>
                   <dt>How warm or cold it is</dt>
                   <dd>{target.temperatureAnalogy}</dd>
+                </div>
+              </dl>
+            </div>
+          ) : (
+            <div className="look-for" aria-label="Catalog reference parameters">
+              <h4>Catalog reference</h4>
+              <dl className="facts">
+                <div>
+                  <dt>Proper motion ({target.epoch})</dt>
+                  <dd className="num">
+                    μ_α* = {target.pmRaCosDecMasYr.toLocaleString('en-US')} mas/yr · μ_δ = {target.pmDecMasYr.toLocaleString('en-US')} mas/yr
+                  </dd>
+                </div>
+                <div>
+                  <dt>Recommended channel</dt>
+                  <dd className="num">D{target.recommendedDetector}</dd>
+                </div>
+                <div>
+                  <dt>SIMBAD identifier</dt>
+                  <dd className="num">{target.simbadId}</dd>
                 </div>
               </dl>
             </div>
@@ -433,10 +453,11 @@ export function DataPanel({
           ) : null)}
       </section>
 
-      <details className="detail-block" open={spectrumOpen} onToggle={(event) => onSpectrumOpenChange(event.currentTarget.open)}>
+      <details id="viewer-spectrum-details" className="detail-block" open={spectrumOpen} onToggle={(event) => onSpectrumOpenChange(event.currentTarget.open)}>
         <summary className="detail-summary">Spectrum (D1–D6 measured flux)</summary>
         <div className="detail-block__inner">
           {spectrumOpen && <SpectrumResult
+            isPicked={Boolean(picked)}
             position={
               picked ?? {
                 ra: coords.ra,
@@ -478,7 +499,7 @@ export function useFlagsOverlay(frameId: string | null, enabled: boolean): HTMLI
   return img
 }
 
-export function SpectrumResult({ position, target }: { position: { ra: number; dec: number; x: number; y: number } | null; target: TargetInfo | null }) {
+export function SpectrumResult({ position, target, isPicked = false }: { position: { ra: number; dec: number; x: number; y: number } | null; target: TargetInfo | null; isPicked?: boolean }) {
   const q = useQuery({
     queryKey: ['spectrum', config.useMock, target?.key ?? null, position?.ra ?? null, position?.dec ?? null],
     queryFn: ({ signal }) => api.spectrum({ ra: position!.ra, dec: position!.dec, targetKey: target?.key }, signal),
@@ -491,7 +512,7 @@ export function SpectrumResult({ position, target }: { position: { ra: number; d
     <div>
       <div className="panel-head">
         <p className="num caption">
-          Pixel ({position.x}, {position.y}) · {formatRaHms(position.ra)} {formatDecDms(position.dec)}
+          {isPicked ? 'Pixel' : 'Target center'} ({position.x}, {position.y}) · {formatRaHms(position.ra)} {formatDecDms(position.dec)}
         </p>
         <DemoTag mode={q.data?.mode} />
       </div>
@@ -517,8 +538,22 @@ export function SpectrumResult({ position, target }: { position: { ra: number; d
             xLabel="Wavelength (µm)"
             yLabel="Flux (mJy)"
             formatX={(x) => x.toFixed(1)}
+            bands={[
+              { xMin: 1.35, xMax: 1.5, label: 'H₂O' },
+              { xMin: 1.85, xMax: 2.05, label: 'H₂O' },
+              { xMin: 2.9, xMax: 3.3, label: 'H₂O / CH₄' },
+              { xMin: 4.4, xMax: 4.8, label: 'CO / CO₂' },
+            ]}
             title={q.data?.is_continuous_spectrum ? 'Spectrum at the selected point' : 'SPHEREx band flux at the selected point'}
           />
+          {target && (
+            <div className="look-for" aria-label="Plain-language spectrum guide">
+              <h4>What its light says</h4>
+              <p>
+                {target.temperatureAnalogy} Shaded vertical bands highlight key near-infrared molecular dips (H₂O water vapor, CH₄ methane, and CO / CO₂) that cool stars and brown dwarfs carve out between SPHEREx detectors D1 and D6.
+              </p>
+            </div>
+          )}
           <p className="caption">
             {q.data?.is_continuous_spectrum
               ? 'These are measured spectral samples from the selected position.'
