@@ -158,6 +158,12 @@
   display: inline-grid;
   justify-items: center;
   align-items: center;
+  line-height: inherit;
+}
+.bi-slot__text {
+  grid-row: 1;
+  grid-column: 1;
+  display: inline-block;
 }
 .bi-slot::after {
   content: attr(data-alt);

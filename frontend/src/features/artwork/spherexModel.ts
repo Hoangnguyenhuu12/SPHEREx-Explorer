@@ -30,13 +30,13 @@ function createBrushedAluminumTextures(): {
     for (let x = 0; x < size; x++) {
       const idx = (y * size + x) * 4
       const fine = Math.sin((x / size) * Math.PI * 6 + y * 0.31) * 5 + (nextRand() - 0.5) * 6
-      const val = Math.max(52, Math.min(132, Math.round(88 + bias + fine)))
-      albedo[idx] = Math.max(0, val - 6)
+      const val = Math.max(98, Math.min(176, Math.round(136 + bias + fine)))
+      albedo[idx] = Math.max(0, val - 5)
       albedo[idx + 1] = val
-      albedo[idx + 2] = Math.min(255, val + 16)
+      albedo[idx + 2] = Math.min(255, val + 14)
       albedo[idx + 3] = 255
 
-      const rVal = Math.max(52, Math.min(118, Math.round(78 - bias * 0.65 + (nextRand() - 0.5) * 14)))
+      const rVal = Math.max(48, Math.min(108, Math.round(72 - bias * 0.6 + (nextRand() - 0.5) * 14)))
       rough[idx] = rVal
       rough[idx + 1] = rVal
       rough[idx + 2] = rVal
@@ -337,30 +337,31 @@ export function buildSpherexObservatory(): THREE.Group {
   const lensTex = createCyanLensTexture()
   const creviceAoTex = createCreviceAoTexture()
 
-  // Photon Shields: Matte white thermal coating outside, brushed aluminum interior with subtle anisotropic highlights
+  // Photon Shields: Satin-white slightly metallic exterior, medium-dark reflective brushed steel/aluminum interior
   const shieldOuterMat = new THREE.MeshStandardMaterial({
     name: 'Shield_Thermal_Matte_White',
     color: '#f4f6fa',
     aoMap: creviceAoTex,
-    aoMapIntensity: 0.65,
-    metalness: 0.04,
-    roughness: 0.86,
+    aoMapIntensity: 0.6,
+    metalness: 0.14,
+    roughness: 0.68,
+    envMapIntensity: 0.85,
     flatShading: true,
   })
   const shieldInnerMat = new THREE.MeshPhysicalMaterial({
     name: 'Shield_Interior_Brushed_Aluminum',
-    color: '#4a556e',
+    color: '#7c8aa3',
     map: brushedTex.map,
     roughnessMap: brushedTex.roughnessMap,
     bumpMap: brushedTex.bumpMap,
     bumpScale: 0.008,
     aoMap: creviceAoTex,
-    aoMapIntensity: 1.5,
-    metalness: 0.78,
-    roughness: 0.34,
-    anisotropy: 0.88,
+    aoMapIntensity: 0.9,
+    metalness: 0.82,
+    roughness: 0.3,
+    anisotropy: 0.9,
     anisotropyRotation: 0,
-    envMapIntensity: 0.95,
+    envMapIntensity: 1.25,
     flatShading: true,
   })
   const shieldRimMat = new THREE.MeshStandardMaterial({
@@ -368,46 +369,47 @@ export function buildSpherexObservatory(): THREE.Group {
     color: '#ffffff',
     aoMap: creviceAoTex,
     aoMapIntensity: 0.25,
-    metalness: 0.12,
-    roughness: 0.48,
+    metalness: 0.16,
+    roughness: 0.45,
     flatShading: true,
   })
 
-  // Spacecraft Bus: White thermal coating + clean silver/light-grey metallic panels (no black/dark washout)
+  // Spacecraft Bus: Slightly metallic crisp white thermal coating + deeper high-reflection metallic steel panels
   const busWhiteMat = new THREE.MeshStandardMaterial({
     name: 'Bus_Thermal_White',
     color: '#f1f4f9',
     aoMap: creviceAoTex,
-    aoMapIntensity: 0.55,
-    metalness: 0.05,
-    roughness: 0.78,
+    aoMapIntensity: 0.5,
+    metalness: 0.14,
+    roughness: 0.68,
+    envMapIntensity: 0.85,
     flatShading: true,
   })
   const silverMetallicMat = new THREE.MeshStandardMaterial({
     name: 'Bus_Silver_Metallic',
-    color: '#cdd5e0',
+    color: '#9ea9bc',
     aoMap: creviceAoTex,
-    aoMapIntensity: 0.6,
-    metalness: 0.76,
-    roughness: 0.3,
-    envMapIntensity: 1.2,
+    aoMapIntensity: 0.55,
+    metalness: 0.92,
+    roughness: 0.2,
+    envMapIntensity: 1.75,
     flatShading: true,
   })
   const greyMetallicMat = new THREE.MeshStandardMaterial({
     name: 'Bus_Grey_Metallic',
-    color: '#8892a3',
+    color: '#6f7a8f',
     aoMap: creviceAoTex,
-    aoMapIntensity: 0.65,
-    metalness: 0.68,
-    roughness: 0.36,
-    envMapIntensity: 1.1,
+    aoMapIntensity: 0.55,
+    metalness: 0.88,
+    roughness: 0.24,
+    envMapIntensity: 1.55,
   })
   const metallicArmMat = new THREE.MeshStandardMaterial({
     name: 'Solar_Support_Metallic',
-    color: '#d4dce6',
-    metalness: 0.86,
-    roughness: 0.25,
-    envMapIntensity: 1.25,
+    color: '#b8c3d4',
+    metalness: 0.92,
+    roughness: 0.2,
+    envMapIntensity: 1.65,
   })
 
   // Central Telescope: Matte white thin tripod strut + luminous cyan circular lens cover (clear without blowing out)

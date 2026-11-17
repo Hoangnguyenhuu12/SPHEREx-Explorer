@@ -5,7 +5,7 @@
 export function StableLabel({ text, alt }: { text: string; alt: string }) {
   return (
     <span className="bi-slot" data-alt={alt}>
-      {text}
+      <span className="bi-slot__text">{text}</span>
     </span>
   )
 }
