@@ -1,5 +1,5 @@
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { buildSpherexObservatory, disposeSpherexObservatory } from './spherexModel'
 
@@ -30,13 +30,13 @@ function ObservatoryMesh({ interactive, reduceMotion, dragOffset }: SceneProps) 
     const g = pivotRef.current
     if (!g) return
     const t = state.clock.getElapsedTime()
-    const idleYaw = reduceMotion ? 0 : Math.sin(t * 0.42) * 0.28
-    const idlePitch = reduceMotion ? 0 : Math.cos(t * 0.31) * 0.08
+    const idleYaw = reduceMotion ? 0 : Math.sin(t * 0.42) * 0.24
+    const idlePitch = reduceMotion ? 0 : Math.cos(t * 0.31) * 0.07
     const targetYaw = baseYaw + idleYaw + (interactive ? dragOffset.current.yaw : 0)
     const targetPitch = basePitch + idlePitch + (interactive ? dragOffset.current.pitch : 0)
 
-    g.rotation.y = THREE.MathUtils.lerp(g.rotation.y, targetYaw, 0.1)
-    g.rotation.x = THREE.MathUtils.lerp(g.rotation.x, targetPitch, 0.1)
+    g.rotation.y = THREE.MathUtils.lerp(g.rotation.y, targetYaw, 0.14)
+    g.rotation.x = THREE.MathUtils.lerp(g.rotation.x, targetPitch, 0.14)
     g.rotation.z = baseRoll
   })
 
@@ -61,6 +61,7 @@ export default function SpherexCraft3D({
 }) {
   const dragOffset = useRef({ yaw: 0, pitch: 0, active: false })
   const lastPointer = useRef({ x: 0, y: 0 })
+  const [dragging, setDragging] = useState(false)
   const reduceMotion =
     typeof window !== 'undefined' && typeof window.matchMedia === 'function'
       ? window.matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -72,8 +73,10 @@ export default function SpherexCraft3D({
       style={{
         width: '100%',
         height: '100%',
-        cursor: interactive ? 'grab' : undefined,
+        pointerEvents: interactive ? 'auto' : 'none',
+        cursor: interactive ? (dragging ? 'grabbing' : 'grab') : undefined,
         touchAction: interactive ? 'none' : undefined,
+        userSelect: interactive ? 'none' : undefined,
       }}
       {...(decorative
         ? { 'aria-hidden': true }
@@ -81,10 +84,17 @@ export default function SpherexCraft3D({
       onPointerDown={
         interactive
           ? (e) => {
+              e.stopPropagation()
               dragOffset.current.active = true
               lastPointer.current = { x: e.clientX, y: e.clientY }
-              ;(e.currentTarget as HTMLDivElement).setPointerCapture(e.pointerId)
-              ;(e.currentTarget as HTMLDivElement).style.cursor = 'grabbing'
+              setDragging(true)
+              if (typeof e.currentTarget.setPointerCapture === 'function') {
+                try {
+                  e.currentTarget.setPointerCapture(e.pointerId)
+                } catch {
+                  // Ignore synthetic events in tests without active pointer IDs.
+                }
+              }
             }
           : undefined
       }
@@ -95,8 +105,8 @@ export default function SpherexCraft3D({
               const dx = e.clientX - lastPointer.current.x
               const dy = e.clientY - lastPointer.current.y
               lastPointer.current = { x: e.clientX, y: e.clientY }
-              dragOffset.current.yaw += dx * 0.01
-              dragOffset.current.pitch = THREE.MathUtils.clamp(dragOffset.current.pitch + dy * 0.008, -1.1, 1.1)
+              dragOffset.current.yaw += dx * 0.012
+              dragOffset.current.pitch = THREE.MathUtils.clamp(dragOffset.current.pitch + dy * 0.009, -1.2, 1.2)
             }
           : undefined
       }
@@ -104,31 +114,39 @@ export default function SpherexCraft3D({
         interactive
           ? (e) => {
               dragOffset.current.active = false
-              ;(e.currentTarget as HTMLDivElement).style.cursor = 'grab'
+              setDragging(false)
+              if (typeof e.currentTarget.releasePointerCapture === 'function') {
+                try {
+                  e.currentTarget.releasePointerCapture(e.pointerId)
+                } catch {
+                  // Ignore already-released pointer IDs.
+                }
+              }
             }
           : undefined
       }
       onPointerCancel={
         interactive
-          ? (e) => {
+          ? () => {
               dragOffset.current.active = false
-              ;(e.currentTarget as HTMLDivElement).style.cursor = 'grab'
+              setDragging(false)
             }
           : undefined
       }
     >
       <Canvas
         dpr={[1, 2]}
-        camera={{ position: [0.05, 2.55, 6.25], fov: 35 }}
+        resize={{ scroll: false, offsetSize: true }}
+        camera={{ position: [0.05, 3.05, 7.9], fov: 34 }}
         gl={{ alpha: true, antialias: true, powerPreference: 'high-performance' }}
         style={{ width: '100%', height: '100%', pointerEvents: interactive ? 'auto' : 'none' }}
       >
-        <ambientLight intensity={0.62} color="#dce6ff" />
-        <hemisphereLight args={['#f8f6ec', '#1b2640', 0.65]} />
-        <directionalLight position={[5, 7, 5]} intensity={2.6} color="#fff3dc" />
-        <directionalLight position={[-5, 2.5, -3.5]} intensity={1.5} color="#2f9dd0" />
-        <pointLight position={[0.4, 4.6, 2.4]} intensity={2.4} distance={12} color="#e0f2fe" />
-        <pointLight position={[-2.2, -3.2, 2.4]} intensity={2.0} distance={10} color="#e948ac" />
+        <ambientLight intensity={1.15} color="#f8faff" />
+        <hemisphereLight args={['#ffffff', '#47557a', 1.1]} />
+        <directionalLight position={[4.5, 6.5, 6.5]} intensity={2.8} color="#fffcf5" />
+        <directionalLight position={[-5.5, 3.5, 4.5]} intensity={1.7} color="#e0f2fe" />
+        <pointLight position={[0.4, 4.8, 2.5]} intensity={3.2} distance={14} color="#f0f9ff" />
+        <pointLight position={[-2.4, -3.2, 2.6]} intensity={2.1} distance={10} color="#f472b6" />
         <ObservatoryMesh interactive={interactive} reduceMotion={reduceMotion} dragOffset={dragOffset} />
       </Canvas>
     </div>

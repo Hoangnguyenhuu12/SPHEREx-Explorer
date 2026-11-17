@@ -676,30 +676,90 @@ ol.plain-list {
   }
 }
 
-/* Lock Story hero, step cards, target cards, diagrams, and TeamGrid geometry on desktop across EN/VI toggles. */
+/* Lock Story hero, sections, step cards, target cards, diagrams, tables, and TeamGrid geometry on desktop across EN/VI toggles. */
 @media (min-width: 1001px) {
   .story-head__title {
     min-height: 192px;
   }
   .story-head__lead {
-    min-height: 60px;
+    min-height: 90px;
   }
   .flow-trail {
-    min-height: 28px;
+    min-height: 36px;
   }
-  .steps > .step {
-    min-height: 228px;
+  .story-toc a {
+    min-height: 42px;
   }
-  .diagram-controls {
+  .chapter h2 {
     min-height: 44px;
   }
+  .chapter__sub {
+    min-height: 32px;
+  }
+  .chapter > p:not(.chapter__num):not(.note):not(.story-cta) {
+    min-height: 60px;
+  }
+  .note {
+    min-height: 90px;
+  }
+  #purpose {
+    min-height: 750px;
+    align-content: start;
+  }
+  #how {
+    min-height: 1340px;
+    align-content: start;
+  }
+  #science {
+    min-height: 2460px;
+    align-content: start;
+  }
+  #honest {
+    min-height: 2680px;
+    align-content: start;
+  }
+  #honest > .plain-list:first-of-type {
+    min-height: 410px;
+    align-content: start;
+  }
+  #honest .data-table {
+    min-height: 316px;
+  }
+  #about {
+    min-height: 840px;
+    align-content: start;
+  }
+  .steps > .step {
+    min-height: 272px;
+  }
+  .steps .step__title {
+    min-height: 56px;
+  }
+  .steps .step__text {
+    min-height: 112px;
+  }
+  .diagram-controls {
+    min-height: 48px;
+  }
+  .diagram-info {
+    min-height: 54px;
+  }
   .diagram-note {
-    min-height: 76px;
+    min-height: 96px;
+  }
+  .data-table tbody tr {
+    height: 48px;
   }
   .target-note {
-    min-height: 328px;
+    min-height: 392px;
+  }
+  .target-note h4 {
+    min-height: 28px;
   }
   .team-card {
-    min-height: 196px;
+    min-height: 224px;
+  }
+  .team-card__role {
+    min-height: 44px;
   }
 }

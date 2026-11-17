@@ -102,7 +102,7 @@
 }
 /* Introduction */
 .intro {
-  padding-block: var(--space-9);
+  padding-block: 148px var(--space-9);
   border-top: 1px solid var(--line);
 }
 .steps {
@@ -533,26 +533,52 @@
     min-height: 68px;
   }
   .hero__lead {
-    min-height: 90px;
+    min-height: 120px;
+  }
+  .hero__actions {
+    min-height: 112px;
+    align-content: start;
+  }
+  .intro h2 {
+    min-height: 44px;
   }
   .intro .section-lead {
-    min-height: 28px;
+    max-width: 68ch;
+    min-height: 56px;
+  }
+  .steps__hint {
+    min-height: 22px;
   }
   .intro .step__title {
     min-height: 56px;
   }
   .intro .step__body {
-    min-height: 120px;
+    min-height: 148px;
   }
   .about__copy {
-    min-height: 270px;
+    min-height: 368px;
+  }
+  .about__copy h2 {
+    min-height: 44px;
+  }
+  .about__copy .about__text:nth-of-type(1) {
+    min-height: 168px;
+  }
+  .about__copy .about__text:nth-of-type(2) {
+    min-height: 92px;
   }
   .team li {
-    min-height: 56px;
+    min-height: 62px;
     align-items: center;
+  }
+  .cta__inner h2 {
+    min-height: 56px;
   }
   .cta__inner p {
     min-height: 56px;
+  }
+  .cta__actions {
+    min-height: 52px;
   }
 }
 

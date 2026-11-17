@@ -91,66 +91,80 @@ export function buildSpherexObservatory(): THREE.Group {
   const root = new THREE.Group()
   root.name = 'SPHEREx_Observatory'
 
-  // Materials — physically plausible aerospace finishes, clearly named for .MTL / glTF export
+  // Materials — bright, crisp silver-white aerospace finishes that stay luminous against space black
   const shieldOuterMat = new THREE.MeshStandardMaterial({
     name: 'Shield_Silver_MLI',
-    color: '#e6e3da',
-    metalness: 0.55,
-    roughness: 0.34,
+    color: '#f5f4ef',
+    emissive: '#d8dee9',
+    emissiveIntensity: 0.18,
+    metalness: 0.16,
+    roughness: 0.3,
     flatShading: true,
   })
   const shieldInnerMat = new THREE.MeshStandardMaterial({
     name: 'Baffle_Dark_Cavity',
-    color: '#171923',
-    metalness: 0.25,
-    roughness: 0.78,
+    color: '#1b2030',
+    metalness: 0.2,
+    roughness: 0.72,
     flatShading: true,
   })
   const shieldRimMat = new THREE.MeshStandardMaterial({
     name: 'Shield_Trim_Aluminum',
-    color: '#cfd5df',
-    metalness: 0.78,
-    roughness: 0.28,
+    color: '#ffffff',
+    emissive: '#e2e8f0',
+    emissiveIntensity: 0.28,
+    metalness: 0.25,
+    roughness: 0.22,
     flatShading: true,
   })
   const busGoldMat = new THREE.MeshStandardMaterial({
     name: 'Bus_Gold_Kapton',
-    color: '#cca03d',
-    metalness: 0.76,
-    roughness: 0.32,
+    color: '#ecc358',
+    emissive: '#8a6216',
+    emissiveIntensity: 0.2,
+    metalness: 0.34,
+    roughness: 0.3,
     flatShading: true,
   })
   const darkMetalMat = new THREE.MeshStandardMaterial({
     name: 'Structure_Graphite',
-    color: '#2c303e',
-    metalness: 0.65,
-    roughness: 0.45,
+    color: '#394054',
+    emissive: '#1e2433',
+    emissiveIntensity: 0.14,
+    metalness: 0.48,
+    roughness: 0.42,
   })
   const titaniumMat = new THREE.MeshStandardMaterial({
     name: 'Strut_Titanium',
-    color: '#9aa3b4',
-    metalness: 0.85,
+    color: '#d4dce8',
+    emissive: '#64748b',
+    emissiveIntensity: 0.18,
+    metalness: 0.38,
     roughness: 0.26,
   })
   const opticsCyanMat = new THREE.MeshStandardMaterial({
     name: 'Telescope_Optics_Blue',
     color: '#38bdf8',
     emissive: '#0ea5e9',
-    emissiveIntensity: 0.95,
-    metalness: 0.35,
+    emissiveIntensity: 1.05,
+    metalness: 0.3,
     roughness: 0.14,
   })
   const solarCellMat = new THREE.MeshStandardMaterial({
     name: 'Solar_Cell_Photovoltaic',
-    color: '#183f78',
-    metalness: 0.42,
-    roughness: 0.24,
+    color: '#215ba6',
+    emissive: '#0d2b57',
+    emissiveIntensity: 0.24,
+    metalness: 0.26,
+    roughness: 0.22,
   })
   const solarGridMat = new THREE.MeshStandardMaterial({
     name: 'Solar_Frame_Silver',
-    color: '#7ab3de',
-    metalness: 0.72,
-    roughness: 0.28,
+    color: '#9fd0f5',
+    emissive: '#3b82f6',
+    emissiveIntensity: 0.14,
+    metalness: 0.42,
+    roughness: 0.24,
   })
 
   // 1. Base Ring: conical adapter ring at the very bottom + launch mounting flange

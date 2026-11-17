@@ -5184,80 +5184,134 @@
     {
       "pbrMetallicRoughness": {
         "baseColorFactor": [
-          0.3231432091022285,
-          0.36625259558833256,
-          0.45641102317066595,
+          0.6583748172725346,
+          0.7156935005005721,
+          0.8069522576650873,
           1
         ],
-        "metallicFactor": 0.85,
+        "metallicFactor": 0.38,
         "roughnessFactor": 0.26
       },
-      "name": "Strut_Titanium"
+      "emissiveFactor": [
+        0.12743768042608497,
+        0.174647403645279,
+        0.25818285291079235
+      ],
+      "name": "Strut_Titanium",
+      "extensions": {
+        "KHR_materials_emissive_strength": {
+          "emissiveStrength": 0.18
+        }
+      }
     },
     {
       "pbrMetallicRoughness": {
         "baseColorFactor": [
-          0.025186859622305935,
-          0.02955683443236377,
-          0.04817182422013895,
+          0.040915196900556984,
+          0.05126945836711539,
+          0.08865558627723595,
           1
         ],
-        "metallicFactor": 0.65,
-        "roughnessFactor": 0.45
+        "metallicFactor": 0.48,
+        "roughnessFactor": 0.42
       },
-      "name": "Structure_Graphite"
+      "emissiveFactor": [
+        0.012983032338510335,
+        0.01764195448412081,
+        0.033104766565152086
+      ],
+      "name": "Structure_Graphite",
+      "extensions": {
+        "KHR_materials_emissive_strength": {
+          "emissiveStrength": 0.14
+        }
+      }
     },
     {
       "pbrMetallicRoughness": {
         "baseColorFactor": [
-          0.6038273388475408,
-          0.3515325994898463,
-          0.04666508633021928,
+          0.8387990117372213,
+          0.5457244613615395,
+          0.09758734713304495,
           1
         ],
-        "metallicFactor": 0.76,
-        "roughnessFactor": 0.32
+        "metallicFactor": 0.34,
+        "roughnessFactor": 0.3
       },
-      "name": "Bus_Gold_Kapton"
+      "emissiveFactor": [
+        0.2541520943200296,
+        0.12213877222015301,
+        0.008023192982520563
+      ],
+      "name": "Bus_Gold_Kapton",
+      "extensions": {
+        "KHR_materials_emissive_strength": {
+          "emissiveStrength": 0.2
+        }
+      }
+    },
+    {
+      "pbrMetallicRoughness": {
+        "metallicFactor": 0.25,
+        "roughnessFactor": 0.22
+      },
+      "emissiveFactor": [
+        0.76052450467022,
+        0.8069522576650873,
+        0.8713671191959567
+      ],
+      "name": "Shield_Trim_Aluminum",
+      "extensions": {
+        "KHR_materials_emissive_strength": {
+          "emissiveStrength": 0.28
+        }
+      }
     },
     {
       "pbrMetallicRoughness": {
         "baseColorFactor": [
-          0.623960391667596,
-          0.6653872982754769,
-          0.7379104087672317,
+          0.015208514418949472,
+          0.10461648408208657,
+          0.3813260114221238,
           1
         ],
-        "metallicFactor": 0.78,
-        "roughnessFactor": 0.28
+        "metallicFactor": 0.26,
+        "roughnessFactor": 0.22
       },
-      "name": "Shield_Trim_Aluminum"
+      "emissiveFactor": [
+        0.004024717016506897,
+        0.024157632443547246,
+        0.09530746662221588
+      ],
+      "name": "Solar_Cell_Photovoltaic",
+      "extensions": {
+        "KHR_materials_emissive_strength": {
+          "emissiveStrength": 0.24
+        }
+      }
     },
     {
       "pbrMetallicRoughness": {
         "baseColorFactor": [
-          0.009134058699157796,
-          0.04970656597728775,
-          0.1878207722902346,
+          0.34670405634441115,
+          0.6307571363387763,
+          0.913098651791473,
           1
         ],
         "metallicFactor": 0.42,
         "roughnessFactor": 0.24
       },
-      "name": "Solar_Cell_Photovoltaic"
-    },
-    {
-      "pbrMetallicRoughness": {
-        "baseColorFactor": [
-          0.19461783043107173,
-          0.450785782828426,
-          0.7304607400847158,
-          1
-        ],
-        "metallicFactor": 0.72,
-        "roughnessFactor": 0.28
-      },
-      "name": "Solar_Frame_Silver"
+      "emissiveFactor": [
+        0.04373502925049377,
+        0.22322795730611386,
+        0.9215818562755338
+      ],
+      "name": "Solar_Frame_Silver",
+      "extensions": {
+        "KHR_materials_emissive_strength": {
+          "emissiveStrength": 0.14
+        }
+      }
     },
     {
       "pbrMetallicRoughness": {
@@ -5267,7 +5321,7 @@
           0.9386857284565036,
           1
         ],
-        "metallicFactor": 0.35,
+        "metallicFactor": 0.3,
         "roughnessFactor": 0.14
       },
       "emissiveFactor": [
@@ -5278,33 +5332,43 @@
       "name": "Telescope_Optics_Blue",
       "extensions": {
         "KHR_materials_emissive_strength": {
-          "emissiveStrength": 0.95
+          "emissiveStrength": 1.05
         }
       }
     },
     {
       "pbrMetallicRoughness": {
         "baseColorFactor": [
-          0.7912979403281551,
-          0.7681511472425809,
-          0.7011018919268015,
+          0.913098651791473,
+          0.9046611743890203,
+          0.8631572134510892,
           1
         ],
-        "metallicFactor": 0.55,
-        "roughnessFactor": 0.34
+        "metallicFactor": 0.16,
+        "roughnessFactor": 0.3
       },
-      "name": "Shield_Silver_MLI"
+      "emissiveFactor": [
+        0.6866853124288864,
+        0.7304607400847158,
+        0.8148465722120952
+      ],
+      "name": "Shield_Silver_MLI",
+      "extensions": {
+        "KHR_materials_emissive_strength": {
+          "emissiveStrength": 0.18
+        }
+      }
     },
     {
       "pbrMetallicRoughness": {
         "baseColorFactor": [
-          0.008568125615105716,
-          0.00972121731707524,
-          0.01680737574872402,
+          0.010960094003125918,
+          0.014443843592229466,
+          0.02955683443236377,
           1
         ],
-        "metallicFactor": 0.25,
-        "roughnessFactor": 0.78
+        "metallicFactor": 0.2,
+        "roughnessFactor": 0.72
       },
       "name": "Baffle_Dark_Cavity"
     }

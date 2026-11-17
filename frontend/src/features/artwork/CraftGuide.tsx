@@ -158,7 +158,7 @@ export function CraftGuide({ containerRef, heroRef, sectionRefs, still = false, 
       {/* Two idle motions with unrelated periods, so the hover never visibly repeats. */}
       <div className="craft-guide__sway">
         <div className="craft-guide__bob">
-          <SpherexCraft className="craft-guide__svg" decorative />
+          <SpherexCraft className="craft-guide__svg" decorative interactive />
         </div>
       </div>
     </motion.div>

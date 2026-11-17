@@ -22,7 +22,7 @@ export interface DockInput {
   heading?: Rect
 }
 
-export const DOCK_MAX = 96
+export const DOCK_MAX = 132
 export const DOCK_MIN = 44
 const GAP = 12
 
@@ -39,16 +39,16 @@ function free(r: Rect, text: Rect[]): boolean {
 }
 
 /**
- * 1. Left margin beside the first heading, when the margin is wide enough (large screens).
- * 2. Top padding above the first text, shrinking to fit (down to DOCK_MIN).
- * 3. Otherwise the smallest size in the top-left corner (it is drawn under the text anyway).
+ * 1. Left margin beside the first heading when the margin is wide enough for a clear craft (>= 112px).
+ * 2. Open sky above the first text (`room`), sizing up to DOCK_MAX so scrolled sections keep a legible craft.
+ * 3. Narrower left margin (>= DOCK_MIN) or top padding shrink down to DOCK_MIN on constrained screens.
  */
 export function chooseDock({ section, contentLeft, text, heading }: DockInput): Anchor {
   const first = text.reduce<Rect | null>((a, t) => (!a || t.top < a.top ? t : a), null)
   const firstTop = first?.top ?? section.top + DOCK_MAX + 2 * GAP
 
   const margin = contentLeft - section.left - 2 * GAP
-  if (margin >= DOCK_MIN) {
+  if (margin >= 112) {
     const size = Math.min(DOCK_MAX, margin)
     const x = contentLeft - GAP - size
     const y = Math.max(section.top + GAP, (heading?.top ?? firstTop) - size * 0.25)
@@ -57,8 +57,15 @@ export function chooseDock({ section, contentLeft, text, heading }: DockInput): 
 
   const room = firstTop - section.top - 2 * GAP
   for (let size = Math.min(DOCK_MAX, room); size >= DOCK_MIN; size -= 4) {
-    const x = contentLeft - size * 0.12
-    const y = section.top + GAP + (room - size) / 2
+    const x = Math.max(section.left + 8, contentLeft - size * 0.12)
+    const y = section.top + GAP
+    if (free(box(x, y, size), text)) return { x, y, size }
+  }
+
+  if (margin >= DOCK_MIN) {
+    const size = Math.min(DOCK_MAX, margin)
+    const x = contentLeft - GAP - size
+    const y = Math.max(section.top + GAP, (heading?.top ?? firstTop) - size * 0.25)
     if (free(box(x, y, size), text)) return { x, y, size }
   }
 
