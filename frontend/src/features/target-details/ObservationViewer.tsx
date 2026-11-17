@@ -289,7 +289,7 @@ export function ObservationViewer(props: Props) {
   const timelineSummary = useMemo(() => analyzeTimeline(frames, data?.detector ?? props.detector), [frames, data?.detector, props.detector])
   const mixedSequence = timelineSummary.hasMixedMissionsOrBands
   const compareDiffersInMissionOrBand = framesDifferInMissionOrBand(frameA, frameB)
-  const differenceAllowed = !combined && !mixedSequence
+  const differenceAllowed = hasMultipleFrames
 
   const activeTimelineIndex = player.index
   const activeFlipIndex = activeSlot === 'A' ? indexA : indexB
@@ -297,8 +297,7 @@ export function ObservationViewer(props: Props) {
   const frame = frames[displayIndex] ?? null
 
   const elapsed = useElapsed(session.startedAt, session.status === 'fetching')
-  const hasDiffs = useMemo(() => frames.some((f) => Boolean(f.diff_png)), [frames])
-  const isDiff = differenceAllowed && hasDiffs && !inCompare && toggles.mode === 'difference'
+  const isDiff = differenceAllowed && !inCompare && toggles.mode === 'difference'
   const demo = data?.mode === 'mock' || frame?.data_mode === 'fixture'
   const ready = session.status === 'ready'
   const canPlay = player.readyIndices.length >= 2
@@ -323,12 +322,12 @@ export function ObservationViewer(props: Props) {
     if (isDiff) ensureDiffs()
   }, [isDiff, ensureDiffs])
 
-  // Keep Original A/B as default whenever two frames differ in mission or band.
+  // Reset back to Original only when a sequence has fewer than two frames.
   useEffect(() => {
-    if ((!differenceAllowed || (data && !hasDiffs)) && toggles.mode === 'difference') {
+    if (data && !differenceAllowed && toggles.mode === 'difference') {
       setToggles({ mode: 'original' })
     }
-  }, [data, differenceAllowed, hasDiffs, toggles.mode, setToggles])
+  }, [data, differenceAllowed, toggles.mode, setToggles])
 
   const onFov = (a: number, byUser: boolean) => {
     setVisibleFov(a)
@@ -522,7 +521,7 @@ export function ObservationViewer(props: Props) {
 
   const renderFrameState = (frameIdx: number) => {
     const slotFailed = isDiff
-      ? !frames[frameIdx]?.diff_png || session.diffStatus === 'ready' || session.diffStatus === 'error'
+      ? session.failed.includes(frameIdx) || (session.diffStatus === 'error' && !session.originals[frameIdx])
       : session.failed.includes(frameIdx)
     const slotBitmap = isDiff && !inCompare ? (session.diffs[frameIdx] ?? null) : (session.originals[frameIdx] ?? null)
     if (session.status === 'fetching')
@@ -714,13 +713,11 @@ export function ObservationViewer(props: Props) {
           <button
             type="button"
             aria-pressed={isDiff}
-            disabled={!differenceAllowed || !hasDiffs || !canSeek}
+            disabled={!canPlay}
             title={
-              !differenceAllowed
-                ? 'Original A/B is the default when observations come from different missions or bands'
-                : session.total < 2
-                  ? 'Difference needs at least two observations'
-                  : 'Each observation minus the first; check bright-dark pairs against the originals'
+              session.total < 2
+                ? 'Difference needs at least two observations'
+                : 'Each observation minus its baseline image; check bright-dark pairs against the originals'
             }
             onClick={() => setToggles({ mode: 'difference' })}
           >
@@ -787,13 +784,13 @@ export function ObservationViewer(props: Props) {
 
       {isDiff ? (
         <p className="caption viewer-legend">
-          Difference: each observation minus the first. A bright–dark pair is a sign to check back against the original A/B images to separate true motion from artifacts.
+          Difference: {mixedSequence ? 'each observation minus the first observation of its mission.' : 'each observation minus the first.'} A bright–dark pair is a sign to check back against the original images to separate true motion from artifacts.
         </p>
       ) : (
-        !differenceAllowed &&
+        mixedSequence &&
         hasMultipleFrames && (
           <p className="caption viewer-legend">
-            Original images remain the default here because this sequence spans different missions or bands, where subtraction mixes instrument signatures (bright–dark pairs always need checking against the original images).
+            Original images remain the default here because this sequence spans different missions or bands, where subtraction compares within each survey (bright–dark pairs always need checking against the original images).
           </p>
         )
       )}

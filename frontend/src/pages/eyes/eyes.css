@@ -473,6 +473,7 @@ kbd {
 .planet-chip__sym {
   font-size: 14px;
   line-height: 1;
+  font-family: 'Segoe UI Symbol', 'Apple Symbols', 'Noto Sans Symbols', sans-serif;
 }
 
 .planet-card {

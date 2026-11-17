@@ -24,12 +24,15 @@ export function HowItWorksSteps({ steps, reveal }: { steps: readonly Step[]; rev
             key={s.title}
             className={`step${i === active ? ' is-active' : ''}${i < active ? ' is-reached' : ''}`}
             aria-current={reveal && i === active ? 'step' : undefined}
+            onPointerEnter={select}
+            onPointerMove={select}
+            onClick={select}
           >
-            <span className="step__num" aria-hidden onPointerEnter={select}>
+            <span className="step__num" aria-hidden>
               {i + 1}
             </span>
             <h3 className="step__title">
-              <button type="button" className="step__trigger" onPointerEnter={select} onFocus={select} onClick={select} aria-describedby={`${uid}-${i}`}>
+              <button type="button" className="step__trigger" onFocus={select} aria-describedby={`${uid}-${i}`}>
                 {s.title}
               </button>
             </h3>

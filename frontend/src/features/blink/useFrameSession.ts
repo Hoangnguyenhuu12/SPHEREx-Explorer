@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { config } from '../../app/config'
 import { api } from '../../shared/api'
 import { ApiError } from '../../shared/api/errors'
-import type { FramesParams, FramesResponse } from '../../shared/api/types'
+import type { Frame, FramesParams, FramesResponse } from '../../shared/api/types'
 
 /**
  * Frame metadata → decoded image sequence. Late responses for an older selection never replace
@@ -65,6 +65,67 @@ function closeAll(list: (ImageBitmap | null)[]) {
   for (const b of list) b?.close()
 }
 
+function lumaMedianSample(data: Uint8ClampedArray): number {
+  const step = Math.max(1, Math.floor((data.length / 4) / 256))
+  const samples: number[] = []
+  for (let i = 0; i < data.length; i += 4 * step) {
+    samples.push(data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114)
+  }
+  if (samples.length === 0) return 0
+  samples.sort((a, b) => a - b)
+  return samples[Math.floor(samples.length / 2)]
+}
+
+async function computeClientDiffBitmap(cur: ImageBitmap, ref: ImageBitmap): Promise<ImageBitmap | null> {
+  if (typeof createImageBitmap !== 'function') return null
+  const w = Math.max(1, cur.width)
+  const h = Math.max(1, cur.height)
+  const makeCanvas = () => {
+    if (typeof OffscreenCanvas !== 'undefined') return new OffscreenCanvas(w, h)
+    const c = document.createElement('canvas')
+    c.width = w
+    c.height = h
+    return c
+  }
+  const cCur = makeCanvas()
+  const cRef = makeCanvas()
+  const ctxCur = cCur.getContext('2d') as CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D | null
+  const ctxRef = cRef.getContext('2d') as CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D | null
+  if (!ctxCur || !ctxRef) return null
+
+  ctxCur.drawImage(cur, 0, 0, w, h)
+  ctxRef.drawImage(ref, 0, 0, w, h)
+  const imgCur = ctxCur.getImageData(0, 0, w, h)
+  const imgRef = ctxRef.getImageData(0, 0, w, h)
+  const dCur = imgCur.data
+  const dRef = imgRef.data
+  const medCur = lumaMedianSample(dCur)
+  const medRef = lumaMedianSample(dRef)
+
+  const out = ctxCur.createImageData(w, h)
+  const dOut = out.data
+  const gain = 1.4
+  for (let i = 0; i < dCur.length; i += 4) {
+    const lCur = dCur[i] * 0.299 + dCur[i + 1] * 0.587 + dCur[i + 2] * 0.114 - medCur
+    const lRef = dRef[i] * 0.299 + dRef[i + 1] * 0.587 + dRef[i + 2] * 0.114 - medRef
+    const v = Math.max(0, Math.min(255, Math.round(128 + (lCur - lRef) * gain)))
+    dOut[i] = v
+    dOut[i + 1] = v
+    dOut[i + 2] = v
+    dOut[i + 3] = 255
+  }
+  return createImageBitmap(out)
+}
+
+function sameMissionRefIndex(frames: readonly Frame[], index: number): number {
+  const mission = frames[index]?.mission === 'unWISE' ? 'unWISE' : 'SPHEREx'
+  const first = frames.findIndex((f) => (f.mission === 'unWISE' ? 'unWISE' : 'SPHEREx') === mission)
+  if (first >= 0 && frames.filter((f) => (f.mission === 'unWISE' ? 'unWISE' : 'SPHEREx') === mission).length >= 2) {
+    return first
+  }
+  return 0
+}
+
 export function useFrameSession(params: FramesParams | null): FrameSession {
   const qc = useQueryClient()
   const key = params ? framesQueryKey(params) : (['frames', 'none'] as const)
@@ -89,6 +150,7 @@ export function useFrameSession(params: FramesParams | null): FrameSession {
   const generation = useRef(0)
   const ctrlRef = useRef<AbortController | null>(null)
   const diffBitmaps = useRef<(ImageBitmap | null)[]>([])
+  const diffRequested = useRef(false)
   const framePriority = useRef<{ data: FramesResponse; indices: readonly number[] } | null>(null)
   const recovered = useRef(false)
   const keyString = JSON.stringify(key)
@@ -116,6 +178,7 @@ export function useFrameSession(params: FramesParams | null): FrameSession {
     setLoaded(0)
     setDecodeError(null)
     setDiffStatus('idle')
+    diffRequested.current = false
     setImageOwner(data)
     if (!data) return
     const ctrl = new AbortController()
@@ -162,15 +225,61 @@ export function useFrameSession(params: FramesParams | null): FrameSession {
     }
   }, [data]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  const fillClientDiffs = useCallback(
+    async (gen: number, currentData: FramesResponse, currentOriginals: (ImageBitmap | null)[]) => {
+      const target = diffBitmaps.current.length === currentData.frames.length
+        ? diffBitmaps.current
+        : new Array<ImageBitmap | null>(currentData.frames.length).fill(null)
+      diffBitmaps.current = target
+      let updated = false
+      for (let i = 0; i < currentData.frames.length; i++) {
+        if (gen !== generation.current) return
+        if (target[i]) continue
+        const cur = currentOriginals[i]
+        const refIdx = sameMissionRefIndex(currentData.frames, i)
+        const ref = currentOriginals[refIdx]
+        if (!cur || !ref) continue
+        const bmp = await computeClientDiffBitmap(cur, ref)
+        if (gen !== generation.current) {
+          bmp?.close()
+          return
+        }
+        if (bmp) {
+          target[i] = bmp
+          updated = true
+        }
+      }
+      if (gen !== generation.current) return
+      if (updated) setDiffs([...target])
+      const allReady = currentData.frames.every((_, idx) => Boolean(target[idx]) || !currentOriginals[idx])
+      setDiffStatus(allReady ? 'ready' : 'loading')
+    },
+    [],
+  )
+
+  useEffect(() => {
+    if (!diffRequested.current || !data || imageOwner !== data) return
+    void fillClientDiffs(generation.current, data, originals)
+  }, [originals, data, imageOwner, fillClientDiffs])
+
   const ensureDiffs = useCallback(() => {
-    if (!data || imageOwner !== data || diffBitmaps.current.length > 0 || !data.frames.some((f) => f.diff_png)) return
+    if (!data || imageOwner !== data || diffRequested.current) return
+    diffRequested.current = true
     const gen = generation.current
     const ctrl = ctrlRef.current
     if (!ctrl || ctrl.signal.aborted) return
     setDiffStatus('loading')
     const local: (ImageBitmap | null)[] = new Array(data.frames.length).fill(null)
     diffBitmaps.current = local
-    let anyFail = false
+
+    const missions = new Set(data.frames.map((f) => f.mission ?? 'SPHEREx'))
+    const canUseServerDiffs = missions.size <= 1 && data.frames.every((f) => Boolean(f.diff_png))
+    if (!canUseServerDiffs) {
+      void fillClientDiffs(gen, data, originals)
+      return
+    }
+
+    let anyMissing = false
     decodeAll(
       data.frames.map((f) => f.diff_png),
       ctrl.signal,
@@ -184,15 +293,18 @@ export function useFrameSession(params: FramesParams | null): FrameSession {
           local[i] = bmp
           setDiffs([...local])
         } else {
-          anyFail = true
+          anyMissing = true
         }
       },
     ).then(() => {
       if (gen !== generation.current || ctrl.signal.aborted) return
-      setDiffStatus(anyFail ? 'error' : 'ready')
+      if (anyMissing) {
+        void fillClientDiffs(gen, data, originals)
+      } else {
+        setDiffStatus('ready')
+      }
     })
-    // State setters are stable; listing them lets the React Compiler keep this memoization.
-  }, [data, imageOwner, priorities, setDiffs, setDiffStatus])
+  }, [data, imageOwner, originals, priorities, fillClientDiffs])
 
   const cancel = useCallback(() => {
     void qc.cancelQueries({ queryKey: key, exact: true })

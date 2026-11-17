@@ -290,7 +290,8 @@ export default function TheEyesPage() {
 
   useEffect(() => {
     if (mapStatus.s !== 'ready') return
-    mapRef.current?.setGaiaVisible(gaia, mapCoords ?? undefined, target?.key ?? null)
+    const around = mapCoords ?? mapRef.current?.getCenter() ?? undefined
+    mapRef.current?.setGaiaVisible(gaia, around, target?.key ?? null)
     if (!gaia) setGaiaStatus({ status: 'idle' })
   }, [gaia, mapCoords, target?.key, mapStatus.s])
 
@@ -888,7 +889,7 @@ export default function TheEyesPage() {
           <button type="button" className="dock__btn dock__wide-only" aria-pressed={ground} title="Show the ground and horizon" onClick={() => setGround((g) => !g)}>
             <Mountain aria-hidden /> <span>Ground</span>
           </button>
-          <button type="button" className="dock__btn" aria-pressed={gaia} title="Gaia DR3 stars around the target" disabled={!coords} onClick={() => setGaia((g) => !g)}>
+          <button type="button" className="dock__btn" aria-pressed={gaia} title="Gaia DR3 stars around the view or target" disabled={mapStatus.s !== 'ready'} onClick={() => setGaia((g) => !g)}>
             <Sparkles aria-hidden /> <span>Gaia stars</span>
           </button>
           <button
@@ -939,9 +940,11 @@ export default function TheEyesPage() {
             </button>
           </div>
           <span className="dock__sep" role="separator" aria-orientation="vertical" />
-          <button type="button" className="dock__btn" title="Center on the selected target (C)" disabled={!coords} onClick={center}>
-            <LocateFixed aria-hidden /> <span>Center</span>
-          </button>
+          {coords && (
+            <button type="button" className="dock__btn" title="Center on the selected target (C)" onClick={center}>
+              <LocateFixed aria-hidden /> <span>Center</span>
+            </button>
+          )}
           <button type="button" className="dock__icon dock__wide-only" aria-label="Zoom out map" title="Zoom out map" onClick={() => mapRef.current?.zoomOut()}>
             <Minus aria-hidden />
           </button>

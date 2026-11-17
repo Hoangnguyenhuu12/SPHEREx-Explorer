@@ -60,6 +60,7 @@ export interface SkyMapHandle {
   zoomIn: () => void
   zoomOut: () => void
   getFovDeg: () => number | null
+  getCenter: () => { ra: number; dec: number } | null
 }
 
 interface Props {
@@ -273,7 +274,7 @@ export const AladinMap = forwardRef<SkyMapHandle, Props>(function AladinMap(
       displayLabel: true,
       labelColumn: 'label',
       labelColor: '#FFD980',
-      labelFont: '12px Andika, sans-serif',
+      labelFont: '12px Andika, "Segoe UI Symbol", "Noto Sans Symbols", sans-serif',
     })
     cat.addSources(
       planets.map((p) =>
@@ -579,6 +580,12 @@ export const AladinMap = forwardRef<SkyMapHandle, Props>(function AladinMap(
       getFovDeg() {
         const f = aladinRef.current?.getFov?.()
         return Array.isArray(f) ? f[1] : null
+      },
+      getCenter() {
+        const rd = aladinRef.current?.getRaDec?.()
+        return Array.isArray(rd) && Number.isFinite(rd[0]) && Number.isFinite(rd[1])
+          ? { ra: rd[0], dec: rd[1] }
+          : null
       },
     }),
     [drawGaiaCatalog, drawPlanetsCatalog],
