@@ -65,7 +65,7 @@
   }
 }
 
-/* Averia Serif Libre and Georgia lack Vietnamese extended Latin glyphs; use Times New Roman / Noto Serif for VI headings. */
+/* Averia Serif Libre and Georgia lack Vietnamese extended Latin glyphs; Cambria matches Averia's slab warmth with full VI coverage. */
 :root:lang(vi) {
-  --font-display: 'Times New Roman', 'Noto Serif', 'Liberation Serif', serif;
+  --font-display: 'Cambria', 'Noto Serif', 'Times New Roman', serif;
 }

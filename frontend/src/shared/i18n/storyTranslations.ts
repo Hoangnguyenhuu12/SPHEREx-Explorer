@@ -345,7 +345,7 @@ export const STORY_COPY: Record<Language, StoryCopy> = {
       { id: 'how', title: 'Cách sử dụng' },
       { id: 'science', title: 'Khoa học qua hình ảnh' },
       { id: 'honest', title: 'Đọc dữ liệu đúng cách' },
-      { id: 'about', title: 'Về chúng tôi' },
+      { id: 'about', title: 'Về chúng mình' },
     ],
     purposeIntro:
       'SPHEREx Explorer xếp các ảnh hồng ngoại thực tế do tàu SPHEREx của NASA chụp tại một góc trời theo đúng thứ tự ngày tháng, nhờ đó bạn có thể thấy tận mắt một ngôi sao gần trôi ngang nền trời hay thay đổi độ sáng. Không cần tải file, không cần viết code, cũng không cần nền tảng thiên văn chuyên sâu.',
@@ -478,7 +478,7 @@ export const STORY_COPY: Record<Language, StoryCopy> = {
     ],
     pendingResultsNote: 'Các kết quả đo đạc sẽ chỉ được cập nhật tại đây sau khi đã kiểm chứng trực tiếp trên ảnh quan sát thật của SPHEREx.',
     aboutIntro: (teamName: string) =>
-      `Chúng tôi là đội ${teamName}, gồm sáu thành viên cùng phát triển SPHEREx Explorer cho thử thách NASA Space Apps 2026 SPHEREx Sky Viewer.`,
+      `Chúng mình là đội ${teamName}, gồm sáu thành viên cùng phát triển SPHEREx Explorer cho thử thách NASA Space Apps 2026 SPHEREx Sky Viewer.`,
     aboutCtaLabel: 'Bắt đầu: Quỹ đạo SPHEREx',
     aboutCtaHint: 'Bước đầu tiên hướng tới Đôi mắt',
     portraitAlt: (name: string) => `Ảnh chân dung ${name}`,

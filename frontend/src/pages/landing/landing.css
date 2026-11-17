@@ -32,6 +32,10 @@
   color: var(--heading);
   animation: hero-enter 700ms var(--ease-out) both;
 }
+:root:lang(vi) .hero__title {
+  font-size: 62px;
+  line-height: 70px;
+}
 .hero__slogan {
   margin-top: var(--space-4);
   font-family: var(--font-display);
@@ -40,6 +44,15 @@
   color: var(--fg);
   max-width: 22em;
   animation: hero-enter 700ms 80ms var(--ease-out) both;
+}
+:root:lang(vi) .hero__slogan {
+  font-size: 23px;
+  line-height: 32px;
+  max-width: 23em;
+}
+:root:lang(vi) .cta__inner h2 {
+  font-size: 42px;
+  line-height: 50px;
 }
 .hero__lead {
   margin-top: var(--space-4);
@@ -338,6 +351,10 @@
   .hero__title {
     font-size: 52px;
     line-height: 58px;
+  }
+  :root:lang(vi) .hero__title {
+    font-size: 44px;
+    line-height: 52px;
   }
 }
 

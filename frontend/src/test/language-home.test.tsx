@@ -101,13 +101,14 @@ describe('EN/VI language switch and Home translation', () => {
     expect(host.textContent).toContain('Đăng ký')
 
     // All 4 Home sections
-    expect(host.textContent).toContain('Đôi mắt của thiên hà')
-    expect(host.textContent).toContain('Xem sao lùn nâu chuyển động')
+    expect(host.textContent?.replace(/\u00A0/g, ' ')).toContain('Đôi mắt của cả thiên hà')
+    expect(host.textContent?.replace(/\u00A0/g, ' ')).toContain('Cứ mỗi sáu tháng, SPHEREx lại chụp ảnh toàn bộ bầu trời.')
+    expect(host.textContent).toContain('Xem sao lùn nâu di chuyển')
     expect(host.textContent).toContain('Khám phá bầu trời')
     expect(host.textContent).toContain('Đọc câu chuyện')
     expect(host.textContent).toContain('Cách hoạt động')
-    expect(host.textContent).toContain('Chọn một mục tiêu')
-    expect(host.textContent).toContain('Về chúng tôi')
+    expect(host.textContent).toContain('Chọn mục tiêu')
+    expect(host.textContent).toContain('Về chúng mình')
     expect(host.textContent).toContain('Thiết kế giao diện và điều phối')
     expect(host.textContent).toContain('Ngắm bầu trời chuyển động')
 

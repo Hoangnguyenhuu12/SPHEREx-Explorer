@@ -22,7 +22,8 @@
   padding-inline: var(--space-3);
 }
 .wordmark {
-  font-family: var(--font-display);
+  /* Brand wordmark stays in the English display face so switching EN/VI never shifts its look or size. */
+  font-family: 'Averia Serif Libre', Georgia, serif;
   font-weight: 700;
   font-size: 20px;
   line-height: 24px;

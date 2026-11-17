@@ -74,7 +74,7 @@ export const SHELL_COPY: Record<Language, ShellCopy> = {
     openTheEyes: 'Mở Đôi mắt',
     login: 'Đăng nhập',
     signup: 'Đăng ký',
-    myPosts: 'Bài viết của tôi',
+    myPosts: 'Bài viết của mình',
     logout: 'Đăng xuất',
     footerLine: 'Dự án độc lập sử dụng dữ liệu NASA SPHEREx.',
     footerCredit:
@@ -136,36 +136,36 @@ export const HOME_COPY: Record<Language, HomeCopy> = {
   },
   vi: {
     eyebrow: 'NASA SPHEREx · NASA Space Apps 2026',
-    heroTitle: 'Đôi mắt của thiên hà',
-    heroSlogan: 'Cứ mỗi sáu tháng, SPHEREx lại chụp ảnh toàn bộ bầu trời. Hãy xem điều gì đã thay đổi.',
+    heroTitle: 'Đôi mắt của cả\u00A0thiên\u00A0hà',
+    heroSlogan: 'Cứ mỗi sáu tháng, SPHEREx lại chụp ảnh toàn bộ bầu\u00A0trời. Hãy xem điều gì đã thay đổi.',
     heroLead:
-      'Chọn một ngôi sao, nhấn phát và theo dõi khảo sát hồng ngoại của NASA ghi lại cảnh nó trôi ngang bầu trời hay thay đổi độ sáng theo nhịp. Không cần tải tệp dữ liệu, không cần viết mã.',
-    watchBrownDwarf: 'Xem sao lùn nâu chuyển động',
+      'Chọn một ngôi sao, bấm chạy và ngắm dữ liệu hồng ngoại của NASA ghi lại cảnh nó trôi ngang bầu trời hay thay đổi độ sáng theo từng nhịp — không cần file dữ liệu, chẳng cần viết code.',
+    watchBrownDwarf: 'Xem sao lùn nâu di chuyển',
     exploreSky: 'Khám phá bầu trời',
     readStory: 'Đọc câu chuyện',
     howItWorksTitle: 'Cách hoạt động',
-    howItWorksLead: 'Bốn bước từ một điểm trên bầu trời đến sự thay đổi bạn có thể nhìn thấy.',
-    howItWorksHint: 'Di chuột vào từng bước để xem nội dung.',
+    howItWorksLead: 'Chỉ bốn bước từ một điểm trên bầu trời đến những thay đổi thấy rõ bằng mắt thường.',
+    howItWorksHint: 'Di chuột vào từng bước để xem chi tiết.',
     steps: [
-      { title: 'Chọn một mục tiêu', body: 'Chọn một trong năm ngôi sao tiêu biểu, tìm theo tên, hoặc nhập bất kỳ tọa độ RA và Dec nào.' },
+      { title: 'Chọn mục tiêu', body: 'Chọn một trong năm ngôi sao gợi ý, tìm theo tên, hoặc nhập bất kỳ tọa độ RA và Dec nào.' },
       {
         title: 'Chọn kênh hồng ngoại',
-        body: 'SPHEREx có sáu cảm biến, từ 0,75 đến 5 micromét. Các thiên thể lạnh hơn sẽ hiện rõ ở bước sóng dài hơn.',
+        body: 'SPHEREx có sáu cảm biến trải từ 0,75 đến 5 micromét. Các thiên thể càng lạnh càng hiện rõ ở bước sóng dài.',
       },
       {
-        title: 'Đi qua từng mốc thời gian',
-        body: 'SPHEREx quét toàn bộ bầu trời khoảng sáu tháng một lần. Phát chuỗi quan sát như một đoạn phim ngắn.',
+        title: 'Lướt qua các mốc ngày',
+        body: 'SPHEREx quét toàn bộ bầu trời mỗi sáu tháng một lần. Hãy phát chuỗi ảnh quan sát như xem một thước phim ngắn.',
       },
       {
-        title: 'Phát hiện điểm thay đổi',
-        body: 'So sánh hai mốc ngày cạnh nhau hoặc lật qua lại A/B. Một cặp đốm sáng-tối ở chế độ Difference là manh mối để kiểm chứng lại trên ảnh gốc.',
+        title: 'Nhận ra điểm thay đổi',
+        body: 'Đặt hai mốc ngày cạnh nhau để so sánh hoặc lật nhanh A/B. Nếu thấy một cặp đốm sáng–tối ở chế độ Difference, hãy đối chiếu lại với ảnh gốc.',
       },
     ],
-    aboutTitle: 'Về chúng tôi',
+    aboutTitle: 'Về chúng mình',
     aboutLead: (teamName: string) =>
-      `Chúng tôi là đội ${teamName}, nhóm sáu thành viên xây dựng một công cụ độc lập cho thử thách NASA Space Apps 2026 SPHEREx Sky Viewer. Kho lưu trữ thiên văn vốn công khai nhưng khó tiếp cận: tệp FITS, hệ tọa độ và ngôn ngữ truy vấn tạo nên khoảng cách giữa người yêu khám phá và bầu trời. Chúng tôi muốn bất kỳ ai cũng có thể mở trang web và tận mắt xem một ngôi sao dịch chuyển.`,
+      `Chúng mình là đội ${teamName} — nhóm sáu thành viên cùng xây dựng một công cụ độc lập cho thử thách NASA Space Apps 2026 SPHEREx Sky Viewer. Dữ liệu thiên văn tuy mở nhưng khá khó đọc: tệp FITS, hệ tọa độ hay câu lệnh truy vấn vô tình tạo ra khoảng cách giữa người yêu thích khám phá và bầu trời. Chúng mình muốn ai cũng có thể mở trình duyệt lên và tận mắt thấy một ngôi sao đang di chuyển.`,
     aboutDisclaimer:
-      'SPHEREx Explorer không phải là sản phẩm chính thức của NASA. Ứng dụng sử dụng dữ liệu công khai do NASA phát hành thông qua Kho lưu trữ Khoa học Hồng ngoại (IRSA).',
+      'SPHEREx Explorer không phải sản phẩm chính thức của NASA. Ứng dụng sử dụng dữ liệu công khai do NASA phát hành qua Kho lưu trữ Khoa học Hồng ngoại (IRSA).',
     teamMembersLabel: 'Thành viên nhóm',
     teamRoles: {
       'Thạch': 'Thiết kế giao diện và điều phối',
@@ -176,6 +176,6 @@ export const HOME_COPY: Record<Language, HomeCopy> = {
       'Nguyên': 'Khoa học và kiểm chứng',
     },
     ctaTitle: 'Ngắm bầu trời chuyển động',
-    ctaBody: 'Đi thẳng vào phần so sánh sao lùn nâu WISE 0855, hoặc bắt đầu từ Trái Đất để du hành khắp bầu trời hồng ngoại.',
+    ctaBody: 'Vào thẳng phần so sánh sao lùn nâu WISE 0855, hoặc bắt đầu từ Trái Đất rồi dạo khắp bầu trời hồng ngoại.',
   },
 }
