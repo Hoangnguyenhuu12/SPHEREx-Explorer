@@ -79,16 +79,20 @@ function applySubtleGrainShader(root: THREE.Object3D): void {
       if (!mat || seen.has(mat)) continue
       seen.add(mat)
       if (mat.name === 'Telescope_Lens_Cyan_Glow') continue
-      mat.customProgramCacheKey = () => 'spherex-soft-grain-v1'
+      const isWhiteExterior = mat.name === 'Shield_Thermal_Matte_White' || mat.name === 'Bus_Thermal_White'
+      const strength = isWhiteExterior ? '0.048' : '0.02'
+      mat.customProgramCacheKey = () => (isWhiteExterior ? 'spherex-white-grain-v2' : 'spherex-soft-grain-v2')
       mat.onBeforeCompile = (shader: THREE.WebGLProgramParametersWithUniforms) => {
         shader.fragmentShader = shader.fragmentShader.replace(
           '#include <dithering_fragment>',
           `
           vec2 spUv = floor( gl_FragCoord.xy );
-          float spNoise = fract( sin( dot( spUv, vec2( 12.9898, 78.233 ) ) ) * 43758.5453 );
+          float spFine = fract( sin( dot( spUv, vec2( 12.9898, 78.233 ) ) ) * 43758.5453 );
+          float spCell = fract( sin( dot( floor( gl_FragCoord.xy * 0.55 ), vec2( 39.346, 11.135 ) ) ) * 24634.6345 );
+          float spNoise = mix( spFine, spCell, 0.35 );
           float spLuma = dot( gl_FragColor.rgb, vec3( 0.299, 0.587, 0.114 ) );
-          float spWeight = mix( 0.2, 0.9, clamp( spLuma, 0.0, 1.0 ) );
-          gl_FragColor.rgb = max( vec3( 0.0 ), gl_FragColor.rgb + ( spNoise - 0.45 ) * 0.022 * spWeight );
+          float spWeight = mix( 0.25, 1.0, clamp( spLuma, 0.0, 1.0 ) );
+          gl_FragColor.rgb = max( vec3( 0.0 ), gl_FragColor.rgb + ( spNoise - 0.46 ) * ${strength} * spWeight );
           #include <dithering_fragment>
           `,
         )
