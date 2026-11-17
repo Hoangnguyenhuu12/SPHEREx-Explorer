@@ -105,6 +105,7 @@ export interface FramesParams {
   maxFrames: number
   targetKey?: string
   timeline?: 'combined'
+  queryName?: string
 }
 
 export interface PhotometryPoint {
@@ -241,6 +242,24 @@ export interface FlagsResponse {
   /** Image URL of an RGBA overlay aligned with the frame grid. */
   overlay: string
   mode?: DataMode
+}
+
+export interface ViewJobStatusResponse {
+  job_id: string
+  status: 'queued' | 'searching' | 'fetching' | 'ready' | 'failed'
+  progress: { found: number; done: number }
+  queue_position: number
+  target: {
+    ra: number
+    dec: number
+    name: string | null
+    target_key: string | null
+    resolved_by: string | null
+  }
+  detector: number
+  fov_arcmin: number
+  frames: Frame[]
+  error: { code: string; message: string; details?: unknown } | null
 }
 
 export type ErrorCode =

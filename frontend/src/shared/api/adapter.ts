@@ -11,6 +11,7 @@ import type {
   ResolveResponse,
   SkyArchiveGaiaResponse,
   SpectrumResponse,
+  ViewJobStatusResponse,
 } from './types'
 
 export interface TargetQuery {
@@ -38,4 +39,9 @@ export interface ObservationApi {
   hipsLayers(signal?: AbortSignal): Promise<HipsLayersResponse>
   skyArchiveGaia(targetKey: string, signal?: AbortSignal): Promise<SkyArchiveGaiaResponse>
   combinedGaiaOverlays(sequenceId: string, signal?: AbortSignal): Promise<CombinedGaiaOverlaysResponse>
+  createViewJob?: (
+    body: { ra?: number; dec?: number; name?: string; fov_arcmin?: number; detector?: number },
+    signal?: AbortSignal,
+  ) => Promise<ViewJobStatusResponse>
+  getViewJob?: (jobId: string, signal?: AbortSignal) => Promise<ViewJobStatusResponse>
 }

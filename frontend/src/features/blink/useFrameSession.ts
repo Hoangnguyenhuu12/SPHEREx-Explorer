@@ -4,6 +4,7 @@ import { config } from '../../app/config'
 import { api } from '../../shared/api'
 import { ApiError } from '../../shared/api/errors'
 import type { Frame, FramesParams, FramesResponse } from '../../shared/api/types'
+import { useViewJob } from './useViewJob'
 
 /**
  * Frame metadata → decoded image sequence. Late responses for an older selection never replace
@@ -27,6 +28,7 @@ export interface FrameSession {
   prioritizeFrames: (indices: readonly number[]) => void
   ensureDiffs: () => void
   diffStatus: 'idle' | 'loading' | 'ready' | 'error'
+  streaming?: { found: number; done: number } | null
 }
 
 export function framesQueryKey(p: FramesParams) {
@@ -129,10 +131,26 @@ function sameMissionRefIndex(frames: readonly Frame[], index: number): number {
 export function useFrameSession(params: FramesParams | null): FrameSession {
   const qc = useQueryClient()
   const key = params ? framesQueryKey(params) : (['frames', 'none'] as const)
+  const [fallbackSync, setFallbackSync] = useState(false)
+  const useProgressiveJob = Boolean(
+    params && params.timeline !== 'combined' && !config.useMock && api.createViewJob && !fallbackSync,
+  )
+  const viewJob = useViewJob(params, useProgressiveJob)
+
+  useEffect(() => {
+    if (
+      useProgressiveJob &&
+      viewJob.error instanceof ApiError &&
+      (viewJob.error.status === 404 || viewJob.error.code === 'NOT_AVAILABLE')
+    ) {
+      setFallbackSync(true)
+    }
+  }, [useProgressiveJob, viewJob.error])
+
   const query = useQuery({
     queryKey: key,
     queryFn: ({ signal }) => api.frames(params!, signal),
-    enabled: params !== null,
+    enabled: params !== null && !useProgressiveJob,
     staleTime: Infinity,
     gcTime: 5 * 60_000,
     retry: false,
@@ -151,17 +169,24 @@ export function useFrameSession(params: FramesParams | null): FrameSession {
   const ctrlRef = useRef<AbortController | null>(null)
   const diffBitmaps = useRef<(ImageBitmap | null)[]>([])
   const diffRequested = useRef(false)
+  const decodedByUrlRef = useRef<Map<string, ImageBitmap>>(new Map())
   const framePriority = useRef<{ data: FramesResponse; indices: readonly number[] } | null>(null)
   const recovered = useRef(false)
   const keyString = JSON.stringify(key)
 
-  // Reset the per-selection recovery budget.
+  // Reset the per-selection recovery budget and drop cached bitmaps from previous target/detector.
   useEffect(() => {
     recovered.current = false
+    setFallbackSync(false)
     setStartedAt(params ? Date.now() : null)
+    const pool = decodedByUrlRef.current
+    return () => {
+      closeAll([...pool.values()])
+      pool.clear()
+    }
   }, [keyString]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const data = query.data ?? null
+  const data = useProgressiveJob ? viewJob.framesResponse : (query.data ?? null)
   const prioritizeFrames = useCallback((indices: readonly number[]) => {
     if (data) framePriority.current = { data, indices }
   }, [data])
@@ -172,23 +197,39 @@ export function useFrameSession(params: FramesParams | null): FrameSession {
   useEffect(() => {
     const gen = ++generation.current
     ctrlRef.current?.abort()
-    setOriginals([])
+    closeAll(diffBitmaps.current)
+    diffBitmaps.current = []
     setDiffs([])
-    setFailed([])
-    setLoaded(0)
-    setDecodeError(null)
     setDiffStatus('idle')
     diffRequested.current = false
+    setDecodeError(null)
     setImageOwner(data)
-    if (!data) return
+    if (!data) {
+      setOriginals([])
+      setFailed([])
+      setLoaded(0)
+      return
+    }
     const ctrl = new AbortController()
     ctrlRef.current = ctrl
-    const local: (ImageBitmap | null)[] = new Array(data.frames.length).fill(null)
+    const local: (ImageBitmap | null)[] = data.frames.map((f) => decodedByUrlRef.current.get(f.png) ?? null)
+    const pendingUrls = data.frames.map((f) => (decodedByUrlRef.current.has(f.png) ? null : f.png))
+    const initialCount = local.filter(Boolean).length
+    setOriginals([...local])
+    setFailed([])
+    setLoaded(initialCount)
+
+    if (pendingUrls.every((u) => u === null)) {
+      return () => {
+        ctrl.abort()
+      }
+    }
+
     const fails: number[] = []
     let expired = false
     let firstError: unknown
     decodeAll(
-      data.frames.map((f) => f.png),
+      pendingUrls,
       ctrl.signal,
       priorities,
       (i, bmp, err) => {
@@ -197,6 +238,7 @@ export function useFrameSession(params: FramesParams | null): FrameSession {
           return
         }
         if (bmp) {
+          decodedByUrlRef.current.set(data.frames[i].png, bmp)
           local[i] = bmp
           setOriginals([...local])
         } else {
@@ -212,16 +254,14 @@ export function useFrameSession(params: FramesParams | null): FrameSession {
       if (expired && !recovered.current) {
         // Backend restarted or evicted images: refetch metadata once, never loop.
         recovered.current = true
-        void qc.resetQueries({ queryKey: key, exact: true })
+        if (useProgressiveJob) viewJob.retry()
+        else void qc.resetQueries({ queryKey: key, exact: true })
         return
       }
       if (fails.length > 0 && fails.length === local.length) setDecodeError(firstError)
     })
     return () => {
       ctrl.abort()
-      closeAll(local)
-      closeAll(diffBitmaps.current)
-      diffBitmaps.current = []
     }
   }, [data]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -307,24 +347,35 @@ export function useFrameSession(params: FramesParams | null): FrameSession {
   }, [data, imageOwner, originals, priorities, fillClientDiffs])
 
   const cancel = useCallback(() => {
+    if (useProgressiveJob) setFallbackSync(true)
     void qc.cancelQueries({ queryKey: key, exact: true })
     ctrlRef.current?.abort()
-  }, [qc, keyString]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [qc, keyString, useProgressiveJob]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const retry = useCallback(() => {
     recovered.current = false
     setStartedAt(Date.now())
-    void qc.resetQueries({ queryKey: key, exact: true })
-  }, [qc, keyString]) // eslint-disable-line react-hooks/exhaustive-deps
+    if (useProgressiveJob) viewJob.retry()
+    else void qc.resetQueries({ queryKey: key, exact: true })
+  }, [qc, keyString, useProgressiveJob, viewJob]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const jobIsFetching = useProgressiveJob && (
+    viewJob.status === 'queued' ||
+    viewJob.status === 'searching' ||
+    viewJob.status === 'fetching' ||
+    (viewJob.status === null && !viewJob.error)
+  )
+  const activeError = useProgressiveJob ? (viewJob.error ?? decodeError) : (query.error ?? decodeError)
+  const streaming = useProgressiveJob && jobIsFetching && data != null ? viewJob.progress : null
 
   const status: SessionStatus = useMemo(() => {
     if (!params) return 'idle'
-    if (query.isError) return 'error'
-    if (query.isFetching || (!data && query.isPending)) return 'fetching'
+    if (!data && (useProgressiveJob ? Boolean(viewJob.error) : query.isError)) return 'error'
+    if (!data && (useProgressiveJob ? jobIsFetching : (query.isFetching || query.isPending))) return 'fetching'
     if (decodeError && imageOwner === data) return 'error'
     if (data && data.frames.length > 0 && (imageOwner !== data || loaded < data.frames.length)) return 'decoding'
     return data ? 'ready' : 'idle'
-  }, [params, query.isError, query.isFetching, query.isPending, data, decodeError, imageOwner, loaded])
+  }, [params, data, useProgressiveJob, viewJob.error, query.isError, jobIsFetching, query.isFetching, query.isPending, decodeError, imageOwner, loaded])
 
   return {
     status,
@@ -334,12 +385,13 @@ export function useFrameSession(params: FramesParams | null): FrameSession {
     failed: imageOwner === data ? failed : EMPTY_INDICES,
     loaded: imageOwner === data ? loaded : 0,
     total: data?.frames.length ?? 0,
-    error: query.error ?? decodeError,
+    error: activeError,
     startedAt,
     cancel,
     retry,
     prioritizeFrames,
     ensureDiffs,
     diffStatus: imageOwner === data ? diffStatus : 'idle',
+    streaming,
   }
 }

@@ -389,4 +389,48 @@ export const mockApi: ObservationApi = {
       overlays,
     }
   },
+
+  async createViewJob(body, signal) {
+    const res = await mockApi.frames(
+      {
+        ra: body.ra ?? 269.4521,
+        dec: body.dec ?? 4.6934,
+        detector: body.detector ?? 6,
+        size: (body.fov_arcmin ?? 8) / 60,
+        maxFrames: 12,
+      },
+      signal,
+    )
+    return {
+      job_id: `mock-job-${hashString(JSON.stringify(body)).toString(36)}`,
+      status: 'ready',
+      progress: { found: res.frames.length, done: res.frames.length },
+      queue_position: 0,
+      target: {
+        ra: res.target.ra,
+        dec: res.target.dec,
+        name: res.target.name,
+        target_key: res.target.target_key,
+        resolved_by: 'mock',
+      },
+      detector: res.detector,
+      fov_arcmin: body.fov_arcmin ?? 8,
+      frames: res.frames,
+      error: null,
+    }
+  },
+
+  async getViewJob(jobId) {
+    return {
+      job_id: jobId,
+      status: 'ready',
+      progress: { found: 0, done: 0 },
+      queue_position: 0,
+      target: { ra: 269.4521, dec: 4.6934, name: null, target_key: null, resolved_by: null },
+      detector: 6,
+      fov_arcmin: 8,
+      frames: [],
+      error: null,
+    }
+  },
 }

@@ -3,7 +3,7 @@
 import logging
 import os
 import re
-from concurrent.futures import Future, ThreadPoolExecutor, wait
+from concurrent.futures import Future, ThreadPoolExecutor, as_completed, wait
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from threading import Lock
@@ -14,6 +14,7 @@ import requests
 from diskcache import Cache
 
 from shared.pipeline import irsa
+from shared.pipeline.range_cutout import RangeCutoutProvider
 from . import database_provider
 
 from .catalog import position_at
@@ -104,34 +105,43 @@ def cached_result(operation, query, build):
 
 
 def _find_images(cache, ra, dec, collection, detector, radius, deadline):
-    key = ("sia2-v1", collection, float(ra), float(dec), detector, radius)
+    key = ("sia2-v1", collection, round(float(ra), 4), round(float(dec), 4), detector, radius)
 
     def discover():
         return irsa.find_images(
             ra, dec, collection, detector, search_radius_deg=radius,
-            timeout_s=12, retries=1, deadline=deadline, tap_fallback=False,
+            timeout_s=8, retries=1, deadline=deadline, tap_fallback=False,
         )
 
-    return _cached_build(cache, key, discover, lambda rows: 300 if rows else 30, deadline)
+    return _cached_build(cache, key, discover, lambda rows: 7 * 86400 if rows else 30, deadline)
+
+
+_range_provider = RangeCutoutProvider()
 
 
 def _download_cutout(cache, collection, row, ra, dec, size, path, deadline):
     # The cutout URL includes the center and side at IRSA's wire precision.
     # Exact geometry lets every reader use the original WCS and pixel data.
     key = (
-        "fits-v1", collection, row.get("obs_publisher_did"), row["obs_id"],
+        "fits-v2-range", collection, row.get("obs_publisher_did"), row["obs_id"],
         row["energy_bandpassname"], float(row["t_min"]),
         irsa.make_cutout_url(row["access_url"], ra, dec, size),
     )
 
     def download():
-        irsa.download_cutout(
-            row["access_url"], ra, dec, size, path, expected_obs_id=row["obs_id"],
-            timeout_s=irsa._remaining_timeout(12, deadline), retries=1,
+        _range_provider.fetch_cutout(
+            range_uri=row.get("range_uri"),
+            irsa_access_url=row["access_url"],
+            ra_deg=ra,
+            dec_deg=dec,
+            size_deg=size,
+            out_path=path,
+            obs_id=row["obs_id"],
+            timeout_s=irsa._remaining_timeout(12, deadline),
         )
         return path.read_bytes()
 
-    content, status = _cached_build(cache, key, download, lambda _: 3600, deadline)
+    content, status = _cached_build(cache, key, download, lambda _: 7 * 86400, deadline)
     if status == "HIT":
         # Readers own their copy even if the cache entry expires or is evicted.
         path.write_bytes(content)
@@ -147,17 +157,17 @@ def load_cutouts(query, directory):
     return load_irsa_cutouts(query, directory)
 
 
-def load_irsa_cutouts(query, directory):
-    """Public IRSA path (also used by the spectrum service), backed by the shared cache."""
+def load_irsa_cutouts(query, directory, on_progress=None):
+    """Public IRSA/Range path (also used by the spectrum service), backed by the shared cache."""
     root = Path(os.getenv("DATA_DIR", "data")) / "cache" / "api-0.1-irsa"
     # LRU reads hold a SQLite transaction while loading the bytes. This keeps
     # eviction from trying to unlink a value that a Windows reader has open.
     with Cache(str(root), size_limit=512 * 1024 * 1024, timeout=2,
                eviction_policy="least-recently-used") as cache:
-        return _load_irsa_cutouts(query, directory, cache)
+        return _load_irsa_cutouts(query, directory, cache, on_progress=on_progress)
 
 
-def _load_irsa_cutouts(query, directory, cache):
+def _load_irsa_cutouts(query, directory, cache, on_progress=None):
     size = getattr(query, "size", 0.1)
     predicted = position_at(query.target_key, 61100)
     ra, dec = (predicted.ra.deg, predicted.dec.deg) if predicted is not None else (query.ra, query.dec)
@@ -226,11 +236,27 @@ def _load_irsa_cutouts(query, directory, cache):
             return None, failure
 
     started = monotonic()
-    with ThreadPoolExecutor(max_workers=4) as pool:
-        results = list(pool.map(download_visit, enumerate(selected)))
-    cutouts = [cutout for cutout, _ in results if cutout is not None]
-    failed = [error for _, error in results if error is not None]
-    logger.info("IRSA downloads collection=%s completed=%d failed=%d duration_ms=%.0f",
+    cutouts = []
+    failed = []
+    total_tasks = len(selected)
+    with ThreadPoolExecutor(max_workers=12) as pool:
+        if on_progress is None:
+            results = list(pool.map(download_visit, enumerate(selected)))
+            cutouts = [cutout for cutout, _ in results if cutout is not None]
+            failed = [error for _, error in results if error is not None]
+        else:
+            futures = {pool.submit(download_visit, item): item[0] for item in enumerate(selected)}
+            done_count = 0
+            for fut in as_completed(futures):
+                cutout, err = fut.result()
+                done_count += 1
+                if cutout is not None:
+                    cutouts.append(cutout)
+                    cutouts.sort(key=lambda c: (c.mjd, c.detector, c.obs_id))
+                    on_progress(tuple(cutouts), done_count, total_tasks)
+                elif err is not None:
+                    failed.append(err)
+    logger.info("IRSA/range downloads collection=%s completed=%d failed=%d duration_ms=%.0f",
                 collection, len(cutouts), len(failed), (monotonic() - started) * 1000)
     if not cutouts and failed:
         if any(isinstance(error, (requests.Timeout, irsa.UpstreamTimeout)) for error in failed):

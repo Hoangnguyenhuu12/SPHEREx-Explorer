@@ -22,6 +22,7 @@ from .api_models import ErrorResponse
 from .fixture_api import router
 from .forum import ForumError
 from .forum import router as forum_router
+from .science_routes import router as science_router
 from .services.fixtures import FixtureError
 from .sky_archive_api import router as sky_archive_router
 
@@ -57,6 +58,7 @@ app.add_middleware(
 app.include_router(router)
 app.include_router(forum_router)
 app.include_router(sky_archive_router)
+app.include_router(science_router, include_in_schema=False)
 FORUM_PREFIX = "/api/forum"
 logger = logging.getLogger("uvicorn.error")
 

@@ -633,6 +633,11 @@ export function ObservationViewer(props: Props) {
             <span className="num">
               Observation {displayIndex + 1} / {session.total}
             </span>
+            {session.streaming && session.streaming.found > session.streaming.done && (
+              <span className="pill num" aria-live="polite">
+                Streaming {session.streaming.done} / {session.streaming.found}…
+              </span>
+            )}
             <span className={`mission-tag mission-tag--${frameMission(frame).toLowerCase()}`}>
               {frameSourceLabel(frame, data?.detector)}
               {frame.wavelength_um != null ? ` · ${frame.wavelength_um.toFixed(2)} µm` : ''}

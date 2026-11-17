@@ -142,4 +142,32 @@ export const httpApi: ObservationApi = {
     )
     return res.json()
   },
+
+  async createViewJob(body, signal) {
+    const url = new URL('api/views', config.apiBaseUrl + '/')
+    const linked = link(signal, 15_000)
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        signal: linked.signal,
+        mode: 'cors',
+        credentials: 'omit',
+      })
+      if (!res.ok) throw await toApiError(res)
+      return res.json()
+    } catch (err) {
+      if (err instanceof ApiError) throw err
+      if (linked.signal.aborted) throw abortReason(linked.signal)
+      throw new ApiError('NETWORK', 'Failed to create view job')
+    } finally {
+      linked.done()
+    }
+  },
+
+  async getViewJob(jobId, signal) {
+    const res = await request(`api/views/${encodeURIComponent(jobId)}`, {}, signal, 15_000)
+    return res.json()
+  },
 }
