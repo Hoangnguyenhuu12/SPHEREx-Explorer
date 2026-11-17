@@ -23,10 +23,13 @@ function buildStudioEnvironment(gl: THREE.WebGLRenderer): THREE.WebGLRenderTarge
   envScene.add(new THREE.Mesh(skyGeo, skyMat))
 
   const panels: { pos: [number, number, number]; rot: [number, number, number]; scale: [number, number]; color: string }[] = [
-    { pos: [6, 9, 6], rot: [-Math.PI / 4, Math.PI / 4, 0], scale: [10, 6], color: '#ffffff' },
-    { pos: [-8, 5, 5], rot: [-Math.PI / 6, -Math.PI / 3, 0], scale: [8, 5], color: '#e6effc' },
-    { pos: [0, 12, -3], rot: [Math.PI / 2.2, 0, 0], scale: [12, 6], color: '#f8fafc' },
-    { pos: [-5, -7, 4], rot: [Math.PI / 3, -Math.PI / 5, 0], scale: [9, 4], color: '#c4d2e8' },
+    // Crisp white studio overhead softboxes keep the outer hull unmistakably bright white
+    { pos: [2, 11, 5], rot: [-Math.PI / 3, 0.2, 0], scale: [12, 7], color: '#ffffff' },
+    { pos: [-6, 6, 5], rot: [-Math.PI / 6, -Math.PI / 3, 0], scale: [8, 5], color: '#e6f0ff' },
+    // Top-right warm gold/amber highlight panel reflected gently onto metallic white & steel facets
+    { pos: [8, 6, 1], rot: [-Math.PI / 5, Math.PI / 2.6, 0], scale: [10, 6], color: '#ffd99e' },
+    // Bottom-left pastel pink/violet bounce panel giving metallic white & solar frames a cosmic sheen
+    { pos: [-7, -6, 3], rot: [Math.PI / 3.2, -Math.PI / 3.2, 0], scale: [10, 6], color: '#f39ad5' },
   ]
   const panelGeo = new THREE.PlaneGeometry(1, 1)
   const panelMats: THREE.MeshBasicMaterial[] = []
@@ -262,9 +265,9 @@ export default function SpherexCraft3D({
         <directionalLight position={[-4.5, 2.0, 4.0]} intensity={0.65} color="#e6f0ff" />
         <directionalLight position={[0.0, -5.0, 3.5]} intensity={0.55} color="#dce6fa" />
 
-        {/* Gentle subtle accent tint on edges (never glaring or washing out white surfaces) */}
-        <directionalLight position={[-5.5, -4.0, -3.2]} intensity={0.55} color="#f472b6" />
-        <directionalLight position={[5.2, 4.8, -2.5]} intensity={0.45} color="#fde68a" />
+        {/* Soft pastel accent lights matching the space background ribbons onto metallic white & steel bevels */}
+        <directionalLight position={[-5.8, -4.4, -1.6]} intensity={0.95} color="#f472b6" />
+        <directionalLight position={[5.6, 5.0, -1.2]} intensity={0.85} color="#fcd34d" />
 
         <ObservatoryMesh interactive={interactive} reduceMotion={reduceMotion} dragOffset={dragOffset} />
       </Canvas>

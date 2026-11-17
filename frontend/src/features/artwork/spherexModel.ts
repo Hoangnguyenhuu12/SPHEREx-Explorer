@@ -337,15 +337,19 @@ export function buildSpherexObservatory(): THREE.Group {
   const lensTex = createCyanLensTexture()
   const creviceAoTex = createCreviceAoTexture()
 
-  // Photon Shields: Satin-white slightly metallic exterior, medium-dark reflective brushed steel/aluminum interior
-  const shieldOuterMat = new THREE.MeshStandardMaterial({
+  // Photon Shields: Satin pearlescent metallic white exterior catching subtle environment tints + medium brushed steel interior
+  const shieldOuterMat = new THREE.MeshPhysicalMaterial({
     name: 'Shield_Thermal_Matte_White',
-    color: '#f4f6fa',
+    color: '#f5f7fc',
     aoMap: creviceAoTex,
-    aoMapIntensity: 0.6,
-    metalness: 0.14,
-    roughness: 0.68,
-    envMapIntensity: 0.85,
+    aoMapIntensity: 0.55,
+    metalness: 0.36,
+    roughness: 0.36,
+    iridescence: 0.24,
+    iridescenceIOR: 1.32,
+    clearcoat: 0.2,
+    clearcoatRoughness: 0.38,
+    envMapIntensity: 1.45,
     flatShading: true,
   })
   const shieldInnerMat = new THREE.MeshPhysicalMaterial({
@@ -361,7 +365,7 @@ export function buildSpherexObservatory(): THREE.Group {
     roughness: 0.3,
     anisotropy: 0.9,
     anisotropyRotation: 0,
-    envMapIntensity: 1.25,
+    envMapIntensity: 1.35,
     flatShading: true,
   })
   const shieldRimMat = new THREE.MeshStandardMaterial({
@@ -369,20 +373,23 @@ export function buildSpherexObservatory(): THREE.Group {
     color: '#ffffff',
     aoMap: creviceAoTex,
     aoMapIntensity: 0.25,
-    metalness: 0.16,
-    roughness: 0.45,
+    metalness: 0.28,
+    roughness: 0.34,
+    envMapIntensity: 1.25,
     flatShading: true,
   })
 
-  // Spacecraft Bus: Slightly metallic crisp white thermal coating + deeper high-reflection metallic steel panels
-  const busWhiteMat = new THREE.MeshStandardMaterial({
+  // Spacecraft Bus: Pearlescent metallic white thermal coating + deeper high-reflection steel panels
+  const busWhiteMat = new THREE.MeshPhysicalMaterial({
     name: 'Bus_Thermal_White',
-    color: '#f1f4f9',
+    color: '#f2f5fa',
     aoMap: creviceAoTex,
     aoMapIntensity: 0.5,
-    metalness: 0.14,
-    roughness: 0.68,
-    envMapIntensity: 0.85,
+    metalness: 0.34,
+    roughness: 0.36,
+    iridescence: 0.22,
+    iridescenceIOR: 1.32,
+    envMapIntensity: 1.4,
     flatShading: true,
   })
   const silverMetallicMat = new THREE.MeshStandardMaterial({

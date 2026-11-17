@@ -28,6 +28,10 @@ body:has(.tour) .star-chat {
   width: 22px;
   height: 22px;
 }
+.star-chat .star-chat__fab svg.star-chat__logo {
+  width: 30px;
+  height: 18px;
+}
 
 .star-chat__panel {
   width: min(380px, calc(100vw - 2 * var(--space-4)));

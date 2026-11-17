@@ -27,9 +27,10 @@ describe('SPHEREx 3D observatory model', () => {
       expect(exterior!.geometry.getAttribute('position').count).toBe(36)
       expect(exterior!.geometry.getAttribute('uv')).toBeTruthy()
 
-      const extMat = exterior!.material as THREE.MeshStandardMaterial
+      const extMat = exterior!.material as THREE.MeshPhysicalMaterial
       expect(extMat.name).toBe('Shield_Thermal_Matte_White')
-      expect(extMat.roughness).toBeGreaterThanOrEqual(0.6)
+      expect(extMat.metalness).toBeGreaterThanOrEqual(0.3)
+      expect(extMat.roughness).toBeLessThan(0.5)
       expect(extMat.aoMap).toBeTruthy()
       expect(exterior!.geometry.getAttribute('uv1')).toBeTruthy()
 
