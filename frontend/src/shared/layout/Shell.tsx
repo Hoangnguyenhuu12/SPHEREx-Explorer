@@ -150,28 +150,37 @@ export function NavDrawer() {
 
 type HeaderVariant = 'default' | 'eyes' | 'landing'
 
+function StableHeaderLabel({ text, alt }: { text: string; alt: string }) {
+  return (
+    <span className="bi-slot" data-alt={alt}>
+      {text}
+    </span>
+  )
+}
+
 /** Log in / Sign up for guests, the account menu once logged in. */
 export function AuthActions({ compact = false }: { compact?: boolean }) {
   const { user } = useSession()
   const { lang } = useLanguage()
   const t = SHELL_COPY[lang]
+  const otherT = SHELL_COPY[lang === 'en' ? 'vi' : 'en']
   if (user) return <AccountMenu />
   if (compact)
     return (
       <NavLink to={PATHS.login} className="btn btn-secondary">
         <LogIn aria-hidden />
-        {t.login}
+        <StableHeaderLabel text={t.login} alt={otherT.login} />
       </NavLink>
     )
   return (
     <>
       <NavLink to={PATHS.login} className="btn btn-ghost auth-actions__login">
         <LogIn aria-hidden />
-        {t.login}
+        <StableHeaderLabel text={t.login} alt={otherT.login} />
       </NavLink>
       <NavLink to={PATHS.signup} className="btn btn-primary auth-actions__signup">
         <UserPlus aria-hidden />
-        {t.signup}
+        <StableHeaderLabel text={t.signup} alt={otherT.signup} />
       </NavLink>
     </>
   )
@@ -179,11 +188,12 @@ export function AuthActions({ compact = false }: { compact?: boolean }) {
 
 /**
  * Only the Landing header shows horizontal navigation plus Log in / Sign up; other pages use the
- * left drawer. Below 1020px the Landing header also falls back to the drawer.
+ * left drawer. Below 1120px the Landing header also falls back to the drawer.
  */
 export function SiteHeader({ variant = 'default', children }: { variant?: HeaderVariant; children?: ReactNode }) {
   const { lang } = useLanguage()
   const t = SHELL_COPY[lang]
+  const otherT = SHELL_COPY[lang === 'en' ? 'vi' : 'en']
   const isEyes = variant === 'eyes'
   const isLanding = variant === 'landing'
   return (
@@ -209,7 +219,7 @@ export function SiteHeader({ variant = 'default', children }: { variant?: Header
                 {NAV.map(({ to, key }) => (
                   <li key={to}>
                     <NavLink to={to} end>
-                      {t.nav[key]}
+                      <StableHeaderLabel text={t.nav[key]} alt={otherT.nav[key]} />
                     </NavLink>
                   </li>
                 ))}
@@ -225,7 +235,9 @@ export function SiteHeader({ variant = 'default', children }: { variant?: Header
                 <>
                   <Link to={PATHS.explorer} className="btn btn-secondary" aria-label={t.openTheEyes}>
                     <Eye aria-hidden />
-                    <span className="hide-narrow">{t.openTheEyes}</span>
+                    <span className="hide-narrow">
+                      <StableHeaderLabel text={t.openTheEyes} alt={otherT.openTheEyes} />
+                    </span>
                   </Link>
                 </>
               ))
