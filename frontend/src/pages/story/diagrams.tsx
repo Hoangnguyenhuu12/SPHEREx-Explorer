@@ -298,14 +298,13 @@ export function DifferenceDiagram() {
 
 /** Launch, survey start and a new all-sky map about every six months. */
 export function SurveyTimeline() {
-  const x = (months: number) => 50 + months * 22 // month 0 = March 2025
-  // Launch and survey start are two months apart, so their labels sit on separate rows.
+  // Position Launch clearly to the left of Survey starts so all five labels align on clean horizontal rows.
   const marks = [
-    { m: 0, top: 'Launch', bottom: '11 Mar 2025', strong: false, topY: 60, bottomY: 164, info: 'SPHEREx launched on 11 March 2025.' },
-    { m: 2, top: 'Survey starts', bottom: '1 May 2025', strong: false, topY: 84, bottomY: 142, info: 'Science observations began on 1 May 2025.' },
-    { m: 8, top: 'Map 1', bottom: '≈ Nov 2025', strong: true, topY: 84, bottomY: 142, info: 'The first full map of the sky: every target gets its first date.' },
-    { m: 14, top: 'Map 2', bottom: '≈ May 2026', strong: true, topY: 84, bottomY: 142, info: 'A second date per target, enough to blink and compare.' },
-    { m: 20, top: 'Map 3', bottom: '≈ Nov 2026', strong: true, topY: 84, bottomY: 142, info: 'A year after Map 1, so slow movers like Barnard’s Star shift visibly.' },
+    { x: 56, top: 'Launch', bottom: '11 Mar 2025', strong: false, info: 'SPHEREx launched on 11 March 2025.' },
+    { x: 152, top: 'Survey starts', bottom: '1 May 2025', strong: false, info: 'Science observations began on 1 May 2025.' },
+    { x: 264, top: 'Map 1', bottom: '≈ Nov 2025', strong: true, info: 'The first full map of the sky: every target gets its first date.' },
+    { x: 376, top: 'Map 2', bottom: '≈ May 2026', strong: true, info: 'A second date per target, enough to blink and compare.' },
+    { x: 488, top: 'Map 3', bottom: '≈ Nov 2026', strong: true, info: 'A year after Map 1, so slow movers like Barnard’s Star shift visibly.' },
   ]
   const [sel, setSel] = useState(2)
   return (
@@ -323,8 +322,8 @@ export function SurveyTimeline() {
         </>
       }
     >
-      <line x1={x(0)} x2={x(20) + 20} y1="110" y2="110" style={{ stroke: 'var(--line-strong)', strokeWidth: 2 }} />
-      <rect x={x(2)} y="104" width={x(20) - x(2)} height="12" rx="6" style={{ fill: 'var(--blue)', opacity: 0.35 }} />
+      <line x1={marks[0].x} x2={marks[4].x + 20} y1="110" y2="110" style={{ stroke: 'var(--line-strong)', strokeWidth: 2 }} />
+      <rect x={marks[1].x} y="104" width={marks[4].x - marks[1].x} height="12" rx="6" style={{ fill: 'var(--blue)', opacity: 0.35 }} />
       {marks.map((k, idx) => (
         <g
           key={k.top}
@@ -333,6 +332,7 @@ export function SurveyTimeline() {
           tabIndex={0}
           aria-label={`${k.top}, ${k.bottom}`}
           aria-pressed={sel === idx}
+          onMouseDown={(e) => e.preventDefault()}
           onClick={() => setSel(idx)}
           onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') {
@@ -341,23 +341,23 @@ export function SurveyTimeline() {
             }
           }}
         >
-          <circle cx={x(k.m)} cy="110" r="18" fill="transparent" />
+          <circle cx={k.x} cy="110" r="18" fill="transparent" />
           <circle
-            cx={x(k.m)}
+            cx={k.x}
             cy="110"
             r={(k.strong ? 9 : 6) + (sel === idx ? 4 : 0)}
-            className="diagram-anim"
+            className="diagram-anim diagram-dot"
             style={{ fill: k.strong ? 'var(--primary)' : 'var(--fg)', stroke: sel === idx ? 'var(--heading)' : 'none', strokeWidth: 3 }}
           />
-          <text x={x(k.m)} y={k.topY} textAnchor="middle" className="diagram-label" style={k.strong ? heading : ink}>
+          <text x={k.x} y={84} textAnchor="middle" className="diagram-label" style={k.strong ? heading : ink}>
             {k.top}
           </text>
-          <text x={x(k.m)} y={k.bottomY} textAnchor="middle" className="diagram-label">
+          <text x={k.x} y={142} textAnchor="middle" className="diagram-label">
             {k.bottom}
           </text>
         </g>
       ))}
-      <text x={(x(2) + x(20)) / 2} y="200" textAnchor="middle" className="diagram-label" style={heading}>
+      <text x={(marks[1].x + marks[4].x) / 2} y="190" textAnchor="middle" className="diagram-label" style={heading}>
         a new all-sky map about every six months
       </text>
     </Figure>

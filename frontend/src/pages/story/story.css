@@ -194,9 +194,14 @@
 }
 .diagram-hit {
   cursor: pointer;
+  outline: none;
 }
+.diagram-hit:focus,
 .diagram-hit:focus-visible {
-  outline: 2px solid var(--primary);
+  outline: none;
+}
+.diagram-hit:focus-visible .diagram-dot {
+  filter: drop-shadow(0 0 6px var(--primary));
 }
 .diagram-anim {
   transition:
