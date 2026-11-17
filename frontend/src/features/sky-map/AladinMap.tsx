@@ -315,7 +315,7 @@ export const AladinMap = forwardRef<SkyMapHandle, Props>(function AladinMap(
           showProjectionControl: false,
           showSettingsControl: false,
           showShareControl: false,
-          showContextMenu: false,
+          showContextMenu: true,
           showStatusBar: false,
           showCooGrid: false,
           showCooLocation: false,

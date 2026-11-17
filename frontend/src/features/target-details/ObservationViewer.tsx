@@ -112,6 +112,7 @@ interface Props {
   detector: number
   onDetectorChange?: (detector: number) => void
   timelineControl?: { combined: boolean; setCombined: (value: boolean) => void }
+  autoPlay?: boolean
   fovArcmin: number | null
   onFovChange: (arcmin: number, byUser: boolean) => void
   initialCompare?: boolean
@@ -301,6 +302,14 @@ export function ObservationViewer(props: Props) {
   const demo = data?.mode === 'mock' || frame?.data_mode === 'fixture'
   const ready = session.status === 'ready'
   const canPlay = player.readyIndices.length >= 2
+  const autoPlay = props.autoPlay ?? true
+  const autoPlayedKeyRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (!autoPlay || viewMode !== 'timeline' || !seqKey || !canPlay) return
+    if (autoPlayedKeyRef.current === seqKey) return
+    autoPlayedKeyRef.current = seqKey
+    if (!player.playing) dispatch({ type: 'play' })
+  }, [autoPlay, viewMode, seqKey, canPlay, player.playing, dispatch])
   const canSeek = hasMultipleFrames && session.status !== 'fetching'
   const secondaryCompareIndex = activeSlot === 'A' ? indexB : indexA
   const { prioritizeFrames, ensureDiffs } = session
@@ -799,26 +808,8 @@ export function ObservationViewer(props: Props) {
 
   return (
     <section className="viewer" aria-label="Observation viewer">
-      {/* Priority bar: Compare / Play / Source timeline switcher */}
+      {/* Priority bar: Compare / Source timeline switcher */}
       <div className="viewer-priority">
-        <button
-          type="button"
-          className="btn btn-primary viewer-play"
-          disabled={!canPlay}
-          aria-pressed={player.playing && viewMode === 'timeline'}
-          onClick={() => {
-            if (viewMode === 'compare') {
-              setViewMode('timeline')
-              if (!player.playing) dispatch({ type: 'toggle' })
-            } else {
-              dispatch({ type: 'toggle' })
-            }
-          }}
-        >
-          {player.playing && viewMode === 'timeline' ? <Pause aria-hidden /> : <Play aria-hidden />}
-          <span>{player.playing && viewMode === 'timeline' ? 'Pause' : 'Play observations'}</span>
-        </button>
-
         <div className="segmented" role="group" aria-label="Comparison view" data-tour="view-mode">
           <button
             type="button"

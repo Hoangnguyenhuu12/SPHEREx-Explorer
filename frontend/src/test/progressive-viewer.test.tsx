@@ -37,7 +37,7 @@ function sequence(prefix = 'frame'): FramesResponse {
   }
 }
 
-function Harness({ selection, compare }: { selection: FramesParams; compare?: boolean }) {
+function Harness({ selection, compare, autoPlay = false }: { selection: FramesParams; compare?: boolean; autoPlay?: boolean }) {
   const session = useFrameSession(selection)
   const [toggles, setToggles] = useState<ViewerToggles>({ mode: 'original', flags: false, trail: false, pick: true, gaiaOverlays: false })
   const { state, dispatch } = usePlayer(session.data, toggles.mode === 'difference' ? session.diffs : session.originals)
@@ -56,6 +56,7 @@ function Harness({ selection, compare }: { selection: FramesParams; compare?: bo
       detector={2}
       fovArcmin={null}
       onFovChange={() => {}}
+      autoPlay={autoPlay}
       initialCompare={compare}
       compareSelection={compare ? { queryText: 'Test target', frameAId: 'frame-7', frameBId: 'frame-6' } : undefined}
     />
@@ -90,10 +91,10 @@ describe('progressive observation viewer', () => {
     vi.unstubAllGlobals()
   })
 
-  const render = async (selection = params, compare = false) => {
+  const render = async (selection = params, compare = false, autoPlay = false) => {
     await act(async () => root.render(
       <QueryClientProvider client={client}>
-        <MemoryRouter><Harness selection={selection} compare={compare} /></MemoryRouter>
+        <MemoryRouter><Harness selection={selection} compare={compare} autoPlay={autoPlay} /></MemoryRouter>
       </QueryClientProvider>,
     ))
   }
@@ -141,6 +142,15 @@ describe('progressive observation viewer', () => {
     expect(button('Play').disabled).toBe(true)
     await finish('/new-0.png')
     await finish('/new-1.png')
+    expect(button('Play').disabled).toBe(false)
+  })
+
+  it('auto-plays once two frames are ready and lets the user pause', async () => {
+    await render(params, false, true)
+    await finish('/frame-0.png')
+    await finish('/frame-1.png')
+    expect(button('Pause').disabled).toBe(false)
+    await act(async () => button('Pause').click())
     expect(button('Play').disabled).toBe(false)
   })
 })

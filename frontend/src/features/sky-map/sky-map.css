@@ -21,3 +21,6 @@
   bottom: calc(var(--dock-h, 52px) + 14px) !important;
   right: 78px !important;
 }
+.sky-map .aladin-context-menu {
+  z-index: 35 !important;
+}

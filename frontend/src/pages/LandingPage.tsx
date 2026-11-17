@@ -67,21 +67,14 @@ export default function LandingPage() {
       <section className="hero" aria-labelledby="hero-title">
         <div className="wrap hero__grid">
           <div className="hero__copy">
-            <p className="eyebrow">
-              By team {TEAM_NAME} · NASA Space Apps 2026 · using public NASA SPHEREx data
-            </p>
+            <p className="eyebrow">NASA SPHEREx · NASA Space Apps 2026</p>
             <h1 id="hero-title" className="hero__title">
               The eyes of the galaxy
             </h1>
             <p className="hero__slogan">Every six months, SPHEREx photographs the whole sky. See what changed.</p>
             <p className="hero__lead">
-              Pick a star, press play, and step through NASA’s infrared survey to look for it drifting across the sky or
-              pulsing in brightness. No data files, no code.
-            </p>
-            <p className="hero__expect caption">
-              What to expect: the brown dwarf WISE 0855 moves about 8 arcseconds a year. Between two SPHEREx visits that is
-              only about one pixel, so the clearest shift is between 2010 (WISE) and 2025 (SPHEREx). Some targets change
-              too little to see by eye.
+              Pick a star, press play, and watch NASA’s infrared survey catch it drifting across the sky or pulsing in
+              brightness. No data files, no code.
             </p>
             <div className="hero__actions">
               <Link to={`${PATHS.explorer}?q=wise0855&compare=1`} className="btn btn-primary btn-lg">
@@ -143,10 +136,7 @@ export default function LandingPage() {
         <Artwork variant="band" className="cta__art" />
         <div className="wrap cta__inner">
           <h2 id="cta-title">See the sky move</h2>
-          <p>
-            Jump straight into the WISE 0855 brown dwarf comparison (the shift is small: look for one faint dot changing place
-            against fixed stars), or start from Earth and roam the whole infrared sky.
-          </p>
+          <p>Jump straight into the WISE 0855 brown dwarf comparison, or start from Earth and roam the whole infrared sky.</p>
           <div className="cta__actions">
             <Link to={`${PATHS.explorer}?q=wise0855&compare=1`} className="btn btn-primary btn-lg">
               Watch a brown dwarf move <ArrowRight aria-hidden />

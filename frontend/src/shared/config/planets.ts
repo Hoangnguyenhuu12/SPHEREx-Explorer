@@ -260,7 +260,7 @@ export const SOLAR_PLANETS: readonly PlanetMeta[] = [
   {
     key: 'pluto',
     name: 'Pluto',
-    symbol: '⯓',
+    symbol: '♇',
     category: 'Kuiper Belt dwarf planet',
     color: '#cbb6a5',
     semiMajorAxisAu: 39.482,
