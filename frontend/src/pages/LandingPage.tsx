@@ -103,6 +103,7 @@ export default function LandingPage() {
         <div className="wrap">
           <h2 id="intro-title">How it works</h2>
           <p className="section-lead">Four steps from a point in the sky to a change you can see.</p>
+          {fine && <p className="steps__hint caption">Point at a step to read it.</p>}
           <HowItWorksSteps steps={STEPS} reveal={fine} />
         </div>
       </section>
