@@ -21,7 +21,7 @@ export function HowItWorksSteps({ steps, reveal }: { steps: readonly Step[]; rev
         const select = () => setActive(i)
         return (
           <li
-            key={s.title}
+            key={i}
             className={`step${i === active ? ' is-active' : ''}${i < active ? ' is-reached' : ''}`}
             aria-current={reveal && i === active ? 'step' : undefined}
           >

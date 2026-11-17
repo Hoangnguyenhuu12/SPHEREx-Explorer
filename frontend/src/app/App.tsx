@@ -4,6 +4,7 @@ import { createBrowserRouter, Navigate, Outlet, RouterProvider, ScrollRestoratio
 import { AuthProvider } from '../features/auth/session'
 import { TransitionHost } from '../features/route-transition/TransitionHost'
 import { OverlayProvider } from '../shared/layout/overlay'
+import { LanguageProvider } from '../shared/i18n/language'
 import { PATHS } from './config'
 import { StarChat } from '../features/chat/StarChat'
 
@@ -28,17 +29,19 @@ const queryClient = new QueryClient({
 
 function Root() {
   return (
-    <AuthProvider>
-      <OverlayProvider>
-        <TransitionHost>
-          <ScrollRestoration />
-          <Suspense fallback={<div className="route-loading" role="status">Loading…</div>}>
-            <Outlet />
-          </Suspense>
-          <StarChat />
-        </TransitionHost>
-      </OverlayProvider>
-    </AuthProvider>
+    <LanguageProvider>
+      <AuthProvider>
+        <OverlayProvider>
+          <TransitionHost>
+            <ScrollRestoration />
+            <Suspense fallback={<div className="route-loading" role="status">Loading…</div>}>
+              <Outlet />
+            </Suspense>
+            <StarChat />
+          </TransitionHost>
+        </OverlayProvider>
+      </AuthProvider>
+    </LanguageProvider>
   )
 }
 

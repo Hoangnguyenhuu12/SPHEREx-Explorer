@@ -64,3 +64,8 @@
     --control-h: 44px;
   }
 }
+
+/* Averia Serif Libre and Georgia lack Vietnamese extended Latin glyphs; use Times New Roman / Noto Serif for VI headings. */
+:root:lang(vi) {
+  --font-display: 'Times New Roman', 'Noto Serif', 'Liberation Serif', serif;
+}

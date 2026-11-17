@@ -8,16 +8,11 @@ import { CraftGuide } from '../features/artwork/CraftGuide'
 import { SpherexCraft } from '../features/artwork/SpherexCraft'
 import { StarfieldCanvas } from '../features/artwork/StarfieldCanvas'
 import { TEAM, TEAM_NAME } from '../shared/config/team'
+import { useLanguage } from '../shared/i18n/language'
+import { HOME_COPY } from '../shared/i18n/homeTranslations'
 import { PageShell } from '../shared/layout/Shell'
 import { HowItWorksSteps } from './landing/HowItWorksSteps'
 import './landing/landing.css'
-
-const STEPS = [
-  { title: 'Choose a target', body: 'Pick one of five featured stars, search a name, or type any RA and Dec.' },
-  { title: 'Pick an infrared channel', body: 'SPHEREx has six detectors, from 0.75 to 5 micrometres. Colder objects show up at longer wavelengths.' },
-  { title: 'Step through the dates', body: 'SPHEREx scans the whole sky about every six months. Play the observations like a short film.' },
-  { title: 'Spot what changed', body: 'Compare two dates side by side or flip A/B. A bright-and-dark pair in Difference is a clue to check against the original images.' },
-]
 
 const FINE_POINTER = '(hover: hover) and (pointer: fine)'
 
@@ -35,6 +30,8 @@ function useFinePointer(): boolean {
 }
 
 export default function LandingPage() {
+  const { lang } = useLanguage()
+  const t = HOME_COPY[lang]
   const reduce = useReducedMotion()
   const fine = useFinePointer()
   // Touch or reduced motion: a craft rests in each section and scrolls with it, no flight.
@@ -67,24 +64,21 @@ export default function LandingPage() {
       <section className="hero" aria-labelledby="hero-title">
         <div className="wrap hero__grid">
           <div className="hero__copy">
-            <p className="eyebrow">NASA SPHEREx · NASA Space Apps 2026</p>
+            <p className="eyebrow">{t.eyebrow}</p>
             <h1 id="hero-title" className="hero__title">
-              The eyes of the galaxy
+              {t.heroTitle}
             </h1>
-            <p className="hero__slogan">Every six months, SPHEREx photographs the whole sky. See what changed.</p>
-            <p className="hero__lead">
-              Pick a star, press play, and watch NASA’s infrared survey catch it drifting across the sky or pulsing in
-              brightness. No data files, no code.
-            </p>
+            <p className="hero__slogan">{t.heroSlogan}</p>
+            <p className="hero__lead">{t.heroLead}</p>
             <div className="hero__actions">
               <Link to={`${PATHS.explorer}?q=wise0855`} className="btn btn-primary btn-lg">
-                Watch a brown dwarf move <ArrowRight aria-hidden />
+                {t.watchBrownDwarf} <ArrowRight aria-hidden />
               </Link>
               <Link to={PATHS.entry} className="btn btn-secondary btn-lg">
-                Explore the sky <ArrowRight aria-hidden />
+                {t.exploreSky} <ArrowRight aria-hidden />
               </Link>
               <Link to={PATHS.story} className="btn btn-ghost btn-lg">
-                <BookOpen aria-hidden /> Read the story
+                <BookOpen aria-hidden /> {t.readStory}
               </Link>
             </div>
           </div>
@@ -101,32 +95,25 @@ export default function LandingPage() {
 
       <section ref={introRef} className="intro" aria-labelledby="intro-title">
         <div className="wrap">
-          <h2 id="intro-title">How it works</h2>
-          <p className="section-lead">Four steps from a point in the sky to a change you can see.</p>
-          {fine && <p className="steps__hint caption">Point at a step to read it.</p>}
-          <HowItWorksSteps steps={STEPS} reveal={fine} />
+          <h2 id="intro-title">{t.howItWorksTitle}</h2>
+          <p className="section-lead">{t.howItWorksLead}</p>
+          {fine && <p className="steps__hint caption">{t.howItWorksHint}</p>}
+          <HowItWorksSteps steps={t.steps} reveal={fine} />
         </div>
       </section>
 
       <section ref={aboutRef} className="about" aria-labelledby="about-title">
         <div className="wrap about__grid">
           <div>
-            <h2 id="about-title">About us</h2>
-            <p className="about__text">
-              We are team {TEAM_NAME}, a team of six building an independent tool for the NASA Space Apps 2026 SPHEREx Sky Viewer
-              challenge. Astronomy archives are public but hard to read: FITS files, coordinate systems and query languages stand
-              between curious people and the sky. We want anyone to be able to open a page and watch a star move.
-            </p>
-            <p className="about__text">
-              SPHEREx Explorer is not an official NASA product. It uses public data released by NASA through the Infrared Science
-              Archive.
-            </p>
+            <h2 id="about-title">{t.aboutTitle}</h2>
+            <p className="about__text">{t.aboutLead(TEAM_NAME)}</p>
+            <p className="about__text">{t.aboutDisclaimer}</p>
           </div>
-          <ul className="team" aria-label="Team members">
+          <ul className="team" aria-label={t.teamMembersLabel}>
             {TEAM.map((m) => (
               <li key={m.name}>
                 <span className="team__name">{m.name}</span>
-                <span className="team__role">{m.role}</span>
+                <span className="team__role">{t.teamRoles[m.name] ?? m.role}</span>
               </li>
             ))}
           </ul>
@@ -136,14 +123,14 @@ export default function LandingPage() {
       <section ref={ctaRef} className="cta" aria-labelledby="cta-title">
         <Artwork variant="band" className="cta__art" />
         <div className="wrap cta__inner">
-          <h2 id="cta-title">See the sky move</h2>
-          <p>Jump straight into the WISE 0855 brown dwarf comparison, or start from Earth and roam the whole infrared sky.</p>
+          <h2 id="cta-title">{t.ctaTitle}</h2>
+          <p>{t.ctaBody}</p>
           <div className="cta__actions">
             <Link to={`${PATHS.explorer}?q=wise0855`} className="btn btn-primary btn-lg">
-              Watch a brown dwarf move <ArrowRight aria-hidden />
+              {t.watchBrownDwarf} <ArrowRight aria-hidden />
             </Link>
             <Link to={PATHS.entry} className="btn btn-secondary btn-lg">
-              Explore the sky <ArrowRight aria-hidden />
+              {t.exploreSky} <ArrowRight aria-hidden />
             </Link>
           </div>
         </div>
