@@ -23,10 +23,10 @@ export interface GaiaPropagationSummary {
   staticCount: number
 }
 
-/** VizieR mirrors for Gaia DR3 (I/355/gaiadr3). */
+/** VizieR mirrors for Gaia DR3 (I/355/gaiadr3), preferring the CfA mirror when CDS is degraded. */
 export const VIZIER_MIRRORS = [
-  'https://vizier.cds.unistra.fr',
   'https://vizier.cfa.harvard.edu',
+  'https://vizier.cds.unistra.fr',
   'https://vizier.iucaa.in',
 ]
 

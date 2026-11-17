@@ -10,6 +10,7 @@ import {
   propagateGaiaCatalog,
   type GaiaCatalogStar,
 } from './gaia'
+import { customizeContextMenuActions, type SkyPoint } from './contextMenu'
 import { discoverSurvey, observeFirstHipsTile, type BackgroundMode } from './survey-discovery'
 import {
   aladinSliceArgument,
@@ -70,6 +71,8 @@ interface Props {
   onGaiaStatus?: (info: GaiaStatusInfo) => void
   onSourceSelected?: (s: SelectedGaiaSource) => void
   onPlanetSelected?: (planet: PlanetSkyPosition) => void
+  /** Right-click "View SPHEREx observations here" jumps the inspector to (ra, dec). */
+  onInspectCoords?: (ra: number, dec: number) => void
   /** SPHEREx detector 1–6: the background shows that detector's middle wavelength. */
   detector?: number
   /** Active sky survey choice (`spherex` DR1 cube vs `wise` AllWISE infrared). */
@@ -139,6 +142,7 @@ export const AladinMap = forwardRef<SkyMapHandle, Props>(function AladinMap(
     onGaiaStatus,
     onSourceSelected,
     onPlanetSelected,
+    onInspectCoords,
     detector = 6,
     backgroundMode = 'spherex',
     onSurvey,
@@ -168,6 +172,8 @@ export const AladinMap = forwardRef<SkyMapHandle, Props>(function AladinMap(
   onSourceRef.current = onSourceSelected
   const onPlanetSelectedRef = useRef(onPlanetSelected)
   onPlanetSelectedRef.current = onPlanetSelected
+  const onInspectCoordsRef = useRef(onInspectCoords)
+  onInspectCoordsRef.current = onInspectCoords
   const onGaiaStatusRef = useRef(onGaiaStatus)
   onGaiaStatusRef.current = onGaiaStatus
   const onSurveyRef = useRef(onSurvey)
@@ -298,12 +304,26 @@ export const AladinMap = forwardRef<SkyMapHandle, Props>(function AladinMap(
           showSettingsControl: false,
           showShareControl: false,
           showContextMenu: true,
+          log: false,
           showStatusBar: false,
           showCooGrid: false,
           showCooLocation: false,
           showFov: false,
         })
         aladinRef.current = aladin
+        if (aladin.contextMenu && typeof aladin.contextMenu.attach === 'function') {
+          const origAttach = aladin.contextMenu.attach.bind(aladin.contextMenu)
+          aladin.contextMenu.attach = (actions: unknown, target: unknown) => {
+            const patched = customizeContextMenuActions(
+              actions,
+              aladin,
+              () => lastRightClickSky,
+              () => surveyRef.current?.epochMjd ?? DR1_MAP_MJD,
+              (ra, dec) => onInspectCoordsRef.current?.(ra, dec),
+            )
+            return origAttach(patched, target)
+          }
+        }
         performance.measure('spherex:sky-map-constructed', { start: startedAt, end: performance.now() })
         let clamping = false
         const reportFov = (fovDeg: number) => {
@@ -380,6 +400,16 @@ export const AladinMap = forwardRef<SkyMapHandle, Props>(function AladinMap(
         if (!disposed) onStatus?.('error', err instanceof Error ? err.message : 'The sky map could not start.')
         return null
       })
+    let lastRightClickSky: SkyPoint | null = null
+    const onHostContextMenuCapture = (e: MouseEvent) => {
+      const a = aladinRef.current
+      if (!a) return
+      const rect = host.getBoundingClientRect()
+      const rd = a.pix2world?.(e.clientX - rect.left, e.clientY - rect.top, 'icrs')
+      if (Array.isArray(rd) && Number.isFinite(rd[0]) && Number.isFinite(rd[1])) {
+        lastRightClickSky = { ra: rd[0], dec: rd[1] }
+      }
+    }
     const hideContextMenu = () => {
       aladinRef.current?.contextMenu?._hide?.()
       host.querySelectorAll<HTMLElement>('.aladin-context-menu').forEach((el) => {
@@ -395,12 +425,14 @@ export const AladinMap = forwardRef<SkyMapHandle, Props>(function AladinMap(
     const onGlobalKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') hideContextMenu()
     }
+    host.addEventListener('contextmenu', onHostContextMenuCapture, true)
     window.addEventListener('pointerdown', onGlobalPointerDown, true)
     window.addEventListener('keydown', onGlobalKeyDown, true)
     window.addEventListener('blur', hideContextMenu)
 
     return () => {
       disposed = true
+      host.removeEventListener('contextmenu', onHostContextMenuCapture, true)
       window.removeEventListener('pointerdown', onGlobalPointerDown, true)
       window.removeEventListener('keydown', onGlobalKeyDown, true)
       window.removeEventListener('blur', hideContextMenu)

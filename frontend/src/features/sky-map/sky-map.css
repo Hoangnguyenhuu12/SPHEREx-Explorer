@@ -24,3 +24,9 @@
 .sky-map .aladin-context-menu {
   z-index: 35 !important;
 }
+.sky-map .aladin-popup-container {
+  z-index: 35 !important;
+}
+.sky-map .aladin-box {
+  z-index: 40 !important;
+}

@@ -60,18 +60,19 @@ export const WISE_SURVEY: SurveyInfo = {
   epochLabel: '2010 (AllWISE, MJD 55396)',
 }
 
-/** Public 2MASS near-infrared (J/H/Ks) HiPS mirrors (CDS / IRSA). */
+/** Public 2MASS near-infrared (J/H/Ks) HiPS mirrors (IRSA / ESAC / CDS). */
 export const TWOMASS_MIRRORS = [
+  'https://irsa.ipac.caltech.edu/data/hips/CDS/2MASS/Color',
+  'https://skies.esac.esa.int/2MASSColor',
   'https://alasky.cds.unistra.fr/2MASS/Color',
   'https://alaskybis.cds.unistra.fr/2MASS/Color',
-  'https://irsa.ipac.caltech.edu/data/hips/CDS/2MASS/Color',
 ]
 
 export const TWOMASS_SURVEY: SurveyInfo = {
   key: 'twomass',
   id: 'ivo://CDS/P/2MASS/color',
   label: '2MASS near-infrared color atlas',
-  credit: '2MASS / IPAC-Caltech / UMass, HiPS by CDS',
+  credit: '2MASS / IPAC-Caltech / UMass, HiPS by IRSA / CDS',
   url: TWOMASS_MIRRORS[0],
   cube: false,
   epochMjd: 51544,

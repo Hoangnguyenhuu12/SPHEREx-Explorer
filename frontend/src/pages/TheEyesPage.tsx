@@ -70,6 +70,10 @@ export default function TheEyesPage() {
   const [planetEpochMode, setPlanetEpochMode] = useState<'survey' | 'now'>('survey')
   const [selectedPlanetKey, setSelectedPlanetKey] = useState<PlanetKey | null>(null)
   const [fullscreen, setFullscreen] = useState(false)
+  const [fallbackFullscreen, setFallbackFullscreen] = useState(false)
+  const fsAttemptRef = useRef(0)
+  const fsFallbackTimerRef = useRef<number | null>(null)
+  const isFullscreen = fullscreen || fallbackFullscreen
   const [help, setHelp] = useState(false)
   const [guide, setGuideState] = useState(() => !embed && readGuide(location.search))
   const setGuide = useCallback((on: boolean) => {
@@ -315,13 +319,71 @@ export default function TheEyesPage() {
 
   useEffect(() => {
     const onFs = () => setFullscreen(document.fullscreenElement === stageRef.current)
+    const onFsError = () => {
+      if (fsAttemptRef.current > 0) setFallbackFullscreen(true)
+    }
     document.addEventListener('fullscreenchange', onFs)
-    return () => document.removeEventListener('fullscreenchange', onFs)
+    document.addEventListener('fullscreenerror', onFsError)
+    return () => {
+      document.removeEventListener('fullscreenchange', onFs)
+      document.removeEventListener('fullscreenerror', onFsError)
+      if (fsFallbackTimerRef.current !== null) window.clearTimeout(fsFallbackTimerRef.current)
+    }
   }, [])
 
+  const clearFsFallbackTimer = () => {
+    if (fsFallbackTimerRef.current !== null) {
+      window.clearTimeout(fsFallbackTimerRef.current)
+      fsFallbackTimerRef.current = null
+    }
+  }
+
   const toggleFullscreen = () => {
-    if (document.fullscreenElement) void document.exitFullscreen()
-    else void stageRef.current?.requestFullscreen?.()
+    if (document.fullscreenElement || fallbackFullscreen) {
+      fsAttemptRef.current += 1
+      clearFsFallbackTimer()
+      if (document.fullscreenElement) void document.exitFullscreen()
+      setFallbackFullscreen(false)
+      return
+    }
+    const el = stageRef.current
+    if (!document.fullscreenEnabled || !el?.requestFullscreen) {
+      setFallbackFullscreen(true)
+      return
+    }
+    const attemptId = ++fsAttemptRef.current
+    clearFsFallbackTimer()
+    // Some embedded webviews resolve requestFullscreen() cleanly and then exit fullscreen
+    // immediately on the next tick, or leave it pending; re-check after settling.
+    fsFallbackTimerRef.current = window.setTimeout(() => {
+      fsFallbackTimerRef.current = null
+      if (fsAttemptRef.current === attemptId && document.fullscreenElement !== el) {
+        setFallbackFullscreen(true)
+      }
+    }, 220)
+    try {
+      Promise.resolve(el.requestFullscreen())
+        .then(() => {
+          clearFsFallbackTimer()
+          fsFallbackTimerRef.current = window.setTimeout(() => {
+            fsFallbackTimerRef.current = null
+            if (fsAttemptRef.current === attemptId && document.fullscreenElement !== el) {
+              setFallbackFullscreen(true)
+            }
+          }, 120)
+        })
+        .catch(() => {
+          if (fsAttemptRef.current === attemptId) {
+            clearFsFallbackTimer()
+            setFallbackFullscreen(true)
+          }
+        })
+    } catch {
+      if (fsAttemptRef.current === attemptId) {
+        clearFsFallbackTimer()
+        setFallbackFullscreen(true)
+      }
+    }
   }
 
   const center = useCallback(() => {
@@ -365,7 +427,11 @@ export default function TheEyesPage() {
           if (popupOpen && !timeline && session.total >= 2) setToggles({ mode: toggles.mode === 'original' ? 'difference' : 'original' })
           break
         case 'Escape':
-          if (overlay === 'target') close('target')
+          if (fallbackFullscreen) {
+            fsAttemptRef.current += 1
+            clearFsFallbackTimer()
+            setFallbackFullscreen(false)
+          } else if (overlay === 'target') close('target')
           break
         case '?':
           setHelp(true)
@@ -378,7 +444,7 @@ export default function TheEyesPage() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [popupOpen, help, dispatch, center, session.total, toggles.mode, setToggles, overlay, close, reduceMotion, timeline, embed, guide, setGuide])
+  }, [popupOpen, help, dispatch, center, session.total, toggles.mode, setToggles, overlay, close, reduceMotion, timeline, embed, guide, setGuide, fallbackFullscreen])
 
   const shareUrl = typeof window !== 'undefined' ? `${window.location.origin}${PATHS.explorer}${serializeSelection(sel)}` : ''
   const embedUrl = `${shareUrl}${shareUrl.includes('?') ? '&' : '?'}embed=1`
@@ -522,7 +588,7 @@ export default function TheEyesPage() {
         </>
       )}
 
-      <main id="sky" className="eyes__stage" ref={stageRef}>
+      <main id="sky" className={fallbackFullscreen ? 'eyes__stage eyes__stage--fullscreen' : 'eyes__stage'} ref={stageRef}>
         <AladinMap
           ref={mapRef}
           initial={mapCoords ? { ra: mapCoords.ra, dec: mapCoords.dec, fovDeg: 0.6 } : { ra: 266.4, dec: -12, fovDeg: DEFAULT_MAP_FOV_DEG }}
@@ -542,6 +608,11 @@ export default function TheEyesPage() {
             close('target')
             setSource(null)
             setSelectedPlanetKey(p.key)
+          }}
+          onInspectCoords={(ra, dec) => {
+            setSelectedPlanetKey(null)
+            setSource(null)
+            submitQuery(`${ra.toFixed(6)} ${dec >= 0 ? '+' : ''}${dec.toFixed(6)}`)
           }}
           detector={detector}
           backgroundMode={backgroundMode}
@@ -959,8 +1030,8 @@ export default function TheEyesPage() {
           <button type="button" className="dock__icon" aria-label="Help and shortcuts" title="Help (?)" onClick={() => setHelp(true)}>
             <HelpCircle aria-hidden />
           </button>
-          <button type="button" className="dock__icon dock__wide-only" aria-label={fullscreen ? 'Exit full screen' : 'Full screen'} title="Full screen" onClick={toggleFullscreen}>
-            {fullscreen ? <Minimize2 aria-hidden /> : <Maximize2 aria-hidden />}
+          <button type="button" className="dock__icon dock__wide-only" aria-label={isFullscreen ? 'Exit full screen' : 'Full screen'} aria-pressed={isFullscreen} title="Full screen" onClick={toggleFullscreen}>
+            {isFullscreen ? <Minimize2 aria-hidden /> : <Maximize2 aria-hidden />}
           </button>
         </div>
       </main>
