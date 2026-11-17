@@ -530,16 +530,10 @@ export function ObservationViewer(props: Props) {
         <div className="viewer-state" role="status">
           <BlinkPreview />
           <p>
-            <Loader2 className="spin spin--inline" aria-hidden /> Requesting real observations…
-          </p>
-          <p className="caption">
-            Illustration while you wait: field stars stay put, a moving object hops between dates. In the real images, look for
-            that one dot.
+            <Loader2 className="spin spin--inline" aria-hidden /> Loading observations…
           </p>
           {elapsed >= 5 && (
-            <p className="caption">
-              Waiting {elapsed} s. The image service wakes up after being idle; the first request can take up to a minute.
-            </p>
+            <p className="caption">Waiting {elapsed} s · waking up server…</p>
           )}
           <button type="button" className="btn btn-secondary" onClick={session.cancel}>
             Cancel
