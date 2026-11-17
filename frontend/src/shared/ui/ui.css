@@ -153,6 +153,24 @@
   cursor: not-allowed;
 }
 
+/* Reserve max(EN, VI) width in bilingual controls so toggling language never shifts siblings sideways. */
+.bi-slot {
+  display: inline-grid;
+  justify-items: center;
+  align-items: center;
+}
+.bi-slot::after {
+  content: attr(data-alt);
+  grid-row: 1;
+  grid-column: 1;
+  height: 0;
+  overflow: hidden;
+  visibility: hidden;
+  pointer-events: none;
+  user-select: none;
+  white-space: nowrap;
+}
+
 .select {
   height: var(--control-h);
   padding: 0 var(--space-3);

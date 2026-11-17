@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState, type CSSProperties, type Mous
 import { createPortal } from 'react-dom'
 import { PATHS } from '../../app/config'
 import { useRouteTransition } from '../../features/route-transition/TransitionHost'
+import { StableLabel } from '../../shared/i18n/StableLabel'
 import { isPlainLeftClick, STREAK_MS } from './star-click'
 
 interface Streak {
@@ -18,11 +19,15 @@ interface Streak {
 export function ShootingStarLink({
   size = 'lg',
   label = 'SPHEREx Orbit',
+  altLabel,
   hint,
+  altHint,
 }: {
   size?: 'lg' | 'compact'
   label?: string
+  altLabel?: string
   hint?: string
+  altHint?: string
 }) {
   const reduce = useReducedMotion()
   const { launch } = useRouteTransition()
@@ -62,8 +67,10 @@ export function ShootingStarLink({
           <span className="star-link__star" />
         </span>
         <span className="star-link__text">
-          <span className="star-link__label">{label}</span>
-          {hint && !compact && <span className="star-link__hint">{hint}</span>}
+          <span className="star-link__label">{altLabel ? <StableLabel text={label} alt={altLabel} /> : label}</span>
+          {hint && !compact && (
+            <span className="star-link__hint">{altHint ? <StableLabel text={hint} alt={altHint} /> : hint}</span>
+          )}
         </span>
       </a>
       {streak &&

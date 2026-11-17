@@ -184,23 +184,6 @@
   white-space: nowrap;
   transition: color var(--dur-hover) var(--ease-out), background-color var(--dur-hover) var(--ease-out);
 }
-/* Reserve max(EN, VI) width in header controls so toggling language never shifts siblings sideways. */
-.bi-slot {
-  display: inline-grid;
-  justify-items: center;
-  align-items: center;
-}
-.bi-slot::after {
-  content: attr(data-alt);
-  grid-row: 1;
-  grid-column: 1;
-  height: 0;
-  overflow: hidden;
-  visibility: hidden;
-  pointer-events: none;
-  user-select: none;
-  white-space: nowrap;
-}
 .topnav a:hover {
   color: var(--fg);
   background: var(--surface-2);

@@ -9,6 +9,7 @@ import { useSession } from '../../features/auth/session'
 import { useOverlay } from './overlay'
 import { LanguageSwitch, useLanguage } from '../i18n/language'
 import { SHELL_COPY, type NavKey } from '../i18n/homeTranslations'
+import { StableLabel } from '../i18n/StableLabel'
 import '../ui/ui.css'
 import './layout.css'
 
@@ -150,14 +151,6 @@ export function NavDrawer() {
 
 type HeaderVariant = 'default' | 'eyes' | 'landing'
 
-function StableHeaderLabel({ text, alt }: { text: string; alt: string }) {
-  return (
-    <span className="bi-slot" data-alt={alt}>
-      {text}
-    </span>
-  )
-}
-
 /** Log in / Sign up for guests, the account menu once logged in. */
 export function AuthActions({ compact = false }: { compact?: boolean }) {
   const { user } = useSession()
@@ -169,18 +162,18 @@ export function AuthActions({ compact = false }: { compact?: boolean }) {
     return (
       <NavLink to={PATHS.login} className="btn btn-secondary">
         <LogIn aria-hidden />
-        <StableHeaderLabel text={t.login} alt={otherT.login} />
+        <StableLabel text={t.login} alt={otherT.login} />
       </NavLink>
     )
   return (
     <>
       <NavLink to={PATHS.login} className="btn btn-ghost auth-actions__login">
         <LogIn aria-hidden />
-        <StableHeaderLabel text={t.login} alt={otherT.login} />
+        <StableLabel text={t.login} alt={otherT.login} />
       </NavLink>
       <NavLink to={PATHS.signup} className="btn btn-primary auth-actions__signup">
         <UserPlus aria-hidden />
-        <StableHeaderLabel text={t.signup} alt={otherT.signup} />
+        <StableLabel text={t.signup} alt={otherT.signup} />
       </NavLink>
     </>
   )
@@ -219,7 +212,7 @@ export function SiteHeader({ variant = 'default', children }: { variant?: Header
                 {NAV.map(({ to, key }) => (
                   <li key={to}>
                     <NavLink to={to} end>
-                      <StableHeaderLabel text={t.nav[key]} alt={otherT.nav[key]} />
+                      <StableLabel text={t.nav[key]} alt={otherT.nav[key]} />
                     </NavLink>
                   </li>
                 ))}
@@ -236,7 +229,7 @@ export function SiteHeader({ variant = 'default', children }: { variant?: Header
                   <Link to={PATHS.explorer} className="btn btn-secondary" aria-label={t.openTheEyes}>
                     <Eye aria-hidden />
                     <span className="hide-narrow">
-                      <StableHeaderLabel text={t.openTheEyes} alt={otherT.openTheEyes} />
+                      <StableLabel text={t.openTheEyes} alt={otherT.openTheEyes} />
                     </span>
                   </Link>
                 </>

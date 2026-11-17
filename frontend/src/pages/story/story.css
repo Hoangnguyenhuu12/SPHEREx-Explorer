@@ -23,7 +23,7 @@
 }
 :root:lang(vi) .story-head__title {
   font-size: 48px;
-  line-height: 56px;
+  line-height: 64px;
 }
 .story-head__lead {
   margin-top: var(--space-4);
@@ -129,9 +129,19 @@
 }
 .data-table {
   border-collapse: collapse;
+  table-layout: fixed;
   width: 100%;
-  max-width: 520px;
+  max-width: 560px;
   font-size: 16px;
+}
+.data-table th:nth-child(1) {
+  width: 22%;
+}
+.data-table th:nth-child(2) {
+  width: 34%;
+}
+.data-table th:nth-child(3) {
+  width: 44%;
 }
 .data-table th,
 .data-table td {
@@ -586,6 +596,9 @@ ol.plain-list {
   display: grid;
   min-width: 0;
 }
+.star-link.btn-lg .bi-slot {
+  justify-items: start;
+}
 .star-link__label {
   font-size: inherit;
 }
@@ -660,5 +673,33 @@ ol.plain-list {
   .star-link__tail,
   .star-link__star {
     transition: none;
+  }
+}
+
+/* Lock Story hero, step cards, target cards, diagrams, and TeamGrid geometry on desktop across EN/VI toggles. */
+@media (min-width: 1001px) {
+  .story-head__title {
+    min-height: 192px;
+  }
+  .story-head__lead {
+    min-height: 60px;
+  }
+  .flow-trail {
+    min-height: 28px;
+  }
+  .steps > .step {
+    min-height: 228px;
+  }
+  .diagram-controls {
+    min-height: 44px;
+  }
+  .diagram-note {
+    min-height: 76px;
+  }
+  .target-note {
+    min-height: 328px;
+  }
+  .team-card {
+    min-height: 196px;
   }
 }

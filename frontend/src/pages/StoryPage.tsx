@@ -80,12 +80,13 @@ function ToolbarItem({ kind, lang }: { kind: 'radec' | 'gaia' | 'surveys' | 'nav
 export default function StoryPage() {
   const { lang } = useLanguage()
   const t = STORY_COPY[lang]
+  const otherT = STORY_COPY[lang === 'en' ? 'vi' : 'en']
   const movers = TARGETS.filter((target) => target.change === 'motion').map((target) => t.targets[target.key].name)
   const changers = TARGETS.filter((target) => target.change === 'brightness').map((target) => t.targets[target.key].name)
   const headerAction = (
     <>
       <span className="site-header__spacer" />
-      <ShootingStarLink size="compact" label={t.headerActionLabel} />
+      <ShootingStarLink size="compact" label={t.headerActionLabel} altLabel={otherT.headerActionLabel} />
     </>
   )
 
@@ -186,7 +187,12 @@ export default function StoryPage() {
             </ul>
             <p className="note">{t.illustrativeNote}</p>
             <p className="story-cta">
-              <ShootingStarLink label={t.headerActionLabel} hint={t.howCtaHint} />
+              <ShootingStarLink
+                label={t.headerActionLabel}
+                altLabel={otherT.headerActionLabel}
+                hint={t.howCtaHint}
+                altHint={otherT.howCtaHint}
+              />
             </p>
           </section>
 
@@ -270,7 +276,12 @@ export default function StoryPage() {
             <p>{t.aboutIntro(TEAM_NAME)}</p>
             <TeamGrid />
             <p className="story-cta">
-              <ShootingStarLink label={t.aboutCtaLabel} hint={t.aboutCtaHint} />
+              <ShootingStarLink
+                label={t.aboutCtaLabel}
+                altLabel={otherT.aboutCtaLabel}
+                hint={t.aboutCtaHint}
+                altHint={otherT.aboutCtaHint}
+              />
             </p>
           </section>
         </article>

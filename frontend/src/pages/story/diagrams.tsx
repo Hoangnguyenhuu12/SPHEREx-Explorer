@@ -6,6 +6,7 @@
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react'
 import { useReducedMotion } from 'motion/react'
 import { useLanguage } from '../../shared/i18n/language'
+import { StableLabel } from '../../shared/i18n/StableLabel'
 import { STORY_COPY } from '../../shared/i18n/storyTranslations'
 
 const ink: CSSProperties = { fill: 'var(--fg)' }
@@ -50,14 +51,14 @@ function Choice<T extends string | number>({
 }: {
   label: string
   value: T
-  options: { value: T; label: string }[]
+  options: { value: T; label: string; alt?: string }[]
   onChange: (v: T) => void
 }) {
   return (
     <div className="segmented diagram-choice" role="group" aria-label={label}>
       {options.map((o) => (
         <button key={String(o.value)} type="button" aria-pressed={value === o.value} onClick={() => onChange(o.value)}>
-          {o.label}
+          {o.alt ? <StableLabel text={o.label} alt={o.alt} /> : o.label}
         </button>
       ))}
     </div>
@@ -85,11 +86,13 @@ function useStepper(count: number, ms: number) {
 export function ColourDiagram() {
   const { lang } = useLanguage()
   const c = STORY_COPY[lang].diagrams.colour
+  const otherC = STORY_COPY[lang === 'en' ? 'vi' : 'en'].diagrams.colour
   const palette = ['var(--blue)', 'var(--pink)', 'var(--primary)'] as const
   const xs = [150, 280, 410] as const
   const stars = c.stars.map((s, idx) => ({
     x: xs[idx],
     label: s.label,
+    altLabel: otherC.stars[idx].label,
     colour: palette[idx],
     um: s.um,
   }))
@@ -98,10 +101,10 @@ export function ColourDiagram() {
     <Figure
       controls={
         <>
-          <Choice label={c.choiceLabel} value={i} options={stars.map((s, k) => ({ value: k, label: s.label }))} onChange={pick} />
+          <Choice label={c.choiceLabel} value={i} options={stars.map((s, k) => ({ value: k, label: s.label, alt: s.altLabel }))} onChange={pick} />
           {canPlay && (
             <button type="button" className="btn btn-secondary btn--compact" aria-pressed={playing} onClick={() => setPlaying(!playing)}>
-              {playing ? c.pause : c.play}
+              <StableLabel text={playing ? c.pause : c.play} alt={playing ? otherC.pause : otherC.play} />
             </button>
           )}
           <span className="caption" aria-live="polite">
@@ -158,6 +161,7 @@ export function ColourDiagram() {
 export function MotionDiagram() {
   const { lang } = useLanguage()
   const m = STORY_COPY[lang].diagrams.motion
+  const otherM = STORY_COPY[lang === 'en' ? 'vi' : 'en'].diagrams.motion
   const cols = 6
   const rows = 3
   const size = 60
@@ -166,9 +170,9 @@ export function MotionDiagram() {
   // Barnard's Star: about 10″ a year ≈ 0.85 pixel every six months.
   const step = 0.85 * size
   const positions = [
-    { x: x0 + 1.5 * size, label: m.dates[0] },
-    { x: x0 + 1.5 * size + step, label: m.dates[1] },
-    { x: x0 + 1.5 * size + 2 * step, label: m.dates[2] },
+    { x: x0 + 1.5 * size, label: m.dates[0], altLabel: otherM.dates[0] },
+    { x: x0 + 1.5 * size + step, label: m.dates[1], altLabel: otherM.dates[1] },
+    { x: x0 + 1.5 * size + 2 * step, label: m.dates[2], altLabel: otherM.dates[2] },
   ]
   const { i, pick, playing, setPlaying, canPlay } = useStepper(positions.length, 700)
   return (
@@ -176,10 +180,10 @@ export function MotionDiagram() {
       height={236}
       controls={
         <>
-          <Choice label={m.choiceLabel} value={i} options={positions.map((p, k) => ({ value: k, label: p.label }))} onChange={pick} />
+          <Choice label={m.choiceLabel} value={i} options={positions.map((p, k) => ({ value: k, label: p.label, alt: p.altLabel }))} onChange={pick} />
           {canPlay && (
             <button type="button" className="btn btn-secondary btn--compact" aria-pressed={playing} onClick={() => setPlaying(!playing)}>
-              {playing ? m.pause : m.play}
+              <StableLabel text={playing ? m.pause : m.play} alt={playing ? otherM.pause : otherM.play} />
             </button>
           )}
         </>

@@ -34,7 +34,7 @@
 }
 :root:lang(vi) .hero__title {
   font-size: 62px;
-  line-height: 70px;
+  line-height: 76px;
 }
 .hero__slogan {
   margin-top: var(--space-4);
@@ -47,12 +47,12 @@
 }
 :root:lang(vi) .hero__slogan {
   font-size: 23px;
-  line-height: 32px;
-  max-width: 23em;
+  line-height: 34px;
+  max-width: 24em;
 }
 :root:lang(vi) .cta__inner h2 {
   font-size: 42px;
-  line-height: 50px;
+  line-height: 56px;
 }
 .hero__lead {
   margin-top: var(--space-4);
@@ -521,6 +521,38 @@
   .craft-guide__sway,
   .craft-guide__bob {
     animation: none;
+  }
+}
+
+/* Lock desktop section heights and card geometry so switching EN/VI never causes layout shift or vertical pulsing. */
+@media (min-width: 1001px) {
+  .hero__title {
+    min-height: 152px;
+  }
+  .hero__slogan {
+    min-height: 68px;
+  }
+  .hero__lead {
+    min-height: 90px;
+  }
+  .intro .section-lead {
+    min-height: 28px;
+  }
+  .intro .step__title {
+    min-height: 56px;
+  }
+  .intro .step__body {
+    min-height: 120px;
+  }
+  .about__copy {
+    min-height: 270px;
+  }
+  .team li {
+    min-height: 56px;
+    align-items: center;
+  }
+  .cta__inner p {
+    min-height: 56px;
   }
 }
 

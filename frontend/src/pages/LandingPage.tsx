@@ -10,6 +10,7 @@ import { StarfieldCanvas } from '../features/artwork/StarfieldCanvas'
 import { TEAM, TEAM_NAME } from '../shared/config/team'
 import { useLanguage } from '../shared/i18n/language'
 import { HOME_COPY } from '../shared/i18n/homeTranslations'
+import { StableLabel } from '../shared/i18n/StableLabel'
 import { PageShell } from '../shared/layout/Shell'
 import { HowItWorksSteps } from './landing/HowItWorksSteps'
 import './landing/landing.css'
@@ -32,6 +33,7 @@ function useFinePointer(): boolean {
 export default function LandingPage() {
   const { lang } = useLanguage()
   const t = HOME_COPY[lang]
+  const otherT = HOME_COPY[lang === 'en' ? 'vi' : 'en']
   const reduce = useReducedMotion()
   const fine = useFinePointer()
   // Touch or reduced motion: a craft rests in each section and scrolls with it, no flight.
@@ -72,13 +74,13 @@ export default function LandingPage() {
             <p className="hero__lead">{t.heroLead}</p>
             <div className="hero__actions">
               <Link to={`${PATHS.explorer}?q=wise0855`} className="btn btn-primary btn-lg">
-                {t.watchBrownDwarf} <ArrowRight aria-hidden />
+                <StableLabel text={t.watchBrownDwarf} alt={otherT.watchBrownDwarf} /> <ArrowRight aria-hidden />
               </Link>
               <Link to={PATHS.entry} className="btn btn-secondary btn-lg">
-                {t.exploreSky} <ArrowRight aria-hidden />
+                <StableLabel text={t.exploreSky} alt={otherT.exploreSky} /> <ArrowRight aria-hidden />
               </Link>
               <Link to={PATHS.story} className="btn btn-ghost btn-lg">
-                <BookOpen aria-hidden /> {t.readStory}
+                <BookOpen aria-hidden /> <StableLabel text={t.readStory} alt={otherT.readStory} />
               </Link>
             </div>
           </div>
@@ -104,7 +106,7 @@ export default function LandingPage() {
 
       <section ref={aboutRef} className="about" aria-labelledby="about-title">
         <div className="wrap about__grid">
-          <div>
+          <div className="about__copy">
             <h2 id="about-title">{t.aboutTitle}</h2>
             <p className="about__text">{t.aboutLead(TEAM_NAME)}</p>
             <p className="about__text">{t.aboutDisclaimer}</p>
@@ -127,10 +129,10 @@ export default function LandingPage() {
           <p>{t.ctaBody}</p>
           <div className="cta__actions">
             <Link to={`${PATHS.explorer}?q=wise0855`} className="btn btn-primary btn-lg">
-              {t.watchBrownDwarf} <ArrowRight aria-hidden />
+              <StableLabel text={t.watchBrownDwarf} alt={otherT.watchBrownDwarf} /> <ArrowRight aria-hidden />
             </Link>
             <Link to={PATHS.entry} className="btn btn-secondary btn-lg">
-              {t.exploreSky} <ArrowRight aria-hidden />
+              <StableLabel text={t.exploreSky} alt={otherT.exploreSky} /> <ArrowRight aria-hidden />
             </Link>
           </div>
         </div>

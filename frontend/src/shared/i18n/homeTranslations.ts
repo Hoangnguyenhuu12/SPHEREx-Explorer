@@ -171,7 +171,7 @@ export const HOME_COPY: Record<Language, HomeCopy> = {
       'Thạch': 'Thiết kế giao diện và điều phối',
       'Duy Hoàng': 'Frontend, triển khai và kiểm thử',
       'Đông': 'Backend API và bộ nhớ đệm',
-      'Khôi': 'Dữ liệu lưu trữ NASA (IRSA) và cơ sở dữ liệu',
+      'Khôi': 'Dữ liệu NASA (IRSA) và CSDL',
       'Hữu Hoàng': 'Xử lý ảnh',
       'Nguyên': 'Khoa học và kiểm chứng',
     },
