@@ -22,21 +22,21 @@ function createBrushedAluminumTextures(): {
     return seed / 0xffffffff
   }
   for (let y = 0; y < size; y++) {
-    rowBias[y] = (nextRand() - 0.5) * 28 + Math.sin(y * 0.47) * 9
+    rowBias[y] = (nextRand() - 0.5) * 34 + Math.sin(y * 1.15) * 12
   }
 
   for (let y = 0; y < size; y++) {
     const bias = rowBias[y]
     for (let x = 0; x < size; x++) {
       const idx = (y * size + x) * 4
-      const fine = Math.sin((x / size) * Math.PI * 6 + y * 0.31) * 6 + (nextRand() - 0.5) * 8
-      const val = Math.max(155, Math.min(242, Math.round(208 + bias + fine)))
-      albedo[idx] = Math.min(255, val - 2)
-      albedo[idx + 1] = Math.min(255, val)
-      albedo[idx + 2] = Math.min(255, val + 6)
+      const fine = Math.sin((x / size) * Math.PI * 6 + y * 0.31) * 5 + (nextRand() - 0.5) * 6
+      const val = Math.max(52, Math.min(132, Math.round(88 + bias + fine)))
+      albedo[idx] = Math.max(0, val - 6)
+      albedo[idx + 1] = val
+      albedo[idx + 2] = Math.min(255, val + 16)
       albedo[idx + 3] = 255
 
-      const rVal = Math.max(36, Math.min(96, Math.round(58 - bias * 0.65 + (nextRand() - 0.5) * 14)))
+      const rVal = Math.max(52, Math.min(118, Math.round(78 - bias * 0.65 + (nextRand() - 0.5) * 14)))
       rough[idx] = rVal
       rough[idx + 1] = rVal
       rough[idx + 2] = rVal
@@ -349,27 +349,27 @@ export function buildSpherexObservatory(): THREE.Group {
   })
   const shieldInnerMat = new THREE.MeshPhysicalMaterial({
     name: 'Shield_Interior_Brushed_Aluminum',
-    color: '#e5ebf4',
+    color: '#4a556e',
     map: brushedTex.map,
     roughnessMap: brushedTex.roughnessMap,
     bumpMap: brushedTex.bumpMap,
-    bumpScale: 0.006,
+    bumpScale: 0.008,
     aoMap: creviceAoTex,
-    aoMapIntensity: 0.85,
-    metalness: 0.82,
-    roughness: 0.28,
+    aoMapIntensity: 1.5,
+    metalness: 0.78,
+    roughness: 0.34,
     anisotropy: 0.88,
     anisotropyRotation: 0,
-    envMapIntensity: 1.25,
+    envMapIntensity: 0.95,
     flatShading: true,
   })
   const shieldRimMat = new THREE.MeshStandardMaterial({
     name: 'Shield_Rim_White_Aluminum',
-    color: '#f5f7fb',
+    color: '#ffffff',
     aoMap: creviceAoTex,
-    aoMapIntensity: 0.4,
-    metalness: 0.16,
-    roughness: 0.62,
+    aoMapIntensity: 0.25,
+    metalness: 0.12,
+    roughness: 0.48,
     flatShading: true,
   })
 
