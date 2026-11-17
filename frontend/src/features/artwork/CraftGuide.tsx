@@ -131,7 +131,7 @@ export function CraftGuide({ containerRef, heroRef, sectionRefs, still = false, 
           <span key={i} className="craft-still" aria-hidden style={{ left: d.x, top: d.y, width: d.size, height: d.size }}>
             <div className="craft-guide__sway">
               <div className="craft-guide__bob">
-                <SpherexCraft className="craft-guide__svg" decorative />
+                <SpherexCraft className="craft-guide__svg" decorative svgOnly />
               </div>
             </div>
           </span>

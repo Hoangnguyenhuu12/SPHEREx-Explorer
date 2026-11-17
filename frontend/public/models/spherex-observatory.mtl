@@ -1,0 +1,82 @@
+# SPHEREx Space Observatory Material Library
+
+newmtl Strut_Titanium
+Ka 0.0485 0.0549 0.0685
+Kd 0.3231 0.3663 0.4564
+Ks 0.795 0.795 0.795
+Ke 0.0000 0.0000 0.0000
+Ns 133
+d 1.0000
+illum 2
+
+newmtl Structure_Graphite
+Ka 0.0038 0.0044 0.0072
+Kd 0.0252 0.0296 0.0482
+Ks 0.655 0.655 0.655
+Ke 0.0000 0.0000 0.0000
+Ns 99
+d 1.0000
+illum 2
+
+newmtl Bus_Gold_Kapton
+Ka 0.0906 0.0527 0.0070
+Kd 0.6038 0.3515 0.0467
+Ks 0.732 0.732 0.732
+Ke 0.0000 0.0000 0.0000
+Ns 122
+d 1.0000
+illum 2
+
+newmtl Shield_Trim_Aluminum
+Ka 0.0936 0.0998 0.1107
+Kd 0.6240 0.6654 0.7379
+Ks 0.746 0.746 0.746
+Ke 0.0000 0.0000 0.0000
+Ns 130
+d 1.0000
+illum 2
+
+newmtl Solar_Cell_Photovoltaic
+Ka 0.0014 0.0075 0.0282
+Kd 0.0091 0.0497 0.1878
+Ks 0.494 0.494 0.494
+Ke 0.0000 0.0000 0.0000
+Ns 137
+d 1.0000
+illum 2
+
+newmtl Solar_Frame_Silver
+Ka 0.0292 0.0676 0.1096
+Kd 0.1946 0.4508 0.7305
+Ks 0.704 0.704 0.704
+Ke 0.0000 0.0000 0.0000
+Ns 130
+d 1.0000
+illum 2
+
+newmtl Telescope_Optics_Blue
+Ka 0.0059 0.0763 0.1408
+Kd 0.0395 0.5089 0.9387
+Ks 0.445 0.445 0.445
+Ke 0.0042 0.3574 0.7741
+Ns 155
+d 1.0000
+illum 2
+
+newmtl Shield_Silver_MLI
+Ka 0.1187 0.1152 0.1052
+Kd 0.7913 0.7682 0.7011
+Ks 0.585 0.585 0.585
+Ke 0.0000 0.0000 0.0000
+Ns 119
+d 1.0000
+illum 2
+
+newmtl Baffle_Dark_Cavity
+Ka 0.0013 0.0015 0.0025
+Kd 0.0086 0.0097 0.0168
+Ks 0.375 0.375 0.375
+Ke 0.0000 0.0000 0.0000
+Ns 40
+d 1.0000
+illum 2

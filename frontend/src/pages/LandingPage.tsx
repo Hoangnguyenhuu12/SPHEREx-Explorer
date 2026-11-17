@@ -88,9 +88,11 @@ export default function LandingPage() {
             <StarfieldCanvas className="hero__meteors" density={0.25} shootingEverySec={1.4} drift={false} />
             <Artwork variant="hero" className="hero__art" />
             <span ref={heroAnchor} className="craft-anchor" aria-hidden />
-            <div className="hero__craft" style={guided ? { visibility: 'hidden' } : undefined}>
-              <SpherexCraft className="hero__craft-svg" />
-            </div>
+            {!guided && (
+              <div className="hero__craft">
+                <SpherexCraft className="hero__craft-svg" interactive />
+              </div>
+            )}
           </div>
         </div>
       </section>

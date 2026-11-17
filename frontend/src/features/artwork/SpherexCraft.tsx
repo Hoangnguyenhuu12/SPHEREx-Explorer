@@ -1,10 +1,10 @@
-import { useId } from 'react'
+import { lazy, Suspense, useId } from 'react'
+import { webglAvailable } from '../earth-scene/webgl'
 
-/**
- * Original stylised illustration of the SPHEREx observatory: three nested cone-shaped photon
- * shields around the telescope, a hexagonal spacecraft bus and a fixed solar panel. Not to scale.
- */
-export function SpherexCraft({ className, decorative = false }: { className?: string; decorative?: boolean }) {
+const SpherexCraft3D = lazy(() => import('./SpherexCraft3D'))
+
+/** 2D SVG fallback used in reduced-context environments or while the WebGL bundle loads. */
+export function SpherexCraft2D({ className, decorative = false }: { className?: string; decorative?: boolean }) {
   const id = useId().replace(/:/g, '')
   const metal = `metal-${id}`
   const inner = `inner-${id}`
@@ -15,7 +15,7 @@ export function SpherexCraft({ className, decorative = false }: { className?: st
     <svg
       className={className}
       viewBox="0 0 520 520"
-      {...(decorative ? { "aria-hidden": true } : { role: "img", "aria-label": "Illustration of the SPHEREx space telescope" })}
+      {...(decorative ? { 'aria-hidden': true } : { role: 'img', 'aria-label': 'Illustration of the SPHEREx space telescope' })}
     >
       <defs>
         <linearGradient id={metal} x1="0" y1="0" x2="1" y2="0">
@@ -44,7 +44,7 @@ export function SpherexCraft({ className, decorative = false }: { className?: st
       </defs>
 
       {/* Light collected by the telescope. --craft-beam (0–1) lets the landing guide fade it out. */}
-      <path d="M40 120 L250 205 L250 245 L40 300 Z" fill={`url(#${beam})`} style={{ opacity: "calc(0.55 * var(--craft-beam, 1))" }} />
+      <path d="M40 120 L250 205 L250 245 L40 300 Z" fill={`url(#${beam})`} style={{ opacity: 'calc(0.55 * var(--craft-beam, 1))' }} />
 
       <g transform="rotate(-18 300 260)">
         {/* Photon shields: three nested open cones */}
@@ -68,5 +68,31 @@ export function SpherexCraft({ className, decorative = false }: { className?: st
         <rect x="150" y="305" width="8" height="26" fill="#8a8c96" />
       </g>
     </svg>
+  )
+}
+
+/**
+ * 3D interactive SPHEREx observatory (Three.js / R3F) with automatic 2D SVG fallback when WebGL is disabled.
+ * Pass `svgOnly` for secondary static copies so only one WebGL canvas is allocated per page.
+ */
+export function SpherexCraft({
+  className,
+  decorative = false,
+  interactive = false,
+  svgOnly = false,
+}: {
+  className?: string
+  decorative?: boolean
+  interactive?: boolean
+  svgOnly?: boolean
+}) {
+  const canWebgl = !svgOnly && typeof window !== 'undefined' && webglAvailable()
+  const fallback = <SpherexCraft2D className={className} decorative={decorative} />
+  if (!canWebgl) return fallback
+
+  return (
+    <Suspense fallback={fallback}>
+      <SpherexCraft3D className={className} decorative={decorative} interactive={interactive} />
+    </Suspense>
   )
 }
