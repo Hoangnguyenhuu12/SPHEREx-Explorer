@@ -1,9 +1,186 @@
 import * as THREE from 'three'
 
 /**
+ * Generates a tileable circumferential brushed tin/aluminum DataTexture pair (albedo + roughness + bump)
+ * for anisotropic metallic inner surfaces inside the photon shields.
+ */
+function createBrushedAluminumTextures(): {
+  map: THREE.DataTexture
+  roughnessMap: THREE.DataTexture
+  bumpMap: THREE.DataTexture
+} {
+  const size = 256
+  const albedo = new Uint8Array(size * size * 4)
+  const rough = new Uint8Array(size * size * 4)
+  const bump = new Uint8Array(size * size * 4)
+
+  // Deterministic pseudo-random per scanline so circumferential horizontal brush streaks look crisp and consistent.
+  const rowBias = new Float32Array(size)
+  let seed = 1337
+  const nextRand = () => {
+    seed = (seed * 1664525 + 1013904223) >>> 0
+    return seed / 0xffffffff
+  }
+  for (let y = 0; y < size; y++) {
+    rowBias[y] = (nextRand() - 0.5) * 28 + Math.sin(y * 0.47) * 9
+  }
+
+  for (let y = 0; y < size; y++) {
+    const bias = rowBias[y]
+    for (let x = 0; x < size; x++) {
+      const idx = (y * size + x) * 4
+      const fine = Math.sin((x / size) * Math.PI * 6 + y * 0.31) * 6 + (nextRand() - 0.5) * 8
+      const val = Math.max(155, Math.min(242, Math.round(208 + bias + fine)))
+      albedo[idx] = Math.min(255, val - 2)
+      albedo[idx + 1] = Math.min(255, val)
+      albedo[idx + 2] = Math.min(255, val + 6)
+      albedo[idx + 3] = 255
+
+      const rVal = Math.max(36, Math.min(96, Math.round(58 - bias * 0.65 + (nextRand() - 0.5) * 14)))
+      rough[idx] = rVal
+      rough[idx + 1] = rVal
+      rough[idx + 2] = rVal
+      rough[idx + 3] = 255
+
+      const bVal = Math.max(60, Math.min(200, Math.round(128 + bias * 1.4)))
+      bump[idx] = bVal
+      bump[idx + 1] = bVal
+      bump[idx + 2] = bVal
+      bump[idx + 3] = 255
+    }
+  }
+
+  const makeTex = (data: Uint8Array, srgb: boolean) => {
+    const tex = new THREE.DataTexture(data, size, size, THREE.RGBAFormat)
+    tex.wrapS = THREE.RepeatWrapping
+    tex.wrapT = THREE.RepeatWrapping
+    tex.repeat.set(3, 2)
+    tex.magFilter = THREE.LinearFilter
+    tex.minFilter = THREE.LinearMipmapLinearFilter
+    tex.generateMipmaps = true
+    tex.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace
+    tex.needsUpdate = true
+    return tex
+  }
+
+  return {
+    map: makeTex(albedo, true),
+    roughnessMap: makeTex(rough, false),
+    bumpMap: makeTex(bump, false),
+  }
+}
+
+/** Generates a baked deep blue/black monocrystalline solar-cell wafer grid DataTexture. */
+function createSolarCellTextures(): { map: THREE.DataTexture; roughnessMap: THREE.DataTexture } {
+  const w = 512
+  const h = 256
+  const albedo = new Uint8Array(w * h * 4)
+  const rough = new Uint8Array(w * h * 4)
+
+  const cols = 8
+  const rows = 4
+  const cellW = w / cols
+  const cellH = h / rows
+
+  for (let y = 0; y < h; y++) {
+    const ry = y % cellH
+    const ny = ry / cellH
+    for (let x = 0; x < w; x++) {
+      const idx = (y * w + x) * 4
+      const cx = x % cellW
+      const nx = cx / cellW
+
+      const borderX = nx < 0.045 || nx > 0.955
+      const borderY = ny < 0.06 || ny > 0.94
+      const cornerChamfer =
+        Math.min(nx, 1 - nx) + Math.min(ny, 1 - ny) < 0.16
+
+      const busbar = Math.abs(nx - 0.5) < 0.015 || Math.abs(nx - 0.25) < 0.008 || Math.abs(nx - 0.75) < 0.008
+      const microFinger = Math.round(ny * 20) % 2 === 0 && Math.abs((ny * 20) % 1 - 0.5) < 0.14
+
+      if (borderX || borderY || cornerChamfer) {
+        // Dark encapsulated silicon gap / seam
+        albedo[idx] = 6
+        albedo[idx + 1] = 10
+        albedo[idx + 2] = 18
+        albedo[idx + 3] = 255
+        rough[idx] = rough[idx + 1] = rough[idx + 2] = 44
+        rough[idx + 3] = 255
+      } else if (busbar) {
+        // Fine silver metallic photovoltaic busbar
+        albedo[idx] = 135
+        albedo[idx + 1] = 165
+        albedo[idx + 2] = 204
+        albedo[idx + 3] = 255
+        rough[idx] = rough[idx + 1] = rough[idx + 2] = 28
+        rough[idx + 3] = 255
+      } else {
+        // Deep blue-black silicon wafer with subtle cell sheen variation
+        const sheen = microFinger ? 1.16 : 1.0
+        albedo[idx] = Math.min(255, Math.round(10 * sheen))
+        albedo[idx + 1] = Math.min(255, Math.round(30 * sheen))
+        albedo[idx + 2] = Math.min(255, Math.round(74 * sheen))
+        albedo[idx + 3] = 255
+        rough[idx] = rough[idx + 1] = rough[idx + 2] = 22
+        rough[idx + 3] = 255
+      }
+    }
+  }
+
+  const makeTex = (data: Uint8Array, srgb: boolean) => {
+    const tex = new THREE.DataTexture(data, w, h, THREE.RGBAFormat)
+    tex.wrapS = THREE.ClampToEdgeWrapping
+    tex.wrapT = THREE.ClampToEdgeWrapping
+    tex.magFilter = THREE.LinearFilter
+    tex.minFilter = THREE.LinearMipmapLinearFilter
+    tex.generateMipmaps = true
+    tex.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace
+    tex.needsUpdate = true
+    return tex
+  }
+
+  return {
+    map: makeTex(albedo, true),
+    roughnessMap: makeTex(rough, false),
+  }
+}
+
+/** Generates a radial glowing light-blue/cyan lens cover DataTexture for the central telescope. */
+function createCyanLensTexture(): THREE.DataTexture {
+  const size = 256
+  const data = new Uint8Array(size * size * 4)
+  const half = (size - 1) / 2
+
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const idx = (y * size + x) * 4
+      const dx = (x - half) / half
+      const dy = (y - half) / half
+      const r = Math.min(1, Math.hypot(dx, dy))
+      // Crisp bright cyan core + concentric anti-reflective coating ring near rim
+      const core = Math.pow(1 - r, 1.35)
+      const ring = Math.exp(-Math.pow((r - 0.78) / 0.08, 2)) * 0.45
+      const t = Math.min(1, core + ring)
+
+      data[idx] = Math.round(52 + 168 * t)
+      data[idx + 1] = Math.round(178 + 72 * t)
+      data[idx + 2] = Math.round(235 + 20 * t)
+      data[idx + 3] = 255
+    }
+  }
+
+  const tex = new THREE.DataTexture(data, size, size, THREE.RGBAFormat)
+  tex.magFilter = THREE.LinearFilter
+  tex.minFilter = THREE.LinearMipmapLinearFilter
+  tex.generateMipmaps = true
+  tex.colorSpace = THREE.SRGBColorSpace
+  tex.needsUpdate = true
+  return tex
+}
+
+/**
  * Builds an explicit double-walled faceted polygonal frustum (hexagonal shield stage)
- * with outward-facing exterior facets, inward-facing dark baffle facets, and solid top/bottom rims.
- * Using closed manifold geometry keeps normals crisp in both WebGL and external .OBJ/.GLB viewers.
+ * with UVs on exterior, interior (circumferential brushed metallic grain), and solid rims.
  */
 function createPolygonalShieldGeometries(
   sides: number,
@@ -14,24 +191,41 @@ function createPolygonalShieldGeometries(
   thickness: number,
 ): { outer: THREE.BufferGeometry; inner: THREE.BufferGeometry; rim: THREE.BufferGeometry } {
   const outerPos: number[] = []
+  const outerUv: number[] = []
   const innerPos: number[] = []
+  const innerUv: number[] = []
   const rimPos: number[] = []
+  const rimUv: number[] = []
 
   const pushTri = (arr: number[], a: THREE.Vector3, b: THREE.Vector3, c: THREE.Vector3) => {
     arr.push(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z)
   }
 
-  const pushQuad = (arr: number[], a: THREE.Vector3, b: THREE.Vector3, c: THREE.Vector3, d: THREE.Vector3) => {
-    pushTri(arr, a, b, c)
-    pushTri(arr, a, c, d)
+  const pushQuad = (
+    posArr: number[],
+    uvArr: number[],
+    a: THREE.Vector3,
+    b: THREE.Vector3,
+    c: THREE.Vector3,
+    d: THREE.Vector3,
+    u0: number,
+    u1: number,
+    v0: number,
+    v1: number,
+  ) => {
+    pushTri(posArr, a, b, c)
+    uvArr.push(u0, v0, u1, v0, u1, v1)
+    pushTri(posArr, a, c, d)
+    uvArr.push(u0, v0, u1, v1, u0, v1)
   }
 
-  // Offset half a sector so flat hexagonal faces align cleanly with the spacecraft bus facets.
   const angleOffset = Math.PI / sides
 
   for (let i = 0; i < sides; i++) {
-    const a0 = angleOffset + (i / sides) * Math.PI * 2
-    const a1 = angleOffset + ((i + 1) / sides) * Math.PI * 2
+    const u0 = i / sides
+    const u1 = (i + 1) / sides
+    const a0 = angleOffset + u0 * Math.PI * 2
+    const a1 = angleOffset + u1 * Math.PI * 2
 
     const c0 = Math.cos(a0)
     const s0 = Math.sin(a0)
@@ -49,33 +243,34 @@ function createPolygonalShieldGeometries(
     const it1 = new THREE.Vector3(c1 * (rTop - thickness), yTop, s1 * (rTop - thickness))
 
     // Exterior sloped face (outward winding)
-    pushQuad(outerPos, ob1, ob0, ot0, ot1)
-    // Interior sloped face (inward winding)
-    pushQuad(innerPos, ib0, ib1, it1, it0)
-    // Top rim lip (upward winding) & bottom lip (downward winding)
-    pushQuad(rimPos, it0, it1, ot1, ot0)
-    pushQuad(rimPos, ob0, ob1, ib1, ib0)
+    pushQuad(outerPos, outerUv, ob1, ob0, ot0, ot1, u1, u0, 0, 1)
+    // Interior sloped face (inward winding; u maps circumferentially for brushed anisotropic grain)
+    pushQuad(innerPos, innerUv, ib0, ib1, it1, it0, u0, u1, 0, 1)
+    // Top & bottom solid rim lips
+    pushQuad(rimPos, rimUv, it0, it1, ot1, ot0, u0, u1, 0, 1)
+    pushQuad(rimPos, rimUv, ob0, ob1, ib1, ib0, u0, u1, 0, 1)
   }
 
-  const finalize = (arr: number[]) => {
+  const finalize = (pos: number[], uv: number[]) => {
     const geo = new THREE.BufferGeometry()
-    geo.setAttribute('position', new THREE.Float32BufferAttribute(arr, 3))
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3))
+    geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2))
     geo.computeVertexNormals()
     return geo
   }
 
   return {
-    outer: finalize(outerPos),
-    inner: finalize(innerPos),
-    rim: finalize(rimPos),
+    outer: finalize(outerPos, outerUv),
+    inner: finalize(innerPos, innerUv),
+    rim: finalize(rimPos, rimUv),
   }
 }
 
-/** Creates a cylindrical strut connecting two 3D points cleanly without gimbal ambiguities. */
+/** Creates a cylindrical strut connecting two 3D points cleanly. */
 function makeStrut(p0: THREE.Vector3, p1: THREE.Vector3, radius: number, material: THREE.Material, name: string): THREE.Mesh {
   const dir = new THREE.Vector3().subVectors(p1, p0)
   const len = dir.length()
-  const geo = new THREE.CylinderGeometry(radius, radius, len, 10)
+  const geo = new THREE.CylinderGeometry(radius, radius, len, 12)
   const mesh = new THREE.Mesh(geo, material)
   mesh.name = name
   mesh.position.addVectors(p0, p1).multiplyScalar(0.5)
@@ -84,109 +279,132 @@ function makeStrut(p0: THREE.Vector3, p1: THREE.Vector3, radius: number, materia
 }
 
 /**
- * Creates a clean, named Three.js Group of the SPHEREx space observatory with
- * PBR materials and closed polygonal topology suitable for WebGL, .OBJ/.MTL, and .GLB/.GLTF.
+ * Builds the SPHEREx space observatory with baked PBR materials (matte white outer thermal shields,
+ * anisotropic brushed aluminum shield interiors, white & silver/grey metallic hexagonal bus,
+ * glossy glass-coated deep blue/black solar cells with metallic arms, and glowing cyan lens under
+ * a thin white tripod strut). Ready for WebGL 360-degree rendering and binary .GLB export.
  */
 export function buildSpherexObservatory(): THREE.Group {
   const root = new THREE.Group()
   root.name = 'SPHEREx_Observatory'
 
-  // Materials — bright, crisp silver-white aerospace finishes that stay luminous against space black
+  const brushedTex = createBrushedAluminumTextures()
+  const solarTex = createSolarCellTextures()
+  const lensTex = createCyanLensTexture()
+
+  // Photon Shields: Matte white thermal coating outside, highly reflective anisotropic brushed tin/aluminum inside
   const shieldOuterMat = new THREE.MeshStandardMaterial({
-    name: 'Shield_Silver_MLI',
-    color: '#f5f4ef',
-    emissive: '#d8dee9',
-    emissiveIntensity: 0.18,
-    metalness: 0.16,
-    roughness: 0.3,
+    name: 'Shield_Thermal_Matte_White',
+    color: '#f2f4f8',
+    metalness: 0.04,
+    roughness: 0.86,
     flatShading: true,
   })
-  const shieldInnerMat = new THREE.MeshStandardMaterial({
-    name: 'Baffle_Dark_Cavity',
-    color: '#1b2030',
-    metalness: 0.2,
-    roughness: 0.72,
+  const shieldInnerMat = new THREE.MeshPhysicalMaterial({
+    name: 'Shield_Interior_Brushed_Aluminum',
+    color: '#dce2ec',
+    map: brushedTex.map,
+    roughnessMap: brushedTex.roughnessMap,
+    bumpMap: brushedTex.bumpMap,
+    bumpScale: 0.008,
+    metalness: 0.94,
+    roughness: 0.22,
+    anisotropy: 0.92,
+    anisotropyRotation: 0,
+    envMapIntensity: 1.6,
     flatShading: true,
   })
   const shieldRimMat = new THREE.MeshStandardMaterial({
-    name: 'Shield_Trim_Aluminum',
-    color: '#ffffff',
-    emissive: '#e2e8f0',
-    emissiveIntensity: 0.28,
-    metalness: 0.25,
-    roughness: 0.22,
+    name: 'Shield_Rim_White_Aluminum',
+    color: '#f7f8fb',
+    metalness: 0.22,
+    roughness: 0.52,
     flatShading: true,
-  })
-  const busGoldMat = new THREE.MeshStandardMaterial({
-    name: 'Bus_Gold_Kapton',
-    color: '#ecc358',
-    emissive: '#8a6216',
-    emissiveIntensity: 0.2,
-    metalness: 0.34,
-    roughness: 0.3,
-    flatShading: true,
-  })
-  const darkMetalMat = new THREE.MeshStandardMaterial({
-    name: 'Structure_Graphite',
-    color: '#394054',
-    emissive: '#1e2433',
-    emissiveIntensity: 0.14,
-    metalness: 0.48,
-    roughness: 0.42,
-  })
-  const titaniumMat = new THREE.MeshStandardMaterial({
-    name: 'Strut_Titanium',
-    color: '#d4dce8',
-    emissive: '#64748b',
-    emissiveIntensity: 0.18,
-    metalness: 0.38,
-    roughness: 0.26,
-  })
-  const opticsCyanMat = new THREE.MeshStandardMaterial({
-    name: 'Telescope_Optics_Blue',
-    color: '#38bdf8',
-    emissive: '#0ea5e9',
-    emissiveIntensity: 1.05,
-    metalness: 0.3,
-    roughness: 0.14,
-  })
-  const solarCellMat = new THREE.MeshStandardMaterial({
-    name: 'Solar_Cell_Photovoltaic',
-    color: '#215ba6',
-    emissive: '#0d2b57',
-    emissiveIntensity: 0.24,
-    metalness: 0.26,
-    roughness: 0.22,
-  })
-  const solarGridMat = new THREE.MeshStandardMaterial({
-    name: 'Solar_Frame_Silver',
-    color: '#9fd0f5',
-    emissive: '#3b82f6',
-    emissiveIntensity: 0.14,
-    metalness: 0.42,
-    roughness: 0.24,
   })
 
-  // 1. Base Ring: conical adapter ring at the very bottom + launch mounting flange
+  // Spacecraft Bus: White thermal coating + silver/grey metallic panels (no yellow/gold)
+  const busWhiteMat = new THREE.MeshStandardMaterial({
+    name: 'Bus_Thermal_White',
+    color: '#eef1f6',
+    metalness: 0.06,
+    roughness: 0.74,
+    flatShading: true,
+  })
+  const silverMetallicMat = new THREE.MeshStandardMaterial({
+    name: 'Bus_Silver_Metallic',
+    color: '#c2cbd8',
+    metalness: 0.88,
+    roughness: 0.26,
+    envMapIntensity: 1.4,
+    flatShading: true,
+  })
+  const greyMetallicMat = new THREE.MeshStandardMaterial({
+    name: 'Bus_Grey_Metallic',
+    color: '#5a6373',
+    metalness: 0.82,
+    roughness: 0.34,
+    envMapIntensity: 1.25,
+  })
+  const metallicArmMat = new THREE.MeshStandardMaterial({
+    name: 'Solar_Support_Metallic',
+    color: '#d4dce6',
+    metalness: 0.92,
+    roughness: 0.22,
+    envMapIntensity: 1.45,
+  })
+
+  // Central Telescope: Matte white thin tripod strut + glowing light blue/cyan circular lens cover
+  const tripodWhiteMat = new THREE.MeshStandardMaterial({
+    name: 'Tripod_Strut_Matte_White',
+    color: '#f8fafc',
+    metalness: 0.06,
+    roughness: 0.56,
+  })
+  const opticsCyanMat = new THREE.MeshStandardMaterial({
+    name: 'Telescope_Lens_Cyan_Glow',
+    color: '#7dd3fc',
+    map: lensTex,
+    emissive: '#38bdf8',
+    emissiveMap: lensTex,
+    emissiveIntensity: 1.4,
+    metalness: 0.14,
+    roughness: 0.16,
+  })
+
+  // Solar Array: Deep blue/black solar cells with glossy, glass-like clearcoat reflection
+  const solarCellMat = new THREE.MeshPhysicalMaterial({
+    name: 'Solar_Cells_Glass_Coat',
+    color: '#ffffff',
+    map: solarTex.map,
+    roughnessMap: solarTex.roughnessMap,
+    metalness: 0.24,
+    roughness: 0.14,
+    clearcoat: 1.0,
+    clearcoatRoughness: 0.04,
+    ior: 1.52,
+    reflectivity: 0.95,
+    envMapIntensity: 1.8,
+  })
+
+  // 1. Base Ring: Conical metallic adapter ring at the very bottom + launch mounting flange
   const baseGroup = new THREE.Group()
   baseGroup.name = 'Base_Ring'
 
-  const adapterRing = new THREE.Mesh(new THREE.CylinderGeometry(0.46, 0.56, 0.22, 16, 1, false), titaniumMat)
+  const adapterRing = new THREE.Mesh(new THREE.CylinderGeometry(0.46, 0.56, 0.22, 18, 1, false), silverMetallicMat)
   adapterRing.name = 'Base_Adapter_Cone'
   adapterRing.position.y = 0.13
   baseGroup.add(adapterRing)
 
-  const bottomFlange = new THREE.Mesh(new THREE.CylinderGeometry(0.59, 0.59, 0.04, 16), darkMetalMat)
+  const bottomFlange = new THREE.Mesh(new THREE.CylinderGeometry(0.59, 0.59, 0.04, 18), greyMetallicMat)
   bottomFlange.name = 'Base_Mounting_Flange'
   bottomFlange.position.y = 0.02
   baseGroup.add(bottomFlange)
 
-  // Two small underside Ka-band antennas
   for (const [idx, zOff] of [
     [1, -0.28],
     [2, 0.28],
   ] as const) {
-    const dish = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.12, 12), titaniumMat)
+    const dish = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.12, 12), silverMetallicMat)
     dish.name = `Bottom_Antenna_${idx}`
     dish.position.set(0, -0.02, zOff)
     dish.rotation.x = Math.PI
@@ -194,52 +412,63 @@ export function buildSpherexObservatory(): THREE.Group {
   }
   root.add(baseGroup)
 
-  // 2. Spacecraft Bus: hexagonal base section with equipment modules and metallic trims
+  // 2. Spacecraft Bus: Hexagonal white & silver/grey metallic base beneath the shields
   const busGroup = new THREE.Group()
   busGroup.name = 'Spacecraft_Bus'
 
-  const busBody = new THREE.Mesh(new THREE.CylinderGeometry(0.68, 0.62, 0.66, 6), busGoldMat)
+  const busBody = new THREE.Mesh(new THREE.CylinderGeometry(0.68, 0.62, 0.66, 6), busWhiteMat)
   busBody.name = 'Bus_Hex_Body'
   busBody.position.y = 0.57
   busBody.rotation.y = Math.PI / 6
   busGroup.add(busBody)
 
-  const busTopPlate = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.7, 0.06, 6), darkMetalMat)
+  // Silver/grey metallic structural panel overlays around alternating hex faces
+  for (const [idx, angle] of [
+    [1, 0],
+    [2, (Math.PI * 2) / 3],
+    [3, (Math.PI * 4) / 3],
+  ] as const) {
+    const bayPanel = new THREE.Mesh(new THREE.BoxGeometry(0.56, 0.48, 0.05), silverMetallicMat)
+    bayPanel.name = `Bus_Silver_Panel_${idx}`
+    const r = 0.565
+    bayPanel.position.set(Math.sin(angle) * r, 0.57, Math.cos(angle) * r)
+    bayPanel.rotation.y = angle
+    busGroup.add(bayPanel)
+  }
+
+  const busTopPlate = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.7, 0.06, 6), silverMetallicMat)
   busTopPlate.name = 'Bus_Top_Deck'
   busTopPlate.position.y = 0.91
   busTopPlate.rotation.y = Math.PI / 6
   busGroup.add(busTopPlate)
 
-  const busBottomCollar = new THREE.Mesh(new THREE.CylinderGeometry(0.64, 0.58, 0.06, 6), darkMetalMat)
+  const busBottomCollar = new THREE.Mesh(new THREE.CylinderGeometry(0.64, 0.58, 0.06, 6), greyMetallicMat)
   busBottomCollar.name = 'Bus_Bottom_Collar'
   busBottomCollar.position.y = 0.25
   busBottomCollar.rotation.y = Math.PI / 6
   busGroup.add(busBottomCollar)
 
-  // Avionics equipment module on the opposite side (+X)
-  const avionicsBox = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.36, 0.42), darkMetalMat)
+  const avionicsBox = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.36, 0.42), greyMetallicMat)
   avionicsBox.name = 'Equipment_Module_Avionics'
   avionicsBox.position.set(0.63, 0.58, 0)
   busGroup.add(avionicsBox)
 
-  const avionicsPlate = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.28, 0.34), titaniumMat)
+  const avionicsPlate = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.28, 0.34), silverMetallicMat)
   avionicsPlate.name = 'Equipment_Radiator_Plate'
   avionicsPlate.position.set(0.73, 0.58, 0)
   busGroup.add(avionicsPlate)
 
-  // Side radiator / attitude-control housing on +Z/-Z facets
-  const sideModule = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.24, 0.16), titaniumMat)
+  const sideModule = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.24, 0.16), silverMetallicMat)
   sideModule.name = 'Equipment_Module_Side'
   sideModule.position.set(0.28, 0.56, 0.56)
   sideModule.rotation.y = Math.PI / 6
   busGroup.add(sideModule)
 
-  // Star tracker optical heads angled out from the bus deck
   for (const [idx, zSign] of [
     [1, 1],
     [2, -1],
   ] as const) {
-    const tracker = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.045, 0.18, 10), darkMetalMat)
+    const tracker = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.045, 0.18, 12), greyMetallicMat)
     tracker.name = `Star_Tracker_${idx}`
     tracker.position.set(0.56, 0.84, 0.26 * zSign)
     tracker.rotation.z = -0.65
@@ -247,13 +476,12 @@ export function buildSpherexObservatory(): THREE.Group {
     busGroup.add(tracker)
   }
 
-  // Three V-groove radiator cone stages under the main photon shields
   for (const [idx, y, rTop] of [
     [1, 0.97, 0.82],
     [2, 1.04, 0.77],
     [3, 1.11, 0.71],
   ] as const) {
-    const vgroove = new THREE.Mesh(new THREE.CylinderGeometry(rTop, 0.48, 0.04, 6, 1, true), shieldRimMat)
+    const vgroove = new THREE.Mesh(new THREE.CylinderGeometry(rTop, 0.48, 0.04, 6, 1, true), silverMetallicMat)
     vgroove.name = `VGroove_Stage_${idx}`
     vgroove.position.y = y
     vgroove.rotation.y = Math.PI / 6
@@ -261,7 +489,7 @@ export function buildSpherexObservatory(): THREE.Group {
   }
   root.add(busGroup)
 
-  // 3. Solar Array: flat rectangular solar panel attached vertically to the -X side of the bus
+  // 3. Solar Array: Flat rectangular deep blue/black glass-coated panel with metallic connecting support arms
   const solarGroup = new THREE.Group()
   solarGroup.name = 'Solar_Array'
 
@@ -270,110 +498,108 @@ export function buildSpherexObservatory(): THREE.Group {
   const panelX = -0.92
   const panelY = 0.82
 
-  const solarFrame = new THREE.Mesh(new THREE.BoxGeometry(0.055, panelH, panelW), darkMetalMat)
+  const solarFrame = new THREE.Mesh(new THREE.BoxGeometry(0.05, panelH, panelW), greyMetallicMat)
   solarFrame.name = 'Solar_Panel_Backing'
   solarFrame.position.set(panelX, panelY, 0)
   solarGroup.add(solarFrame)
 
-  // Photovoltaic front face (-X exterior facing Sun) and silver cell divider grid bars
-  const solarCells = new THREE.Mesh(new THREE.BoxGeometry(0.014, panelH - 0.06, panelW - 0.06), solarCellMat)
+  // Glossy photovoltaic wafer plate visible clearly on exterior (-X) face
+  const solarCells = new THREE.Mesh(new THREE.BoxGeometry(0.016, panelH - 0.05, panelW - 0.05), solarCellMat)
   solarCells.name = 'Solar_Cells_Plate'
-  solarCells.position.set(panelX - 0.026, panelY, 0)
+  solarCells.position.set(panelX - 0.025, panelY, 0)
   solarGroup.add(solarCells)
 
-  // Raised perimeter frame rails + 4x2 grid ribs so cell grid reads crisply in any .OBJ / .GLB viewer
-  const barThickness = 0.016
-  for (let gx = -1; gx <= 1; gx++) {
-    const barV = new THREE.Mesh(new THREE.BoxGeometry(0.018, panelH - 0.05, barThickness), solarGridMat)
-    barV.name = `Solar_Grid_V_${gx + 2}`
-    barV.position.set(panelX - 0.03, panelY, gx * ((panelW - 0.06) / 4))
-    solarGroup.add(barV)
-  }
-  const barH = new THREE.Mesh(new THREE.BoxGeometry(0.018, barThickness, panelW - 0.05), solarGridMat)
-  barH.name = 'Solar_Grid_H'
-  barH.position.set(panelX - 0.03, panelY, 0)
-  solarGroup.add(barH)
-
-  // Perimeter trim rails (top, bottom, front, back)
   for (const [name, sy, sz, py, pz] of [
     ['Solar_Trim_Top', 0.028, panelW, panelH / 2 - 0.014, 0],
     ['Solar_Trim_Bottom', 0.028, panelW, -panelH / 2 + 0.014, 0],
     ['Solar_Trim_Left', panelH, 0.028, 0, -panelW / 2 + 0.014],
     ['Solar_Trim_Right', panelH, 0.028, 0, panelW / 2 - 0.014],
   ] as const) {
-    const rail = new THREE.Mesh(new THREE.BoxGeometry(0.066, sy, sz), solarGridMat)
+    const rail = new THREE.Mesh(new THREE.BoxGeometry(0.064, sy, sz), metallicArmMat)
     rail.name = name
     rail.position.set(panelX - 0.004, panelY + py, pz)
     solarGroup.add(rail)
   }
 
-  // Twin mounting brackets linking the bus side cleanly to the vertical solar array
   for (const [idx, zPos] of [
     [1, -0.34],
     [2, 0.34],
   ] as const) {
     solarGroup.add(
-      makeStrut(new THREE.Vector3(-0.56, 0.62, zPos), new THREE.Vector3(panelX + 0.02, 0.62, zPos), 0.032, titaniumMat, `Solar_Bracket_${idx}`),
+      makeStrut(
+        new THREE.Vector3(-0.56, 0.6, zPos),
+        new THREE.Vector3(panelX + 0.02, 0.6, zPos),
+        0.032,
+        metallicArmMat,
+        `Solar_Bracket_${idx}`,
+      ),
     )
     solarGroup.add(
-      makeStrut(new THREE.Vector3(-0.58, 0.84, zPos), new THREE.Vector3(panelX + 0.02, 0.94, zPos), 0.022, titaniumMat, `Solar_Brace_${idx}`),
+      makeStrut(
+        new THREE.Vector3(-0.58, 0.84, zPos),
+        new THREE.Vector3(panelX + 0.02, 0.94, zPos),
+        0.024,
+        metallicArmMat,
+        `Solar_Brace_${idx}`,
+      ),
     )
   }
   root.add(solarGroup)
 
-  // 4. Telescope Payload: central cylindrical barrel housed deep inside innermost shield + bipod struts
+  // 4. Telescope Payload: Cylindrical telescope topped with glowing cyan circular lens cover & thin white tripod strut
   const payloadGroup = new THREE.Group()
   payloadGroup.name = 'Telescope_Payload'
 
-  const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.27, 0.78, 20), darkMetalMat)
+  const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.27, 0.8, 24), greyMetallicMat)
   barrel.name = 'Telescope_Barrel'
   barrel.position.y = 1.48
   payloadGroup.add(barrel)
 
-  const foreCollar = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.28, 0.08, 20), titaniumMat)
+  const foreCollar = new THREE.Mesh(new THREE.CylinderGeometry(0.285, 0.285, 0.08, 24), silverMetallicMat)
   foreCollar.name = 'Telescope_Fore_Collar'
-  foreCollar.position.y = 1.84
+  foreCollar.position.y = 1.85
   payloadGroup.add(foreCollar)
 
-  const midCollar = new THREE.Mesh(new THREE.CylinderGeometry(0.29, 0.29, 0.06, 20), titaniumMat)
+  const midCollar = new THREE.Mesh(new THREE.CylinderGeometry(0.295, 0.295, 0.06, 24), silverMetallicMat)
   midCollar.name = 'Telescope_Mount_Collar'
   midCollar.position.y = 1.34
   payloadGroup.add(midCollar)
 
-  const apertureOptics = new THREE.Mesh(new THREE.CylinderGeometry(0.21, 0.21, 0.04, 20), opticsCyanMat)
+  // Glowing light blue / cyan circular lens cover at the top of the cylindrical telescope
+  const apertureOptics = new THREE.Mesh(new THREE.CylinderGeometry(0.245, 0.245, 0.035, 28), opticsCyanMat)
   apertureOptics.name = 'Telescope_Optics_Lens'
-  apertureOptics.position.y = 1.87
+  apertureOptics.position.y = 1.885
   payloadGroup.add(apertureOptics)
 
-  const secondaryHousing = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.075, 0.09, 12), titaniumMat)
-  secondaryHousing.name = 'Telescope_Secondary_Mirror'
-  secondaryHousing.position.y = 2.02
-  payloadGroup.add(secondaryHousing)
+  // Thin white tripod strut arching cleanly over the glowing cyan lens cover
+  const tripodHub = new THREE.Mesh(new THREE.CylinderGeometry(0.042, 0.052, 0.045, 16), tripodWhiteMat)
+  tripodHub.name = 'Telescope_Tripod_Hub'
+  tripodHub.position.y = 2.09
+  payloadGroup.add(tripodHub)
 
-  // Three thin spider vanes supporting secondary mirror
   for (let k = 0; k < 3; k++) {
-    const a = (k / 3) * Math.PI * 2
-    const pRim = new THREE.Vector3(Math.cos(a) * 0.25, 1.87, Math.sin(a) * 0.25)
-    const pTop = new THREE.Vector3(Math.cos(a) * 0.055, 2.02, Math.sin(a) * 0.055)
-    payloadGroup.add(makeStrut(pRim, pTop, 0.012, titaniumMat, `Spider_Vane_${k + 1}`))
+    const a = (k / 3) * Math.PI * 2 + Math.PI / 6
+    const pRim = new THREE.Vector3(Math.cos(a) * 0.27, 1.88, Math.sin(a) * 0.27)
+    const pTop = new THREE.Vector3(Math.cos(a) * 0.036, 2.09, Math.sin(a) * 0.036)
+    payloadGroup.add(makeStrut(pRim, pTop, 0.015, tripodWhiteMat, `Tripod_Strut_${k + 1}`))
   }
 
-  // Three V-shaped diagonal bipod strut pairs (6 struts) supporting telescope barrel from bus deck
+  // Three diagonal V-shaped metallic bipod strut pairs anchoring the telescope barrel to the bus deck
   for (let k = 0; k < 3; k++) {
     const baseAngle = (k / 3) * Math.PI * 2 + Math.PI / 6
-    const pTop = new THREE.Vector3(Math.cos(baseAngle) * 0.27, 1.35, Math.sin(baseAngle) * 0.27)
+    const pTop = new THREE.Vector3(Math.cos(baseAngle) * 0.275, 1.35, Math.sin(baseAngle) * 0.275)
     for (const [legIdx, deltaA] of [
       [1, -0.38],
       [2, 0.38],
     ] as const) {
       const aFoot = baseAngle + deltaA
       const pFoot = new THREE.Vector3(Math.cos(aFoot) * 0.56, 0.94, Math.sin(aFoot) * 0.56)
-      payloadGroup.add(makeStrut(pFoot, pTop, 0.024, titaniumMat, `Bipod_Strut_${k + 1}_${legIdx}`))
+      payloadGroup.add(makeStrut(pFoot, pTop, 0.022, silverMetallicMat, `Bipod_Strut_${k + 1}_${legIdx}`))
     }
   }
   root.add(payloadGroup)
 
-  // 5. Photon Shields: Three nested, faceted hexagonal funnel shields expanding upwards
+  // 5. Photon Shields: Three nested faceted hexagonal cones (matte white exterior, brushed aluminum anisotropic interior)
   const shieldsGroup = new THREE.Group()
   shieldsGroup.name = 'Photon_Shields'
 
@@ -403,15 +629,25 @@ export function buildSpherexObservatory(): THREE.Group {
   return root
 }
 
-/** Disposes geometries and materials created by `buildSpherexObservatory`. */
+/** Disposes geometries, materials, and baked textures created by `buildSpherexObservatory`. */
 export function disposeSpherexObservatory(root: THREE.Object3D): void {
   const mats = new Set<THREE.Material>()
+  const textures = new Set<THREE.Texture>()
   root.traverse((obj) => {
     if (obj instanceof THREE.Mesh) {
       obj.geometry.dispose()
-      if (Array.isArray(obj.material)) obj.material.forEach((m) => mats.add(m))
-      else if (obj.material) mats.add(obj.material)
+      const list = Array.isArray(obj.material) ? obj.material : [obj.material]
+      for (const m of list) {
+        if (!m) continue
+        mats.add(m)
+        const std = m as THREE.MeshStandardMaterial
+        if (std.map) textures.add(std.map)
+        if (std.roughnessMap) textures.add(std.roughnessMap)
+        if (std.bumpMap) textures.add(std.bumpMap)
+        if (std.emissiveMap) textures.add(std.emissiveMap)
+      }
     }
   })
+  textures.forEach((t) => t.dispose())
   mats.forEach((m) => m.dispose())
 }

@@ -9,19 +9,74 @@ interface SceneProps {
   dragOffset: React.RefObject<{ yaw: number; pitch: number; active: boolean }>
 }
 
+/**
+ * Generates an in-memory HDR-like studio reflection dome via PMREMGenerator so high-metalness
+ * brushed aluminum shield interiors, metallic bus panels, and glossy solar glass reflect crisp highlights.
+ */
+function buildStudioEnvironment(gl: THREE.WebGLRenderer): THREE.WebGLRenderTarget {
+  const envScene = new THREE.Scene()
+  envScene.background = new THREE.Color('#161b2e')
+
+  const skyGeo = new THREE.SphereGeometry(20, 24, 16)
+  const skyMat = new THREE.MeshBasicMaterial({ color: '#1b2238', side: THREE.BackSide })
+  envScene.add(new THREE.Mesh(skyGeo, skyMat))
+
+  const panels: { pos: [number, number, number]; rot: [number, number, number]; scale: [number, number]; color: string }[] = [
+    { pos: [6, 9, 6], rot: [-Math.PI / 4, Math.PI / 4, 0], scale: [10, 6], color: '#ffffff' },
+    { pos: [-8, 5, 5], rot: [-Math.PI / 6, -Math.PI / 3, 0], scale: [8, 5], color: '#dbeafe' },
+    { pos: [0, 12, -4], rot: [Math.PI / 2.2, 0, 0], scale: [12, 6], color: '#f8fafc' },
+    { pos: [-4, -7, 6], rot: [Math.PI / 3, -Math.PI / 6, 0], scale: [9, 4], color: '#93c5fd' },
+    { pos: [7, -4, -6], rot: [Math.PI / 4, Math.PI / 3, 0], scale: [8, 4], color: '#e2e8f0' },
+  ]
+  const panelGeo = new THREE.PlaneGeometry(1, 1)
+  const panelMats: THREE.MeshBasicMaterial[] = []
+
+  for (const p of panels) {
+    const mat = new THREE.MeshBasicMaterial({ color: p.color, side: THREE.DoubleSide })
+    panelMats.push(mat)
+    const mesh = new THREE.Mesh(panelGeo, mat)
+    mesh.position.set(...p.pos)
+    mesh.rotation.set(...p.rot)
+    mesh.scale.set(p.scale[0], p.scale[1], 1)
+    envScene.add(mesh)
+  }
+
+  const pmrem = new THREE.PMREMGenerator(gl)
+  pmrem.compileEquirectangularShader()
+  const target = pmrem.fromScene(envScene, 0.03)
+
+  pmrem.dispose()
+  skyGeo.dispose()
+  skyMat.dispose()
+  panelGeo.dispose()
+  panelMats.forEach((m) => m.dispose())
+  return target
+}
+
 function ObservatoryMesh({ interactive, reduceMotion, dragOffset }: SceneProps) {
   const pivotRef = useRef<THREE.Group>(null)
-  const { camera } = useThree()
+  const { camera, gl, scene } = useThree()
   const model = useMemo(() => buildSpherexObservatory(), [])
 
   useEffect(() => {
     camera.lookAt(0, 0.05, 0)
   }, [camera])
 
+  useEffect(() => {
+    const envTarget = buildStudioEnvironment(gl)
+    const prevEnv = scene.environment
+    scene.environment = envTarget.texture
+    return () => {
+      scene.environment = prevEnv
+      envTarget.dispose()
+    }
+  }, [gl, scene])
+
   useEffect(() => () => disposeSpherexObservatory(model), [model])
 
   // Base 3/4 elevated showcase pose looking into the three nested hexagonal shields,
-  // showing the internal telescope barrel, bipod struts, hexagonal gold bus, solar array, and base ring.
+  // revealing the brushed aluminum interior, cyan lens under thin white tripod strut,
+  // white/silver metallic bus, glossy glass solar cells, and base adapter ring.
   const basePitch = 0.28
   const baseYaw = 0.56
   const baseRoll = -0.18
@@ -141,12 +196,11 @@ export default function SpherexCraft3D({
         gl={{ alpha: true, antialias: true, powerPreference: 'high-performance' }}
         style={{ width: '100%', height: '100%', pointerEvents: interactive ? 'auto' : 'none' }}
       >
-        <ambientLight intensity={1.15} color="#f8faff" />
-        <hemisphereLight args={['#ffffff', '#47557a', 1.1]} />
-        <directionalLight position={[4.5, 6.5, 6.5]} intensity={2.8} color="#fffcf5" />
-        <directionalLight position={[-5.5, 3.5, 4.5]} intensity={1.7} color="#e0f2fe" />
-        <pointLight position={[0.4, 4.8, 2.5]} intensity={3.2} distance={14} color="#f0f9ff" />
-        <pointLight position={[-2.4, -3.2, 2.6]} intensity={2.1} distance={10} color="#f472b6" />
+        <ambientLight intensity={0.85} color="#f8faff" />
+        <hemisphereLight args={['#ffffff', '#47557a', 0.9]} />
+        <directionalLight position={[4.5, 6.5, 6.5]} intensity={2.4} color="#ffffff" />
+        <directionalLight position={[-5.5, 3.5, 4.5]} intensity={1.5} color="#e0f2fe" />
+        <pointLight position={[0.4, 4.8, 2.5]} intensity={2.8} distance={14} color="#f0f9ff" />
         <ObservatoryMesh interactive={interactive} reduceMotion={reduceMotion} dragOffset={dragOffset} />
       </Canvas>
     </div>
