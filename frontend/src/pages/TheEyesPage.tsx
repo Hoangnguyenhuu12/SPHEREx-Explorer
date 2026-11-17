@@ -820,7 +820,7 @@ export default function TheEyesPage() {
                     }
                   : undefined
               }
-              initialCompare={Boolean(sel.compare || target?.key === 'wise0855')}
+              initialCompare={Boolean(sel.compare)}
               compareSelection={compareSelection}
               key={`${coords.ra}:${coords.dec}`}
               target={target}

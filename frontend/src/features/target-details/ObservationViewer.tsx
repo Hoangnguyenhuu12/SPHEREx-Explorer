@@ -809,18 +809,18 @@ export function ObservationViewer(props: Props) {
         <div className="segmented" role="group" aria-label="Comparison view" data-tour="view-mode">
           <button
             type="button"
+            aria-pressed={viewMode === 'timeline'}
+            onClick={() => switchToMode('timeline')}
+          >
+            Timeline
+          </button>
+          <button
+            type="button"
             aria-pressed={viewMode === 'compare'}
             disabled={!hasMultipleFrames}
             onClick={() => switchToMode('compare')}
           >
             Compare two dates
-          </button>
-          <button
-            type="button"
-            aria-pressed={viewMode === 'timeline'}
-            onClick={() => switchToMode('timeline')}
-          >
-            Timeline
           </button>
         </div>
 

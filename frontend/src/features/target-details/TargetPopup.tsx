@@ -11,6 +11,7 @@ import type { GaiaFrameOverlay } from '../../shared/api/types'
 import type { ExperienceMode, RulerMeasurement } from '../experience-mode/mode'
 import { useGuide } from '../guide/guide-state'
 import type { GaiaStatusInfo, SurveyInfo } from '../sky-map/AladinMap'
+import { fetchVizierGaia } from '../sky-map/gaia'
 import { warningText } from './format'
 import { MoreTools } from './MoreTools'
 import {
@@ -93,8 +94,73 @@ export function TargetPopup(p: Props) {
     enabled: Boolean(!combinedActive && p.target?.key),
   })
 
+  const needVizierFallback =
+    !config.useMock &&
+    p.toggles.gaiaOverlays &&
+    Boolean(data) &&
+    ((combinedActive && (overlaysQ.isError || (overlaysQ.isSuccess && overlaysQ.data.overlays.length === 0))) ||
+      (!combinedActive && (!p.target?.key || spherexGaiaQ.isError)))
+
+  const vizierGaiaQ = useQuery({
+    queryKey: ['vizier-frame-gaia', p.coords.ra.toFixed(4), p.coords.dec.toFixed(4)],
+    queryFn: ({ signal }) => fetchVizierGaia(p.coords.ra, p.coords.dec, 0.14, signal),
+    staleTime: 10 * 60_000,
+    enabled: needVizierFallback,
+  })
+
   const gridW = data?.grid.width ?? 105
   const gridH = data?.grid.height ?? 105
+
+  const vizierOverlays = useMemo<GaiaFrameOverlay[] | null>(() => {
+    if (!data || !vizierGaiaQ.data?.length) return null
+    const out: GaiaFrameOverlay[] = []
+    data.frames.forEach((f, idx) => {
+      const frameIndex = idx + 1
+      for (const s of vizierGaiaQ.data) {
+        const hasPm =
+          s.pmRa != null &&
+          s.pmDec != null &&
+          Number.isFinite(s.pmRa) &&
+          Number.isFinite(s.pmDec)
+        const prop = positionAt(
+          {
+            raDeg: s.ra,
+            decDeg: s.dec,
+            pmRaCosDecMasYr: s.pmRa,
+            pmDecMasYr: s.pmDec,
+            refEpochJyear: s.refEpochJyear || 2016.0,
+          },
+          f.mjd,
+        )
+        const [px, py] = skyToPixel(data.grid, prop.ra, prop.dec)
+        const inFrame =
+          Number.isFinite(px) &&
+          Number.isFinite(py) &&
+          px >= 0 &&
+          px <= data.grid.width - 1 &&
+          py >= 0 &&
+          py <= data.grid.height - 1
+        if (inFrame) {
+          out.push({
+            frame_index: frameIndex,
+            source_id: String(s.sourceId || `${s.ra.toFixed(4)}:${s.dec.toFixed(4)}`),
+            observed_mjd: f.mjd,
+            catalog_ra_deg: s.ra,
+            catalog_dec_deg: s.dec,
+            propagated_ra_deg: prop.ra,
+            propagated_dec_deg: prop.dec,
+            pixel_x: px,
+            pixel_y_png: py,
+            in_frame: true,
+            has_proper_motion: hasPm,
+            motion_status: hasPm ? 'propagated_pm' : 'catalog_static_no_pm',
+            g_mag: s.gmag,
+          })
+        }
+      }
+    })
+    return out
+  }, [data, vizierGaiaQ.data])
 
   const spherexOverlays = useMemo<GaiaFrameOverlay[] | null>(() => {
     if (combinedActive || !data || !spherexGaiaQ.data?.sources) return null
@@ -148,7 +214,11 @@ export function TargetPopup(p: Props) {
     return out
   }, [combinedActive, data, spherexGaiaQ.data])
 
-  const overlays = combinedActive ? (overlaysQ.data?.overlays ?? null) : spherexOverlays
+  const overlays = useMemo(() => {
+    if (combinedActive && (overlaysQ.data?.overlays.length ?? 0) > 0) return overlaysQ.data!.overlays
+    if (!combinedActive && spherexOverlays && spherexOverlays.length > 0) return spherexOverlays
+    return vizierOverlays
+  }, [combinedActive, overlaysQ.data, spherexOverlays, vizierOverlays])
 
   const getGaiaMarkers = useCallback(
     (frameIdx: number): GaiaOverlayMarker[] => {
@@ -170,10 +240,11 @@ export function TargetPopup(p: Props) {
     gaiaMarkers: GaiaOverlayMarker[]
     gaiaOverlayMeta: GaiaOverlayMeta | null
   }>(() => {
-    const gaiaActive = combinedActive || Boolean(p.target?.key)
+    const gaiaActive = combinedActive || Boolean(p.target?.key) || Boolean(data)
     if (!gaiaActive) return { gaiaMarkers: [], gaiaOverlayMeta: null }
-    const isPending = combinedActive ? overlaysQ.isPending : spherexGaiaQ.isPending
-    const isError = combinedActive ? overlaysQ.isError || !overlaysQ.data : spherexGaiaQ.isError || !overlays
+    const primaryPending = combinedActive ? overlaysQ.isPending : (Boolean(p.target?.key) && spherexGaiaQ.isPending)
+    const isPending = (primaryPending && !needVizierFallback) || (needVizierFallback && vizierGaiaQ.isPending)
+    const isError = !overlays && !isPending && (needVizierFallback ? vizierGaiaQ.isError : (combinedActive ? overlaysQ.isError : spherexGaiaQ.isError))
     if (isPending) {
       return {
         gaiaMarkers: [],
@@ -225,11 +296,15 @@ export function TargetPopup(p: Props) {
   }, [
     combinedActive,
     p.target?.key,
+    data,
     overlaysQ.isPending,
     overlaysQ.isError,
     overlaysQ.data,
     spherexGaiaQ.isPending,
     spherexGaiaQ.isError,
+    needVizierFallback,
+    vizierGaiaQ.isPending,
+    vizierGaiaQ.isError,
     overlays,
     p.player.index,
     gridW,

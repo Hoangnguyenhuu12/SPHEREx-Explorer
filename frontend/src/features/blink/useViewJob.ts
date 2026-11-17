@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../../shared/api'
-import type { FramesParams, FramesResponse, ViewJobStatusResponse } from '../../shared/api/types'
+import { ApiError } from '../../shared/api/errors'
+import type { ErrorCode, FramesParams, FramesResponse, ViewJobStatusResponse } from '../../shared/api/types'
 
 export interface ViewJobState {
   active: boolean
@@ -77,6 +78,11 @@ export function useViewJob(params: FramesParams | null, enabled: boolean): ViewJ
   const job = pollQ.data ?? createQ.data ?? null
   const framesResponse = job && params && job.frames.length > 0 ? viewJobToFramesResponse(job, params) : null
 
+  const jobError =
+    job?.status === 'failed' && job.error
+      ? new ApiError((job.error.code as ErrorCode) || 'INTERNAL', job.error.message, null, job.error.details)
+      : null
+
   return {
     active: enabled,
     status: job?.status ?? null,
@@ -84,7 +90,7 @@ export function useViewJob(params: FramesParams | null, enabled: boolean): ViewJ
     queuePosition: job?.queue_position ?? 0,
     jobId,
     framesResponse,
-    error: createQ.error ?? pollQ.error ?? (job?.status === 'failed' ? job.error : null),
+    error: createQ.error ?? pollQ.error ?? jobError,
     retry: () => {
       void createQ.refetch()
       if (jobId) void pollQ.refetch()

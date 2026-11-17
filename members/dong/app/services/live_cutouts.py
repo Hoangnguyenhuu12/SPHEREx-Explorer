@@ -110,7 +110,7 @@ def _find_images(cache, ra, dec, collection, detector, radius, deadline):
     def discover():
         return irsa.find_images(
             ra, dec, collection, detector, search_radius_deg=radius,
-            timeout_s=8, retries=1, deadline=deadline, tap_fallback=False,
+            timeout_s=15, retries=1, deadline=deadline, tap_fallback=False,
         )
 
     return _cached_build(cache, key, discover, lambda rows: 7 * 86400 if rows else 30, deadline)

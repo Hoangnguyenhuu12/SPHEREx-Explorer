@@ -131,3 +131,30 @@ export function propagateGaiaCatalog(stars: readonly GaiaCatalogStar[], targetEp
   })
   return { stars: propagated, total: propagated.length, propagatedCount, staticCount }
 }
+
+export async function fetchVizierGaia(
+  ra: number,
+  dec: number,
+  radiusDeg: number,
+  signal?: AbortSignal,
+): Promise<GaiaCatalogStar[]> {
+  for (const base of VIZIER_MIRRORS) {
+    if (signal?.aborted) throw new Error('Aborted')
+    const ctrl = new AbortController()
+    const onAbort = () => ctrl.abort()
+    signal?.addEventListener('abort', onAbort, { once: true })
+    const t = window.setTimeout(() => ctrl.abort(), 8000)
+    try {
+      const res = await fetch(gaiaUrl(base, ra, dec, radiusDeg), { signal: ctrl.signal })
+      const text = await res.text()
+      if (!res.ok) continue
+      return parseVizierVotable(text)
+    } catch {
+      // Try next VizieR mirror
+    } finally {
+      window.clearTimeout(t)
+      signal?.removeEventListener('abort', onAbort)
+    }
+  }
+  throw new Error('All VizieR Gaia DR3 mirrors failed')
+}

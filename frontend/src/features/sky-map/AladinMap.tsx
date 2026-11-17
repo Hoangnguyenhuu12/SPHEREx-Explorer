@@ -6,10 +6,8 @@ import { DR1_MAP_MJD, mapPosition } from '../../shared/config/epoch'
 import { computePlanetPositions, type PlanetSkyPosition } from '../../shared/config/planets'
 import { TARGETS, type TargetKey } from '../../shared/config/targets'
 import {
-  gaiaUrl,
-  parseVizierVotable,
+  fetchVizierGaia,
   propagateGaiaCatalog,
-  VIZIER_MIRRORS,
   type GaiaCatalogStar,
 } from './gaia'
 import { discoverSurvey, observeFirstHipsTile, type BackgroundMode } from './survey-discovery'
@@ -95,23 +93,6 @@ async function loadArchiveSpherexSurvey(signal: AbortSignal): Promise<SurveyInfo
   const res = await api.hipsLayers(signal)
   const hit = res.layers.find((l) => l.layer_id === SPHEREX_SURVEY.id) ?? res.layers[0]
   return spherexSurveyFromHipsLayer(hit)
-}
-
-async function fetchVizierGaia(ra: number, dec: number, radiusDeg: number): Promise<GaiaCatalogStar[]> {
-  for (const base of VIZIER_MIRRORS) {
-    try {
-      const ctrl = new AbortController()
-      const t = setTimeout(() => ctrl.abort(), 8000)
-      const res = await fetch(gaiaUrl(base, ra, dec, radiusDeg), { signal: ctrl.signal })
-      const text = await res.text()
-      clearTimeout(t)
-      if (!res.ok) continue
-      return parseVizierVotable(text)
-    } catch {
-      // next mirror
-    }
-  }
-  throw new Error('All VizieR Gaia DR3 mirrors failed')
 }
 
 async function fetchGaiaCatalog(
@@ -399,8 +380,30 @@ export const AladinMap = forwardRef<SkyMapHandle, Props>(function AladinMap(
         if (!disposed) onStatus?.('error', err instanceof Error ? err.message : 'The sky map could not start.')
         return null
       })
+    const hideContextMenu = () => {
+      aladinRef.current?.contextMenu?._hide?.()
+      host.querySelectorAll<HTMLElement>('.aladin-context-menu').forEach((el) => {
+        el.style.display = 'none'
+      })
+    }
+    const onGlobalPointerDown = (e: PointerEvent) => {
+      if (e.button === 2) return
+      const targetEl = e.target as Element | null
+      if (targetEl?.closest?.('.aladin-context-menu')) return
+      hideContextMenu()
+    }
+    const onGlobalKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') hideContextMenu()
+    }
+    window.addEventListener('pointerdown', onGlobalPointerDown, true)
+    window.addEventListener('keydown', onGlobalKeyDown, true)
+    window.addEventListener('blur', hideContextMenu)
+
     return () => {
       disposed = true
+      window.removeEventListener('pointerdown', onGlobalPointerDown, true)
+      window.removeEventListener('keydown', onGlobalKeyDown, true)
+      window.removeEventListener('blur', hideContextMenu)
       if (motionRef.current !== null) cancelAnimationFrame(motionRef.current)
       startupRef.current = null
       aladinRef.current = null

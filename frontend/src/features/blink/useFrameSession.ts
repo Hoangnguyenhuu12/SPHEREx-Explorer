@@ -132,8 +132,9 @@ export function useFrameSession(params: FramesParams | null): FrameSession {
   const qc = useQueryClient()
   const key = params ? framesQueryKey(params) : (['frames', 'none'] as const)
   const [fallbackSync, setFallbackSync] = useState(false)
+  const [cancelled, setCancelled] = useState(false)
   const useProgressiveJob = Boolean(
-    params && params.timeline !== 'combined' && !config.useMock && api.createViewJob && !fallbackSync,
+    params && params.timeline !== 'combined' && !config.useMock && api.createViewJob && !fallbackSync && !cancelled,
   )
   const viewJob = useViewJob(params, useProgressiveJob)
 
@@ -150,7 +151,7 @@ export function useFrameSession(params: FramesParams | null): FrameSession {
   const query = useQuery({
     queryKey: key,
     queryFn: ({ signal }) => api.frames(params!, signal),
-    enabled: params !== null && !useProgressiveJob,
+    enabled: params !== null && !useProgressiveJob && !cancelled,
     staleTime: Infinity,
     gcTime: 5 * 60_000,
     retry: false,
@@ -178,6 +179,7 @@ export function useFrameSession(params: FramesParams | null): FrameSession {
   useEffect(() => {
     recovered.current = false
     setFallbackSync(false)
+    setCancelled(false)
     setStartedAt(params ? Date.now() : null)
     const pool = decodedByUrlRef.current
     return () => {
@@ -347,13 +349,14 @@ export function useFrameSession(params: FramesParams | null): FrameSession {
   }, [data, imageOwner, originals, priorities, fillClientDiffs])
 
   const cancel = useCallback(() => {
-    if (useProgressiveJob) setFallbackSync(true)
+    setCancelled(true)
     void qc.cancelQueries({ queryKey: key, exact: true })
     ctrlRef.current?.abort()
-  }, [qc, keyString, useProgressiveJob]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [qc, keyString]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const retry = useCallback(() => {
     recovered.current = false
+    setCancelled(false)
     setStartedAt(Date.now())
     if (useProgressiveJob) viewJob.retry()
     else void qc.resetQueries({ queryKey: key, exact: true })
@@ -365,17 +368,19 @@ export function useFrameSession(params: FramesParams | null): FrameSession {
     viewJob.status === 'fetching' ||
     (viewJob.status === null && !viewJob.error)
   )
-  const activeError = useProgressiveJob ? (viewJob.error ?? decodeError) : (query.error ?? decodeError)
+  const cancelError = useMemo(() => (cancelled ? new ApiError('ABORTED', 'Request cancelled') : null), [cancelled])
+  const activeError = cancelError ?? (useProgressiveJob ? (viewJob.error ?? decodeError) : (query.error ?? decodeError))
   const streaming = useProgressiveJob && jobIsFetching && data != null ? viewJob.progress : null
 
   const status: SessionStatus = useMemo(() => {
     if (!params) return 'idle'
+    if (!data && cancelled) return 'error'
     if (!data && (useProgressiveJob ? Boolean(viewJob.error) : query.isError)) return 'error'
     if (!data && (useProgressiveJob ? jobIsFetching : (query.isFetching || query.isPending))) return 'fetching'
     if (decodeError && imageOwner === data) return 'error'
     if (data && data.frames.length > 0 && (imageOwner !== data || loaded < data.frames.length)) return 'decoding'
     return data ? 'ready' : 'idle'
-  }, [params, data, useProgressiveJob, viewJob.error, query.isError, jobIsFetching, query.isFetching, query.isPending, decodeError, imageOwner, loaded])
+  }, [params, data, cancelled, useProgressiveJob, viewJob.error, query.isError, jobIsFetching, query.isFetching, query.isPending, decodeError, imageOwner, loaded])
 
   return {
     status,
