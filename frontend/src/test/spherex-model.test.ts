@@ -30,12 +30,16 @@ describe('SPHEREx 3D observatory model', () => {
       const extMat = exterior!.material as THREE.MeshStandardMaterial
       expect(extMat.name).toBe('Shield_Thermal_Matte_White')
       expect(extMat.roughness).toBeGreaterThanOrEqual(0.8)
+      expect(extMat.aoMap).toBeTruthy()
+      expect(exterior!.geometry.getAttribute('uv1')).toBeTruthy()
 
       const intMat = interior!.material as THREE.MeshPhysicalMaterial
       expect(intMat.name).toBe('Shield_Interior_Brushed_Aluminum')
       expect(intMat.anisotropy).toBeGreaterThan(0.8)
       expect(intMat.metalness).toBeGreaterThan(0.85)
       expect(intMat.map).toBeTruthy()
+      expect(intMat.aoMapIntensity).toBeGreaterThan(1.5)
+      expect(interior!.castShadow).toBe(true)
     }
 
     // White & silver/grey metallic spacecraft bus (no yellow/gold)

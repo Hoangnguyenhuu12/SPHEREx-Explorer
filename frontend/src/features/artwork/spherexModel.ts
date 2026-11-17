@@ -178,9 +178,50 @@ function createCyanLensTexture(): THREE.DataTexture {
   return tex
 }
 
+/** Generates a vertical crevice Ambient Occlusion ramp DataTexture (v=0 deep crevice -> v=1 open sky). */
+function createCreviceAoTexture(): THREE.DataTexture {
+  const w = 16
+  const h = 256
+  const data = new Uint8Array(w * h * 4)
+  for (let y = 0; y < h; y++) {
+    const v = y / (h - 1)
+    // Nonlinear curve so bottom crevices & inter-funnel gaps stay strongly occluded
+    const occ = Math.pow(v, 0.62)
+    const lum = Math.max(24, Math.min(255, Math.round(24 + 231 * occ)))
+    for (let x = 0; x < w; x++) {
+      const idx = (y * w + x) * 4
+      data[idx] = lum
+      data[idx + 1] = lum
+      data[idx + 2] = lum
+      data[idx + 3] = 255
+    }
+  }
+  const tex = new THREE.DataTexture(data, w, h, THREE.RGBAFormat)
+  tex.wrapS = THREE.ClampToEdgeWrapping
+  tex.wrapT = THREE.ClampToEdgeWrapping
+  tex.magFilter = THREE.LinearFilter
+  tex.minFilter = THREE.LinearFilter
+  tex.colorSpace = THREE.NoColorSpace
+  tex.needsUpdate = true
+  return tex
+}
+
+/** Copies or remaps a geometry's vertical UV into `uv1` for crevice Ambient Occlusion sampling. */
+function applyAoUv(geo: THREE.BufferGeometry, vMin = 0, vMax = 1): void {
+  const uv = geo.getAttribute('uv')
+  if (!uv) return
+  const out = new Float32Array(uv.count * 2)
+  for (let i = 0; i < uv.count; i++) {
+    out[i * 2] = uv.getX(i)
+    out[i * 2 + 1] = THREE.MathUtils.lerp(vMin, vMax, uv.getY(i))
+  }
+  geo.setAttribute('uv1', new THREE.BufferAttribute(out, 2))
+}
+
 /**
  * Builds an explicit double-walled faceted polygonal frustum (hexagonal shield stage)
- * with UVs on exterior, interior (circumferential brushed metallic grain), and solid rims.
+ * with UVs on exterior, interior (circumferential brushed metallic grain), and solid rims,
+ * plus `uv1` crevice AO coordinates calibrated per nested stage.
  */
 function createPolygonalShieldGeometries(
   sides: number,
@@ -189,6 +230,8 @@ function createPolygonalShieldGeometries(
   yBottom: number,
   yTop: number,
   thickness: number,
+  outerAoRange: readonly [number, number] = [0.42, 1.0],
+  innerAoRange: readonly [number, number] = [0.02, 0.94],
 ): { outer: THREE.BufferGeometry; inner: THREE.BufferGeometry; rim: THREE.BufferGeometry } {
   const outerPos: number[] = []
   const outerUv: number[] = []
@@ -251,18 +294,19 @@ function createPolygonalShieldGeometries(
     pushQuad(rimPos, rimUv, ob0, ob1, ib1, ib0, u0, u1, 0, 1)
   }
 
-  const finalize = (pos: number[], uv: number[]) => {
+  const finalize = (pos: number[], uv: number[], aoRange: readonly [number, number]) => {
     const geo = new THREE.BufferGeometry()
     geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3))
     geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2))
+    applyAoUv(geo, aoRange[0], aoRange[1])
     geo.computeVertexNormals()
     return geo
   }
 
   return {
-    outer: finalize(outerPos, outerUv),
-    inner: finalize(innerPos, innerUv),
-    rim: finalize(rimPos, rimUv),
+    outer: finalize(outerPos, outerUv, outerAoRange),
+    inner: finalize(innerPos, innerUv, innerAoRange),
+    rim: finalize(rimPos, rimUv, [0.85, 1.0]),
   }
 }
 
@@ -291,11 +335,14 @@ export function buildSpherexObservatory(): THREE.Group {
   const brushedTex = createBrushedAluminumTextures()
   const solarTex = createSolarCellTextures()
   const lensTex = createCyanLensTexture()
+  const creviceAoTex = createCreviceAoTexture()
 
   // Photon Shields: Matte white thermal coating outside, highly reflective anisotropic brushed tin/aluminum inside
   const shieldOuterMat = new THREE.MeshStandardMaterial({
     name: 'Shield_Thermal_Matte_White',
     color: '#f2f4f8',
+    aoMap: creviceAoTex,
+    aoMapIntensity: 2.1,
     metalness: 0.04,
     roughness: 0.86,
     flatShading: true,
@@ -307,6 +354,8 @@ export function buildSpherexObservatory(): THREE.Group {
     roughnessMap: brushedTex.roughnessMap,
     bumpMap: brushedTex.bumpMap,
     bumpScale: 0.008,
+    aoMap: creviceAoTex,
+    aoMapIntensity: 2.25,
     metalness: 0.94,
     roughness: 0.22,
     anisotropy: 0.92,
@@ -317,6 +366,8 @@ export function buildSpherexObservatory(): THREE.Group {
   const shieldRimMat = new THREE.MeshStandardMaterial({
     name: 'Shield_Rim_White_Aluminum',
     color: '#f7f8fb',
+    aoMap: creviceAoTex,
+    aoMapIntensity: 1.2,
     metalness: 0.22,
     roughness: 0.52,
     flatShading: true,
@@ -326,6 +377,8 @@ export function buildSpherexObservatory(): THREE.Group {
   const busWhiteMat = new THREE.MeshStandardMaterial({
     name: 'Bus_Thermal_White',
     color: '#eef1f6',
+    aoMap: creviceAoTex,
+    aoMapIntensity: 1.65,
     metalness: 0.06,
     roughness: 0.74,
     flatShading: true,
@@ -333,6 +386,8 @@ export function buildSpherexObservatory(): THREE.Group {
   const silverMetallicMat = new THREE.MeshStandardMaterial({
     name: 'Bus_Silver_Metallic',
     color: '#c2cbd8',
+    aoMap: creviceAoTex,
+    aoMapIntensity: 1.85,
     metalness: 0.88,
     roughness: 0.26,
     envMapIntensity: 1.4,
@@ -341,6 +396,8 @@ export function buildSpherexObservatory(): THREE.Group {
   const greyMetallicMat = new THREE.MeshStandardMaterial({
     name: 'Bus_Grey_Metallic',
     color: '#5a6373',
+    aoMap: creviceAoTex,
+    aoMapIntensity: 1.9,
     metalness: 0.82,
     roughness: 0.34,
     envMapIntensity: 1.25,
@@ -366,7 +423,7 @@ export function buildSpherexObservatory(): THREE.Group {
     map: lensTex,
     emissive: '#38bdf8',
     emissiveMap: lensTex,
-    emissiveIntensity: 1.4,
+    emissiveIntensity: 2.35,
     metalness: 0.14,
     roughness: 0.16,
   })
@@ -604,15 +661,51 @@ export function buildSpherexObservatory(): THREE.Group {
   shieldsGroup.name = 'Photon_Shields'
 
   const shieldSpecs = [
-    { name: 'Photon_Shield_Inner', rBottom: 0.54, rTop: 1.06, yBottom: 1.18, yTop: 2.48, thickness: 0.032 },
-    { name: 'Photon_Shield_Middle', rBottom: 0.64, rTop: 1.34, yBottom: 1.1, yTop: 2.58, thickness: 0.032 },
-    { name: 'Photon_Shield_Outer', rBottom: 0.74, rTop: 1.64, yBottom: 1.0, yTop: 2.68, thickness: 0.036 },
+    {
+      name: 'Photon_Shield_Inner',
+      rBottom: 0.54,
+      rTop: 1.06,
+      yBottom: 1.18,
+      yTop: 2.48,
+      thickness: 0.032,
+      outerAo: [0.02, 0.58] as const,
+      innerAo: [0.02, 0.88] as const,
+    },
+    {
+      name: 'Photon_Shield_Middle',
+      rBottom: 0.64,
+      rTop: 1.34,
+      yBottom: 1.1,
+      yTop: 2.58,
+      thickness: 0.032,
+      outerAo: [0.04, 0.68] as const,
+      innerAo: [0.04, 0.92] as const,
+    },
+    {
+      name: 'Photon_Shield_Outer',
+      rBottom: 0.74,
+      rTop: 1.64,
+      yBottom: 1.0,
+      yTop: 2.68,
+      thickness: 0.036,
+      outerAo: [0.46, 1.0] as const,
+      innerAo: [0.06, 0.96] as const,
+    },
   ] as const
 
   for (const spec of shieldSpecs) {
     const stageGroup = new THREE.Group()
     stageGroup.name = spec.name
-    const { outer, inner, rim } = createPolygonalShieldGeometries(6, spec.rBottom, spec.rTop, spec.yBottom, spec.yTop, spec.thickness)
+    const { outer, inner, rim } = createPolygonalShieldGeometries(
+      6,
+      spec.rBottom,
+      spec.rTop,
+      spec.yBottom,
+      spec.yTop,
+      spec.thickness,
+      spec.outerAo,
+      spec.innerAo,
+    )
 
     const outerMesh = new THREE.Mesh(outer, shieldOuterMat)
     outerMesh.name = `${spec.name}_Exterior`
@@ -625,6 +718,24 @@ export function buildSpherexObservatory(): THREE.Group {
     shieldsGroup.add(stageGroup)
   }
   root.add(shieldsGroup)
+
+  // Assign uv1 crevice occlusion on bus/barrel parts and enable real-time shadow casting/receiving
+  root.traverse((obj) => {
+    if (obj instanceof THREE.Mesh) {
+      if (!obj.geometry.getAttribute('uv1') && obj.geometry.getAttribute('uv')) {
+        if (obj.name.startsWith('VGroove_') || obj.name === 'Bus_Top_Deck') {
+          applyAoUv(obj.geometry, 0.14, 0.36)
+        } else if (obj.name === 'Telescope_Barrel') {
+          applyAoUv(obj.geometry, 0.04, 0.72)
+        } else {
+          applyAoUv(obj.geometry, 0.55, 1.0)
+        }
+      }
+      const isLens = obj.name === 'Telescope_Optics_Lens'
+      obj.castShadow = !isLens
+      obj.receiveShadow = !isLens
+    }
+  })
 
   return root
 }
@@ -644,6 +755,7 @@ export function disposeSpherexObservatory(root: THREE.Object3D): void {
         if (std.map) textures.add(std.map)
         if (std.roughnessMap) textures.add(std.roughnessMap)
         if (std.bumpMap) textures.add(std.bumpMap)
+        if (std.aoMap) textures.add(std.aoMap)
         if (std.emissiveMap) textures.add(std.emissiveMap)
       }
     }
