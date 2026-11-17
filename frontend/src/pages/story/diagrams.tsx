@@ -5,6 +5,8 @@
  */
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react'
 import { useReducedMotion } from 'motion/react'
+import { useLanguage } from '../../shared/i18n/language'
+import { STORY_COPY } from '../../shared/i18n/storyTranslations'
 
 const ink: CSSProperties = { fill: 'var(--fg)' }
 const muted: CSSProperties = { fill: 'var(--muted)' }
@@ -25,6 +27,8 @@ function Figure({
   controls?: ReactNode
   children: ReactNode
 }) {
+  const { lang } = useLanguage()
+  const notePrefix = STORY_COPY[lang].diagrams.notePrefix
   return (
     <figure className="diagram">
       <svg viewBox={`0 0 560 ${height}`} role="img" aria-label={label}>
@@ -32,7 +36,7 @@ function Figure({
       </svg>
       {controls && <div className="diagram-controls">{controls}</div>}
       <figcaption className="diagram-note">
-        <strong>Note:</strong> {note}
+        <strong>{notePrefix}</strong> {note}
       </figcaption>
     </figure>
   )
@@ -79,35 +83,36 @@ function useStepper(count: number, ms: number) {
 
 /** One detector with a filter whose colour changes along it; a star crossing it is seen in many colours. */
 export function ColourDiagram() {
-  const stars = [
-    { x: 150, label: 'Exposure 1', colour: 'var(--blue)', um: 'shorter wavelength' },
-    { x: 280, label: 'Exposure 2', colour: 'var(--pink)', um: 'middle wavelength' },
-    { x: 410, label: 'Exposure 3', colour: 'var(--primary)', um: 'longer wavelength' },
-  ]
+  const { lang } = useLanguage()
+  const c = STORY_COPY[lang].diagrams.colour
+  const palette = ['var(--blue)', 'var(--pink)', 'var(--primary)'] as const
+  const xs = [150, 280, 410] as const
+  const stars = c.stars.map((s, idx) => ({
+    x: xs[idx],
+    label: s.label,
+    colour: palette[idx],
+    um: s.um,
+  }))
   const { i, pick, playing, setPlaying, canPlay } = useStepper(stars.length, 1100)
   return (
     <Figure
       controls={
         <>
-          <Choice label="Exposure" value={i} options={stars.map((s, k) => ({ value: k, label: s.label }))} onChange={pick} />
+          <Choice label={c.choiceLabel} value={i} options={stars.map((s, k) => ({ value: k, label: s.label }))} onChange={pick} />
           {canPlay && (
             <button type="button" className="btn btn-secondary btn--compact" aria-pressed={playing} onClick={() => setPlaying(!playing)}>
-              {playing ? 'Pause' : 'Play the drift'}
+              {playing ? c.pause : c.play}
             </button>
           )}
           <span className="caption" aria-live="polite">
-            {stars[i].label}: the same star is seen at a <strong style={{ color: stars[i].colour }}>{stars[i].um}</strong>.
+            {stars[i].label}
+            {c.livePrefix}
+            <strong style={{ color: stars[i].colour }}>{stars[i].um}</strong>.
           </span>
         </>
       }
-      label="Diagram: a SPHEREx detector whose filter changes colour from one side to the other. As the sky drifts, the same star lands on a different colour in each exposure."
-      note={
-        <>
-          Each of SPHEREx’s six detectors sits behind a filter that changes colour from one edge to the other. As the
-          telescope steps across the sky, the same star is photographed through many colours. Together the detectors cover
-          0.75 to 5 micrometres in 102 colours, with pixels about 6.15 arcseconds wide.
-        </>
-      }
+      label={c.ariaLabel}
+      note={c.note}
     >
       <defs>
         <linearGradient id="lvf" x1="0" x2="1" y1="0" y2="0">
@@ -120,15 +125,15 @@ export function ColourDiagram() {
         </marker>
       </defs>
       <text x="80" y="30" className="diagram-label">
-        shorter wavelength
+        {c.shorter}
       </text>
       <text x="480" y="30" textAnchor="end" className="diagram-label">
-        longer wavelength
+        {c.longer}
       </text>
       <rect x="80" y="44" width="400" height="96" rx="6" fill="url(#lvf)" opacity="0.85" />
       <rect x="80" y="44" width="400" height="96" rx="6" style={line} />
       {stars.map((s, k) => (
-        <g key={s.label} className="diagram-hit" onClick={() => pick(k)}>
+        <g key={k} className="diagram-hit" onClick={() => pick(k)}>
           <circle
             cx={s.x}
             cy="92"
@@ -143,7 +148,7 @@ export function ColourDiagram() {
       ))}
       <path d="M150 196H410" style={{ stroke: 'var(--heading)', strokeWidth: 2, fill: 'none' }} markerEnd="url(#drift-arrow)" />
       <text x="280" y="214" textAnchor="middle" className="diagram-label" style={heading}>
-        the sky drifts across the detector
+        {c.driftCaption}
       </text>
     </Figure>
   )
@@ -151,6 +156,8 @@ export function ColourDiagram() {
 
 /** A nearby star shifting against fixed background stars on a grid of SPHEREx pixels. */
 export function MotionDiagram() {
+  const { lang } = useLanguage()
+  const m = STORY_COPY[lang].diagrams.motion
   const cols = 6
   const rows = 3
   const size = 60
@@ -159,9 +166,9 @@ export function MotionDiagram() {
   // Barnard's Star: about 10″ a year ≈ 0.85 pixel every six months.
   const step = 0.85 * size
   const positions = [
-    { x: x0 + 1.5 * size, label: 'May ’25' },
-    { x: x0 + 1.5 * size + step, label: 'Nov ’25' },
-    { x: x0 + 1.5 * size + 2 * step, label: 'May ’26' },
+    { x: x0 + 1.5 * size, label: m.dates[0] },
+    { x: x0 + 1.5 * size + step, label: m.dates[1] },
+    { x: x0 + 1.5 * size + 2 * step, label: m.dates[2] },
   ]
   const { i, pick, playing, setPlaying, canPlay } = useStepper(positions.length, 700)
   return (
@@ -169,22 +176,16 @@ export function MotionDiagram() {
       height={236}
       controls={
         <>
-          <Choice label="Observation date" value={i} options={positions.map((p, k) => ({ value: k, label: p.label }))} onChange={pick} />
+          <Choice label={m.choiceLabel} value={i} options={positions.map((p, k) => ({ value: k, label: p.label }))} onChange={pick} />
           {canPlay && (
             <button type="button" className="btn btn-secondary btn--compact" aria-pressed={playing} onClick={() => setPlaying(!playing)}>
-              {playing ? 'Pause' : 'Blink the dates'}
+              {playing ? m.pause : m.play}
             </button>
           )}
         </>
       }
-      label="Diagram: a grid of SPHEREx pixels with fixed background stars and a nearby star that moves a little to the right every six months."
-      note={
-        <>
-          Distant stars look fixed, but nearby stars drift across them. Barnard’s Star moves about 10 arcseconds a year,
-          under two SPHEREx pixels, so you need images months apart to see it. Use The Eyes to compare the
-          star across observation dates.
-        </>
-      }
+      label={m.ariaLabel}
+      note={m.note}
     >
       {Array.from({ length: cols + 1 }, (_, i) => (
         <line key={`v${i}`} x1={x0 + i * size} x2={x0 + i * size} y1={y0} y2={y0 + rows * size} style={{ stroke: 'var(--line)' }} />
@@ -200,7 +201,7 @@ export function MotionDiagram() {
         <circle key={`${cx}-${cy}`} cx={cx} cy={cy} r="4" style={muted} />
       ))}
       {positions.map((p, k) => (
-        <g key={p.label} className="diagram-hit" onClick={() => pick(k)}>
+        <g key={k} className="diagram-hit" onClick={() => pick(k)}>
           <circle cx={p.x} cy={y0 + 1.5 * size} r={k === i ? 10 : 6} className="diagram-anim" style={{ fill: 'var(--primary)', opacity: k === i ? 1 : 0.2 }} />
           {/* The steps are drawn to scale, so the middle label goes above the star to keep the three apart. */}
           <text
@@ -215,10 +216,10 @@ export function MotionDiagram() {
         </g>
       ))}
       <text x={x0 + cols * size} y="14" textAnchor="end" className="diagram-label">
-        1 square = 1 SPHEREx pixel (6.15″)
+        {m.scaleLabel}
       </text>
       <text x={x0 - 12} y={y0 + 1.5 * size + 5} textAnchor="end" className="diagram-label" style={ink}>
-        nearby star
+        {m.nearbyStar}
       </text>
     </Figure>
   )
@@ -226,6 +227,8 @@ export function MotionDiagram() {
 
 /** First date minus later date: a moving star becomes a dark spot and a bright spot. */
 export function DifferenceDiagram() {
+  const { lang } = useLanguage()
+  const d = STORY_COPY[lang].diagrams.difference
   // How far the star has moved by the later date: 0 = not at all, 1 = the full step drawn here.
   const [shift, setShift] = useState(1)
   const lx = 70 + 12 * shift
@@ -244,24 +247,19 @@ export function DifferenceDiagram() {
     <Figure
       controls={
         <label className="diagram-slider">
-          <span>How far the star moved</span>
+          <span>{d.sliderLabel}</span>
           <input type="range" min={0} max={1} step={0.05} value={shift} onChange={(e) => setShift(Number(e.target.value))} />
           <span className="caption" aria-live="polite">
-            {shift === 0 ? 'No motion: the difference is flat grey.' : 'Moved: a dark spot where it was and a bright spot where it is now.'}
+            {shift === 0 ? d.stillText : d.movedText}
           </span>
         </label>
       }
-      label="Diagram: first observation, later observation, and their difference showing a dark spot where the star was and a bright spot where it is now"
-      note={
-        <>
-          The Difference view subtracts the first date from a later one. Stars that stay put cancel out to grey. A star
-          that moved leaves a dark spot where it was and a bright spot where it is now.
-        </>
-      }
+      label={d.ariaLabel}
+      note={d.note}
     >
       {cell(
         0,
-        'First date',
+        d.firstDate,
         <>
           <circle cx="40" cy="40" r="5" fill="#FFF3D6" />
           <circle cx="112" cy="104" r="4" fill="#FFF3D6" />
@@ -273,7 +271,7 @@ export function DifferenceDiagram() {
       </text>
       {cell(
         190,
-        'Later date',
+        d.laterDate,
         <>
           <circle cx="40" cy="40" r="5" fill="#FFF3D6" />
           <circle cx="112" cy="104" r="4" fill="#FFF3D6" />
@@ -285,7 +283,7 @@ export function DifferenceDiagram() {
       </text>
       {cell(
         380,
-        'Difference',
+        d.difference,
         <>
           <rect x="0" y="0" width="150" height="150" rx="4" fill="#808080" />
           <circle cx="70" cy="82" r="7" fill="#1a1a1a" opacity={strength} />
@@ -298,35 +296,34 @@ export function DifferenceDiagram() {
 
 /** Launch, survey start and a new all-sky map about every six months. */
 export function SurveyTimeline() {
+  const { lang } = useLanguage()
+  const tl = STORY_COPY[lang].diagrams.timeline
   // Position Launch clearly to the left of Survey starts so all five labels align on clean horizontal rows.
-  const marks = [
-    { x: 56, top: 'Launch', bottom: '11 Mar 2025', strong: false, info: 'SPHEREx launched on 11 March 2025.' },
-    { x: 152, top: 'Survey starts', bottom: '1 May 2025', strong: false, info: 'Science observations began on 1 May 2025.' },
-    { x: 264, top: 'Map 1', bottom: '≈ Nov 2025', strong: true, info: 'The first full map of the sky: every target gets its first date.' },
-    { x: 376, top: 'Map 2', bottom: '≈ May 2026', strong: true, info: 'A second date per target, enough to blink and compare.' },
-    { x: 488, top: 'Map 3', bottom: '≈ Nov 2026', strong: true, info: 'A year after Map 1, so slow movers like Barnard’s Star shift visibly.' },
-  ]
+  const xs = [56, 152, 264, 376, 488] as const
+  const strongs = [false, false, true, true, true] as const
+  const marks = tl.marks.map((m, idx) => ({
+    x: xs[idx],
+    top: m.top,
+    bottom: m.bottom,
+    strong: strongs[idx],
+    info: m.info,
+  }))
   const [sel, setSel] = useState(2)
   return (
     <Figure
       controls={
         <p className="caption diagram-info" aria-live="polite">
-          <strong>{marks[sel].top}:</strong> {marks[sel].info} <span className="diagram-hint">Click a dot on the timeline.</span>
+          <strong>{marks[sel].top}:</strong> {marks[sel].info} <span className="diagram-hint">{tl.clickHint}</span>
         </p>
       }
-      label="Timeline: SPHEREx launched on 11 March 2025, began its survey on 1 May 2025 and completes a full map of the sky about every six months."
-      note={
-        <>
-          SPHEREx launched on 11 March 2025 and began its survey on 1 May 2025. It completes a map of the whole sky about
-          every six months, so each target gets a few new dates per year. Map dates here are approximate.
-        </>
-      }
+      label={tl.ariaLabel}
+      note={tl.note}
     >
       <line x1={marks[0].x} x2={marks[4].x + 20} y1="110" y2="110" style={{ stroke: 'var(--line-strong)', strokeWidth: 2 }} />
       <rect x={marks[1].x} y="104" width={marks[4].x - marks[1].x} height="12" rx="6" style={{ fill: 'var(--blue)', opacity: 0.35 }} />
       {marks.map((k, idx) => (
         <g
-          key={k.top}
+          key={idx}
           className="diagram-hit"
           role="button"
           tabIndex={0}
@@ -358,7 +355,7 @@ export function SurveyTimeline() {
         </g>
       ))}
       <text x={(marks[1].x + marks[4].x) / 2} y="190" textAnchor="middle" className="diagram-label" style={heading}>
-        a new all-sky map about every six months
+        {tl.bottomCaption}
       </text>
     </Figure>
   )
