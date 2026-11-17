@@ -294,7 +294,7 @@ export function DataPanel({
   const flagsQ = useQuery({
     queryKey: ['flags', f?.id ?? null],
     queryFn: ({ signal }) => api.flags(f!.id, signal),
-    enabled: !!f && flags,
+    enabled: config.useMock && !!f && flags,
     staleTime: Infinity,
   })
   const fitsUrl =
@@ -428,30 +428,32 @@ export function DataPanel({
         </details>
       </section>
 
-      <section className="detail-block" aria-label="Quality flags">
-        <h4>Quality flags</h4>
-        <label className="check">
-          <input type="checkbox" checked={flags} onChange={(e) => setFlags(e.target.checked)} disabled={!f} />
-          Show quality flags on the image
-        </label>
-        {flags &&
-          (flagsQ.isPending ? (
-            <Pending label="Loading quality flags…" />
-          ) : flagsQ.isError ? (
-            <Failed error={flagsQ.error} />
-          ) : flagsQ.data ? (
-            <>
-              <DemoTag mode={flagsQ.data.mode} />
-              <ul className="legend">
-                {flagsQ.data.legend.map((l) => (
-                  <li key={l.bit}>
-                    <span className="sw" style={{ background: l.color }} /> <strong>{l.name}.</strong> {l.description}
-                  </li>
-                ))}
-              </ul>
-            </>
-          ) : null)}
-      </section>
+      {config.useMock && (
+        <section className="detail-block" aria-label="Quality flags">
+          <h4>Quality flags</h4>
+          <label className="check">
+            <input type="checkbox" checked={flags} onChange={(e) => setFlags(e.target.checked)} disabled={!f} />
+            Show quality flags on the image
+          </label>
+          {flags &&
+            (flagsQ.isPending ? (
+              <Pending label="Loading quality flags…" />
+            ) : flagsQ.isError ? (
+              <Failed error={flagsQ.error} />
+            ) : flagsQ.data ? (
+              <>
+                <DemoTag mode={flagsQ.data.mode} />
+                <ul className="legend">
+                  {flagsQ.data.legend.map((l) => (
+                    <li key={l.bit}>
+                      <span className="sw" style={{ background: l.color }} /> <strong>{l.name}.</strong> {l.description}
+                    </li>
+                  ))}
+                </ul>
+              </>
+            ) : null)}
+        </section>
+      )}
 
       <details id="viewer-spectrum-details" className="detail-block" open={spectrumOpen} onToggle={(event) => onSpectrumOpenChange(event.currentTarget.open)}>
         <summary className="detail-summary">Spectrum (D1–D6 measured flux)</summary>

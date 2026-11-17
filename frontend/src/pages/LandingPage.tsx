@@ -77,7 +77,7 @@ export default function LandingPage() {
               brightness. No data files, no code.
             </p>
             <div className="hero__actions">
-              <Link to={`${PATHS.explorer}?q=wise0855&compare=1`} className="btn btn-primary btn-lg">
+              <Link to={`${PATHS.explorer}?q=wise0855`} className="btn btn-primary btn-lg">
                 Watch a brown dwarf move <ArrowRight aria-hidden />
               </Link>
               <Link to={PATHS.entry} className="btn btn-secondary btn-lg">
@@ -138,7 +138,7 @@ export default function LandingPage() {
           <h2 id="cta-title">See the sky move</h2>
           <p>Jump straight into the WISE 0855 brown dwarf comparison, or start from Earth and roam the whole infrared sky.</p>
           <div className="cta__actions">
-            <Link to={`${PATHS.explorer}?q=wise0855&compare=1`} className="btn btn-primary btn-lg">
+            <Link to={`${PATHS.explorer}?q=wise0855`} className="btn btn-primary btn-lg">
               Watch a brown dwarf move <ArrowRight aria-hidden />
             </Link>
             <Link to={PATHS.entry} className="btn btn-secondary btn-lg">

@@ -309,10 +309,10 @@ export function RgbView({ target, coords, data, originals, activeIndex }: Pick<P
 }
 
 export function MoreTools(p: Props) {
-  const [rgbOn, setRgbOn] = useState(false)
   const [reportCopied, setReportCopied] = useState(false)
   const navigate = useNavigate()
   const activeFrame = p.data?.frames[p.activeIndex] ?? null
+  const hasUnwiseInMainViewer = Boolean(p.data?.frames.some((f) => f.mission === 'unWISE'))
   const candidatePrefill = buildForumCandidatePrefill({
     targetName: p.target?.name ?? 'Custom sky position',
     targetKey: p.target?.key,
@@ -361,8 +361,8 @@ export function MoreTools(p: Props) {
         <h4>WISE infrared reference</h4>
         <p className="caption">Explore WISE and NEOWISE observations in WiseView. The selected sky position may differ from the target's location at older epochs.</p>
         <a className="btn btn-secondary" href={wiseViewUrl} target="_blank" rel="noopener noreferrer">Open this position in WiseView ↗</a>
-        {p.target && <WiseReference target={p.target} />}
-        {p.target && p.target.key in wiseReferenceConfig.blinkManifests && <UnwiseBlink key={p.target.key} target={p.target} />}
+        {p.target && !hasUnwiseInMainViewer && <WiseReference target={p.target} />}
+        {p.target && !hasUnwiseInMainViewer && p.target.key in wiseReferenceConfig.blinkManifests && <UnwiseBlink key={p.target.key} target={p.target} />}
       </section>
       <section className="tool">
         <h4>Gaia DR3 stars on the map</h4>
@@ -379,17 +379,6 @@ export function MoreTools(p: Props) {
           Show Gaia DR3 catalog stars around this target (blue crosses)
         </label>
         <p className="caption">{gaiaCaption}</p>
-      </section>
-
-      <section className="tool">
-        <h4>False-color view</h4>
-        {rgbOn ? (
-          <RgbView target={p.target} coords={p.coords} data={p.data} originals={p.originals} activeIndex={p.activeIndex} />
-        ) : (
-          <button type="button" className="btn btn-secondary" onClick={() => setRgbOn(true)}>
-            Combine three detectors
-          </button>
-        )}
       </section>
 
       <section className="tool">

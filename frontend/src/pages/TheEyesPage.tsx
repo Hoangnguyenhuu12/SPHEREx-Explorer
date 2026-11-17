@@ -122,8 +122,8 @@ export default function TheEyesPage() {
 
   const title = target?.name ?? (rq.kind === 'name' && resolved.data ? resolved.data.name : coords ? 'Custom position' : '')
   const detector = sel.detector || target?.recommendedDetector || 6
-  const spherexOnly = sel.seq === 'spherex'
-  const canCombine = target != null && COMBINED_TARGETS.has(target.key) && detector === 6
+  const spherexOnly = sel.seq === 'spherex' || detector !== 6
+  const canCombine = target != null && COMBINED_TARGETS.has(target.key)
   const timeline = canCombine && !spherexOnly ? 'combined' as const : undefined
 
   const framesParams = useMemo(
@@ -810,6 +810,7 @@ export default function TheEyesPage() {
                         commit(
                           {
                             seq: value ? 'combined' : 'spherex',
+                            ...(value ? { detector: 6 } : {}),
                             frameA: undefined,
                             frameB: undefined,
                             markA: undefined,

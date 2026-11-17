@@ -103,7 +103,7 @@ def cutout_from_fits(
     if use_fsspec:
         src_str = str(source)
         default_kwargs: dict[str, Any] = {
-            "block_size": 128 * 1024,
+            "block_size": 512 * 1024,
             "cache_type": "bytes",
         }
         if src_str.startswith("s3://"):

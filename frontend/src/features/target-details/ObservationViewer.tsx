@@ -857,11 +857,11 @@ export function ObservationViewer(props: Props) {
             <span className="viewer-source-select__label">Source</span>
             <select
               className="select select--compact"
-              value={combined ? 'combined' : 'spherex'}
+              value={combined && props.detector === 6 ? 'combined' : 'spherex'}
               onChange={(e) => props.timelineControl?.setCombined(e.target.value === 'combined')}
             >
               <option value="combined">unWISE W2 + SPHEREx D6</option>
-              <option value="spherex">SPHEREx only</option>
+              <option value="spherex">SPHEREx D{props.detector} only</option>
             </select>
           </label>
         )}
