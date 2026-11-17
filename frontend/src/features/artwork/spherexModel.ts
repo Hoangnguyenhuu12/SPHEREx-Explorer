@@ -178,16 +178,16 @@ function createCyanLensTexture(): THREE.DataTexture {
   return tex
 }
 
-/** Generates a vertical crevice Ambient Occlusion ramp DataTexture (v=0 deep crevice -> v=1 open sky). */
+/** Generates a gentle vertical crevice Ambient Occlusion ramp DataTexture (v=0 soft crevice -> v=1 open sky) without crushing shadows black. */
 function createCreviceAoTexture(): THREE.DataTexture {
   const w = 16
   const h = 256
   const data = new Uint8Array(w * h * 4)
   for (let y = 0; y < h; y++) {
     const v = y / (h - 1)
-    // Nonlinear curve so bottom crevices & inter-funnel gaps stay strongly occluded
-    const occ = Math.pow(v, 0.62)
-    const lum = Math.max(24, Math.min(255, Math.round(24 + 231 * occ)))
+    const occ = Math.pow(v, 0.72)
+    // Floor stays around ~0.55 so recessed aluminum & white faces retain clean 3D depth without turning black
+    const lum = Math.max(140, Math.min(255, Math.round(140 + 115 * occ)))
     for (let x = 0; x < w; x++) {
       const idx = (y * w + x) * 4
       data[idx] = lum
@@ -337,80 +337,80 @@ export function buildSpherexObservatory(): THREE.Group {
   const lensTex = createCyanLensTexture()
   const creviceAoTex = createCreviceAoTexture()
 
-  // Photon Shields: Matte white thermal coating outside, highly reflective anisotropic brushed tin/aluminum inside
+  // Photon Shields: Matte white thermal coating outside, brushed aluminum interior with subtle anisotropic highlights
   const shieldOuterMat = new THREE.MeshStandardMaterial({
     name: 'Shield_Thermal_Matte_White',
-    color: '#f2f4f8',
+    color: '#f4f6fa',
     aoMap: creviceAoTex,
-    aoMapIntensity: 2.1,
+    aoMapIntensity: 0.65,
     metalness: 0.04,
     roughness: 0.86,
     flatShading: true,
   })
   const shieldInnerMat = new THREE.MeshPhysicalMaterial({
     name: 'Shield_Interior_Brushed_Aluminum',
-    color: '#dce2ec',
+    color: '#e5ebf4',
     map: brushedTex.map,
     roughnessMap: brushedTex.roughnessMap,
     bumpMap: brushedTex.bumpMap,
-    bumpScale: 0.008,
+    bumpScale: 0.006,
     aoMap: creviceAoTex,
-    aoMapIntensity: 2.25,
-    metalness: 0.94,
-    roughness: 0.22,
-    anisotropy: 0.92,
+    aoMapIntensity: 0.85,
+    metalness: 0.82,
+    roughness: 0.28,
+    anisotropy: 0.88,
     anisotropyRotation: 0,
-    envMapIntensity: 1.6,
+    envMapIntensity: 1.25,
     flatShading: true,
   })
   const shieldRimMat = new THREE.MeshStandardMaterial({
     name: 'Shield_Rim_White_Aluminum',
-    color: '#f7f8fb',
+    color: '#f5f7fb',
     aoMap: creviceAoTex,
-    aoMapIntensity: 1.2,
-    metalness: 0.22,
-    roughness: 0.52,
+    aoMapIntensity: 0.4,
+    metalness: 0.16,
+    roughness: 0.62,
     flatShading: true,
   })
 
-  // Spacecraft Bus: White thermal coating + silver/grey metallic panels (no yellow/gold)
+  // Spacecraft Bus: White thermal coating + clean silver/light-grey metallic panels (no black/dark washout)
   const busWhiteMat = new THREE.MeshStandardMaterial({
     name: 'Bus_Thermal_White',
-    color: '#eef1f6',
+    color: '#f1f4f9',
     aoMap: creviceAoTex,
-    aoMapIntensity: 1.65,
-    metalness: 0.06,
-    roughness: 0.74,
+    aoMapIntensity: 0.55,
+    metalness: 0.05,
+    roughness: 0.78,
     flatShading: true,
   })
   const silverMetallicMat = new THREE.MeshStandardMaterial({
     name: 'Bus_Silver_Metallic',
-    color: '#c2cbd8',
+    color: '#cdd5e0',
     aoMap: creviceAoTex,
-    aoMapIntensity: 1.85,
-    metalness: 0.88,
-    roughness: 0.26,
-    envMapIntensity: 1.4,
+    aoMapIntensity: 0.6,
+    metalness: 0.76,
+    roughness: 0.3,
+    envMapIntensity: 1.2,
     flatShading: true,
   })
   const greyMetallicMat = new THREE.MeshStandardMaterial({
     name: 'Bus_Grey_Metallic',
-    color: '#5a6373',
+    color: '#8892a3',
     aoMap: creviceAoTex,
-    aoMapIntensity: 1.9,
-    metalness: 0.82,
-    roughness: 0.34,
-    envMapIntensity: 1.25,
+    aoMapIntensity: 0.65,
+    metalness: 0.68,
+    roughness: 0.36,
+    envMapIntensity: 1.1,
   })
   const metallicArmMat = new THREE.MeshStandardMaterial({
     name: 'Solar_Support_Metallic',
     color: '#d4dce6',
-    metalness: 0.92,
-    roughness: 0.22,
-    envMapIntensity: 1.45,
+    metalness: 0.86,
+    roughness: 0.25,
+    envMapIntensity: 1.25,
   })
 
-  // Central Telescope: Matte white thin tripod strut + glowing light blue/cyan circular lens cover
+  // Central Telescope: Matte white thin tripod strut + luminous cyan circular lens cover (clear without blowing out)
   const tripodWhiteMat = new THREE.MeshStandardMaterial({
     name: 'Tripod_Strut_Matte_White',
     color: '#f8fafc',
@@ -423,9 +423,9 @@ export function buildSpherexObservatory(): THREE.Group {
     map: lensTex,
     emissive: '#38bdf8',
     emissiveMap: lensTex,
-    emissiveIntensity: 2.35,
-    metalness: 0.14,
-    roughness: 0.16,
+    emissiveIntensity: 0.95,
+    metalness: 0.12,
+    roughness: 0.2,
   })
 
   // Solar Array: Deep blue/black solar cells with glossy, glass-like clearcoat reflection
@@ -479,15 +479,15 @@ export function buildSpherexObservatory(): THREE.Group {
   busBody.rotation.y = Math.PI / 6
   busGroup.add(busBody)
 
-  // Silver/grey metallic structural panel overlays around alternating hex faces
+  // Flush silver/grey metallic panel plates aligned precisely to alternating flat hexagonal faces (0°, 120°, 240°)
   for (const [idx, angle] of [
     [1, 0],
     [2, (Math.PI * 2) / 3],
     [3, (Math.PI * 4) / 3],
   ] as const) {
-    const bayPanel = new THREE.Mesh(new THREE.BoxGeometry(0.56, 0.48, 0.05), silverMetallicMat)
+    const bayPanel = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.44, 0.036), silverMetallicMat)
     bayPanel.name = `Bus_Silver_Panel_${idx}`
-    const r = 0.565
+    const r = 0.566
     bayPanel.position.set(Math.sin(angle) * r, 0.57, Math.cos(angle) * r)
     bayPanel.rotation.y = angle
     busGroup.add(bayPanel)
@@ -505,40 +505,50 @@ export function buildSpherexObservatory(): THREE.Group {
   busBottomCollar.rotation.y = Math.PI / 6
   busGroup.add(busBottomCollar)
 
-  const avionicsBox = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.36, 0.42), greyMetallicMat)
+  // Flush avionics housing mounted squarely on the +60° flat hexagonal face (normal = [sin(60°), cos(60°)])
+  const avionicsAngle = Math.PI / 3
+  const avionicsGroup = new THREE.Group()
+  avionicsGroup.position.set(Math.sin(avionicsAngle) * 0.562, 0.57, Math.cos(avionicsAngle) * 0.562)
+  avionicsGroup.rotation.y = avionicsAngle
+
+  const avionicsBox = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.36, 0.12), greyMetallicMat)
   avionicsBox.name = 'Equipment_Module_Avionics'
-  avionicsBox.position.set(0.63, 0.58, 0)
-  busGroup.add(avionicsBox)
+  avionicsBox.position.set(0, 0, 0.05)
+  avionicsGroup.add(avionicsBox)
 
-  const avionicsPlate = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.28, 0.34), silverMetallicMat)
+  const avionicsPlate = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.26, 0.03), silverMetallicMat)
   avionicsPlate.name = 'Equipment_Radiator_Plate'
-  avionicsPlate.position.set(0.73, 0.58, 0)
-  busGroup.add(avionicsPlate)
+  avionicsPlate.position.set(0, 0, 0.115)
+  avionicsGroup.add(avionicsPlate)
+  busGroup.add(avionicsGroup)
 
-  const sideModule = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.24, 0.16), silverMetallicMat)
+  // Flush secondary metallic telemetry module mounted squarely on the +120° flat face
+  const sideAngle = (Math.PI * 2) / 3
+  const sideModule = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.22, 0.09), greyMetallicMat)
   sideModule.name = 'Equipment_Module_Side'
-  sideModule.position.set(0.28, 0.56, 0.56)
-  sideModule.rotation.y = Math.PI / 6
+  sideModule.position.set(Math.sin(sideAngle) * 0.59, 0.56, Math.cos(sideAngle) * 0.59)
+  sideModule.rotation.y = sideAngle
   busGroup.add(sideModule)
 
   for (const [idx, zSign] of [
     [1, 1],
     [2, -1],
   ] as const) {
-    const tracker = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.045, 0.18, 12), greyMetallicMat)
+    const tracker = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.042, 0.16, 12), greyMetallicMat)
     tracker.name = `Star_Tracker_${idx}`
-    tracker.position.set(0.56, 0.84, 0.26 * zSign)
+    tracker.position.set(0.5, 0.86, 0.24 * zSign)
     tracker.rotation.z = -0.65
     tracker.rotation.x = 0.25 * zSign
     busGroup.add(tracker)
   }
 
+  // Three V-groove radiator cone stages seated cleanly inside the base of the photon shields (never poking through)
   for (const [idx, y, rTop] of [
-    [1, 0.97, 0.82],
-    [2, 1.04, 0.77],
-    [3, 1.11, 0.71],
+    [1, 0.96, 0.7],
+    [2, 1.01, 0.65],
+    [3, 1.06, 0.6],
   ] as const) {
-    const vgroove = new THREE.Mesh(new THREE.CylinderGeometry(rTop, 0.48, 0.04, 6, 1, true), silverMetallicMat)
+    const vgroove = new THREE.Mesh(new THREE.CylinderGeometry(rTop, 0.48, 0.035, 6, 1, true), silverMetallicMat)
     vgroove.name = `VGroove_Stage_${idx}`
     vgroove.position.y = y
     vgroove.rotation.y = Math.PI / 6

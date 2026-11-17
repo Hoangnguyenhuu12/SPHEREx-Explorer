@@ -1,11 +1,6 @@
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
-import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js'
-import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js'
-import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
-import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js'
-import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js'
 import { buildSpherexObservatory, disposeSpherexObservatory } from './spherexModel'
 
 interface SceneProps {
@@ -15,54 +10,23 @@ interface SceneProps {
 }
 
 /**
- * Cleans low-alpha bloom tails and fades near the canvas border so post-processed WebGL
- * composites seamlessly over the starfield ribbons with zero rectangular seam.
- */
-const AlphaCleanShader = {
-  uniforms: {
-    tDiffuse: { value: null },
-  },
-  vertexShader: /* glsl */ `
-    varying vec2 vUv;
-    void main() {
-      vUv = uv;
-      gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
-    }
-  `,
-  fragmentShader: /* glsl */ `
-    uniform sampler2D tDiffuse;
-    varying vec2 vUv;
-    void main() {
-      vec4 texel = texture2D( tDiffuse, vUv );
-      float edge = smoothstep( 0.0, 0.08, min( min( vUv.x, 1.0 - vUv.x ), min( vUv.y, 1.0 - vUv.y ) ) );
-      float cleanAlpha = smoothstep( 0.015, 0.06, texel.a ) * mix( texel.a, 1.0, 0.0 ) * edge;
-      float outAlpha = texel.a * smoothstep( 0.012, 0.055, texel.a ) * edge;
-      gl_FragColor = vec4( texel.rgb * step( 0.005, outAlpha ), outAlpha + cleanAlpha * 0.0 );
-    }
-  `,
-}
-
-/**
- * Generates an HDR-like studio reflection dome via PMREMGenerator accented with top-right warm
- * amber-gold and bottom-left magenta-purple strips so brushed aluminum & solar glass match the sky.
+ * Generates a neutral bright-studio PMREM environment with soft key panels so
+ * brushed aluminum shield interiors, metallic bus panels, and solar glass catch gentle
+ * reflections across 360° rotation while outer matte-white thermal paint stays true white.
  */
 function buildStudioEnvironment(gl: THREE.WebGLRenderer): THREE.WebGLRenderTarget {
   const envScene = new THREE.Scene()
-  envScene.background = new THREE.Color('#131728')
+  envScene.background = new THREE.Color('#28324a')
 
   const skyGeo = new THREE.SphereGeometry(20, 24, 16)
-  const skyMat = new THREE.MeshBasicMaterial({ color: '#181e34', side: THREE.BackSide })
+  const skyMat = new THREE.MeshBasicMaterial({ color: '#33405c', side: THREE.BackSide })
   envScene.add(new THREE.Mesh(skyGeo, skyMat))
 
   const panels: { pos: [number, number, number]; rot: [number, number, number]; scale: [number, number]; color: string }[] = [
-    // Top-right warm yellow/orange reflection strip
-    { pos: [7, 8, 5], rot: [-Math.PI / 4, Math.PI / 4, 0], scale: [10, 6], color: '#ffd18c' },
-    // Top zenith crisp white reflection strip
-    { pos: [0, 12, -2], rot: [Math.PI / 2.1, 0, 0], scale: [12, 6], color: '#f1f5ff' },
-    // Bottom-left pink/purple stylized rim bounce
-    { pos: [-7, -6, 3], rot: [Math.PI / 3.5, -Math.PI / 4, 0], scale: [9, 5], color: '#e948ac' },
-    // Upper-left cool cyan fill strip
-    { pos: [-8, 5, 4], rot: [-Math.PI / 6, -Math.PI / 3, 0], scale: [7, 4], color: '#93c5fd' },
+    { pos: [6, 9, 6], rot: [-Math.PI / 4, Math.PI / 4, 0], scale: [10, 6], color: '#ffffff' },
+    { pos: [-8, 5, 5], rot: [-Math.PI / 6, -Math.PI / 3, 0], scale: [8, 5], color: '#e6effc' },
+    { pos: [0, 12, -3], rot: [Math.PI / 2.2, 0, 0], scale: [12, 6], color: '#f8fafc' },
+    { pos: [-5, -7, 4], rot: [Math.PI / 3, -Math.PI / 5, 0], scale: [9, 4], color: '#c4d2e8' },
   ]
   const panelGeo = new THREE.PlaneGeometry(1, 1)
   const panelMats: THREE.MeshBasicMaterial[] = []
@@ -79,7 +43,7 @@ function buildStudioEnvironment(gl: THREE.WebGLRenderer): THREE.WebGLRenderTarge
 
   const pmrem = new THREE.PMREMGenerator(gl)
   pmrem.compileEquirectangularShader()
-  const target = pmrem.fromScene(envScene, 0.03)
+  const target = pmrem.fromScene(envScene, 0.04)
 
   pmrem.dispose()
   skyGeo.dispose()
@@ -100,10 +64,10 @@ function attachEnvironment(scene: THREE.Scene, gl: THREE.WebGLRenderer): () => v
 }
 
 /**
- * Injects a stippled / ordered-dither retro film-grain shader pass across PBR materials so
- * shaded faces match the speckled space artwork behind SPHEREx without losing metallic highlights.
+ * Adds a very subtle, airy micro-grain breakup across midtone and bright facets without
+ * darkening shaded undersides or turning surfaces black.
  */
-function applyRetroStippleShader(root: THREE.Object3D): void {
+function applySubtleGrainShader(root: THREE.Object3D): void {
   const seen = new Set<THREE.Material>()
   root.traverse((obj) => {
     if (!(obj instanceof THREE.Mesh)) return
@@ -111,20 +75,17 @@ function applyRetroStippleShader(root: THREE.Object3D): void {
     for (const mat of list) {
       if (!mat || seen.has(mat)) continue
       seen.add(mat)
-      const isLens = mat.name === 'Telescope_Lens_Cyan_Glow'
-      const grainStrength = isLens ? '0.02' : '0.072'
-      mat.customProgramCacheKey = () => (isLens ? 'spherex-stipple-lens-v2' : 'spherex-stipple-v2')
+      if (mat.name === 'Telescope_Lens_Cyan_Glow') continue
+      mat.customProgramCacheKey = () => 'spherex-soft-grain-v1'
       mat.onBeforeCompile = (shader: THREE.WebGLProgramParametersWithUniforms) => {
         shader.fragmentShader = shader.fragmentShader.replace(
           '#include <dithering_fragment>',
           `
           vec2 spUv = floor( gl_FragCoord.xy );
           float spNoise = fract( sin( dot( spUv, vec2( 12.9898, 78.233 ) ) ) * 43758.5453 );
-          float spCell = fract( sin( dot( floor( gl_FragCoord.xy * 0.5 ), vec2( 39.346, 11.135 ) ) ) * 24634.6345 );
-          float spGrain = mix( spNoise, spCell, 0.42 ) - 0.48;
           float spLuma = dot( gl_FragColor.rgb, vec3( 0.299, 0.587, 0.114 ) );
-          float spWeight = mix( 1.0, 0.44, clamp( spLuma, 0.0, 1.0 ) );
-          gl_FragColor.rgb = max( vec3( 0.0 ), gl_FragColor.rgb + spGrain * ${grainStrength} * spWeight );
+          float spWeight = mix( 0.2, 0.9, clamp( spLuma, 0.0, 1.0 ) );
+          gl_FragColor.rgb = max( vec3( 0.0 ), gl_FragColor.rgb + ( spNoise - 0.45 ) * 0.022 * spWeight );
           #include <dithering_fragment>
           `,
         )
@@ -134,80 +95,12 @@ function applyRetroStippleShader(root: THREE.Object3D): void {
   })
 }
 
-/** Alpha-preserving UnrealBloom post-processing pass so only the glowing cyan lens and brightest edges emit a soft aura. */
-function BloomComposer() {
-  const { gl, scene, camera, size } = useThree()
-  const composerRef = useRef<{
-    composer: EffectComposer
-    bloomPass: UnrealBloomPass
-    outputPass: OutputPass
-    cleanPass: ShaderPass
-    target: THREE.WebGLRenderTarget
-  } | null>(null)
-
-  useEffect(() => {
-    const w = Math.max(1, size.width)
-    const h = Math.max(1, size.height)
-    const dpr = gl.getPixelRatio()
-    const target = new THREE.WebGLRenderTarget(Math.round(w * dpr), Math.round(h * dpr), {
-      type: THREE.HalfFloatType,
-      samples: 4,
-    })
-
-    const composer = new EffectComposer(gl, target)
-    composer.setPixelRatio(dpr)
-    composer.setSize(w, h)
-
-    const renderPass = new RenderPass(scene, camera)
-    renderPass.clearColor = new THREE.Color(0x000000)
-    renderPass.clearAlpha = 0
-
-    // High threshold keeps midtone surfaces razor-crisp while blooming the cyan lens & hottest edges
-    const bloomPass = new UnrealBloomPass(new THREE.Vector2(w, h), 0.34, 0.28, 1.15)
-    const outputPass = new OutputPass()
-    const cleanPass = new ShaderPass(AlphaCleanShader)
-
-    composer.addPass(renderPass)
-    composer.addPass(bloomPass)
-    composer.addPass(outputPass)
-    composer.addPass(cleanPass)
-
-    composerRef.current = { composer, bloomPass, outputPass, cleanPass, target }
-    return () => {
-      composerRef.current = null
-      composer.dispose()
-      bloomPass.dispose()
-      outputPass.dispose()
-      cleanPass.dispose()
-      target.dispose()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gl, scene, camera])
-
-  useEffect(() => {
-    const entry = composerRef.current
-    if (!entry) return
-    const w = Math.max(1, size.width)
-    const h = Math.max(1, size.height)
-    const dpr = gl.getPixelRatio()
-    entry.composer.setPixelRatio(dpr)
-    entry.composer.setSize(w, h)
-    entry.bloomPass.setSize(w, h)
-  }, [gl, size.width, size.height])
-
-  useFrame(() => {
-    composerRef.current?.composer.render()
-  }, 1)
-
-  return null
-}
-
 function ObservatoryMesh({ interactive, reduceMotion, dragOffset }: SceneProps) {
   const pivotRef = useRef<THREE.Group>(null)
   const { camera, gl, scene } = useThree()
   const model = useMemo(() => {
     const built = buildSpherexObservatory()
-    applyRetroStippleShader(built)
+    applySubtleGrainShader(built)
     return built
   }, [])
 
@@ -246,7 +139,7 @@ function ObservatoryMesh({ interactive, reduceMotion, dragOffset }: SceneProps) 
   )
 }
 
-/** Interactive 3D Three.js render of the faceted SPHEREx Space Observatory with stylized rim lighting, bloom, AO, and retro-grain shader. */
+/** Interactive 3D Three.js render of the faceted SPHEREx Space Observatory with clean matte-white lighting and pure transparent background. */
 export default function SpherexCraft3D({
   className,
   decorative = false,
@@ -345,15 +238,15 @@ export default function SpherexCraft3D({
         }}
         style={{ width: '100%', height: '100%', pointerEvents: interactive ? 'auto' : 'none' }}
       >
-        {/* Subtle low ambient + cool-plum hemisphere so deep nested AO crevices darken dramatically */}
-        <ambientLight intensity={0.44} color="#e2ebff" />
-        <hemisphereLight args={['#f5f8ff', '#28143b', 0.62]} />
+        {/* Even, clean illumination so matte-white shields, silver aluminum, and undersides never crush black */}
+        <ambientLight intensity={0.95} color="#f5f8ff" />
+        <hemisphereLight args={['#ffffff', '#6d7a99', 0.85]} />
 
-        {/* Front-top shadow-casting key light keeps matte white thermal faces crisp & legible */}
+        {/* Soft overhead key light for gentle dimensional shadows inside nested funnels */}
         <directionalLight
-          position={[1.2, 7.4, 5.4]}
-          intensity={1.75}
-          color="#f8fbff"
+          position={[3.6, 6.8, 5.2]}
+          intensity={1.35}
+          color="#fffef9"
           castShadow
           shadow-mapSize={[1024, 1024]}
           shadow-camera-near={1}
@@ -365,16 +258,15 @@ export default function SpherexCraft3D({
           shadow-bias={-0.0005}
         />
 
-        {/* Top-right warm yellow/orange stylized rim & sun key */}
-        <directionalLight position={[6.0, 5.6, -1.4]} intensity={2.1} color="#ff9e2c" />
-        <pointLight position={[3.6, 4.2, -2.0]} intensity={11} distance={15} color="#ffd166" />
+        {/* Soft neutral fill from front-left + bottom so bottom flange and silver bus stay bright and crisp */}
+        <directionalLight position={[-4.5, 2.0, 4.0]} intensity={0.65} color="#e6f0ff" />
+        <directionalLight position={[0.0, -5.0, 3.5]} intensity={0.55} color="#dce6fa" />
 
-        {/* Bottom-left vibrant pink/purple rim light positioned to kiss the left/bottom silhouette without washing out front white faces */}
-        <directionalLight position={[-6.5, -5.5, -2.8]} intensity={2.6} color="#f048b8" />
-        <pointLight position={[-3.4, -3.5, -2.2]} intensity={14} distance={15} color="#a855f7" />
+        {/* Gentle subtle accent tint on edges (never glaring or washing out white surfaces) */}
+        <directionalLight position={[-5.5, -4.0, -3.2]} intensity={0.55} color="#f472b6" />
+        <directionalLight position={[5.2, 4.8, -2.5]} intensity={0.45} color="#fde68a" />
 
         <ObservatoryMesh interactive={interactive} reduceMotion={reduceMotion} dragOffset={dragOffset} />
-        <BloomComposer />
       </Canvas>
     </div>
   )
