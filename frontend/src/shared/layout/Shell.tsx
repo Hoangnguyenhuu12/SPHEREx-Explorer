@@ -206,7 +206,6 @@ export function SiteHeader({ variant = 'default', children }: { variant?: Header
           children
         ) : (
           <>
-            <span className="site-header__spacer" />
             <nav aria-label={t.pagesLabel} className="topnav">
               <ul>
                 {NAV.map(({ to, key }) => (
@@ -219,22 +218,22 @@ export function SiteHeader({ variant = 'default', children }: { variant?: Header
               </ul>
             </nav>
             <LanguageSwitch />
-            {isLanding ? (
-              <div className="auth-actions" role="group" aria-label={t.accountLabel}>
-                <AuthActions />
-              </div>
-            ) : (
-              (children ?? (
-                <>
+            <div className="site-header__actions">
+              {isLanding ? (
+                <div className="auth-actions" role="group" aria-label={t.accountLabel}>
+                  <AuthActions />
+                </div>
+              ) : (
+                (children ?? (
                   <Link to={PATHS.explorer} className="btn btn-secondary" aria-label={t.openTheEyes}>
                     <Eye aria-hidden />
                     <span className="hide-narrow">
                       <StableLabel text={t.openTheEyes} alt={otherT.openTheEyes} />
                     </span>
                   </Link>
-                </>
-              ))
-            )}
+                ))
+              )}
+            </div>
           </>
         )}
       </div>

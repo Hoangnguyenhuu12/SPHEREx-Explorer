@@ -84,10 +84,7 @@ export default function StoryPage() {
   const movers = TARGETS.filter((target) => target.change === 'motion').map((target) => t.targets[target.key].name)
   const changers = TARGETS.filter((target) => target.change === 'brightness').map((target) => t.targets[target.key].name)
   const headerAction = (
-    <>
-      <span className="site-header__spacer" />
-      <ShootingStarLink size="compact" label={t.headerActionLabel} altLabel={otherT.headerActionLabel} />
-    </>
+    <ShootingStarLink size="compact" label={t.headerActionLabel} altLabel={otherT.headerActionLabel} />
   )
 
   return (

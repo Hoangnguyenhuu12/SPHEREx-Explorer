@@ -12,7 +12,6 @@ export function ForumHeaderActions({ showWrite = true }: { showWrite?: boolean }
   const { user } = useSession()
   return (
     <>
-      <span className="site-header__spacer" />
       {showWrite && (
         <Link to={user ? PATHS.forumNew : loginPath(PATHS.forumNew)} className="btn btn-primary forum-write">
           <PenLine aria-hidden />
