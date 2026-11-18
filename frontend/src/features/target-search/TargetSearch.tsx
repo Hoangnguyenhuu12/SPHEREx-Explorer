@@ -3,6 +3,9 @@ import { useId, useState, type FormEvent } from 'react'
 import { TARGETS, type TargetKey } from '../../shared/config/targets'
 import { looksLikeCoordinates, parseCoordinates } from './coordinates'
 import './search.css'
+import { useLanguage } from '../../shared/i18n/language'
+import { StableLabel } from '../../shared/i18n/StableLabel'
+import { STORY_COPY } from '../../shared/i18n/storyTranslations'
 
 interface Props {
   value: string
@@ -13,6 +16,8 @@ interface Props {
 }
 
 export function TargetSearch({ value, selectedKey, busy, onSubmit, onPreset }: Props) {
+  const { lang } = useLanguage()
+  const vi = lang === 'vi'
   const [draft, setDraft] = useState(value)
   const [error, setError] = useState<string | null>(null)
   const errId = useId()
@@ -42,7 +47,7 @@ export function TargetSearch({ value, selectedKey, busy, onSubmit, onPreset }: P
     <div className="search" data-tour="targets">
       <form className="search__form" role="search" onSubmit={submit} noValidate>
         <label htmlFor="target-search" className="sr-only">
-          Search a star name or RA/Dec
+          {vi ? 'Tìm tên sao hoặc RA/Dec' : 'Search a star name or RA/Dec'}
         </label>
         <div className={`search__field${error ? ' has-error' : ''}`}>
           <Search aria-hidden className="search__icon" />
@@ -53,7 +58,7 @@ export function TargetSearch({ value, selectedKey, busy, onSubmit, onPreset }: P
             autoComplete="off"
             spellCheck={false}
             name="q"
-            placeholder="Star name or RA/Dec, e.g. 269.452 +4.693…"
+            placeholder={vi ? 'Tên sao hoặc RA/Dec, ví dụ 269.452 +4.693…' : 'Star name or RA/Dec, e.g. 269.452 +4.693…'}
             value={draft}
             aria-invalid={!!error}
             aria-describedby={error ? errId : undefined}
@@ -63,24 +68,24 @@ export function TargetSearch({ value, selectedKey, busy, onSubmit, onPreset }: P
             }}
           />
           {draft && (
-            <button type="button" className="icon-btn icon-btn--sm search__clear" aria-label="Clear search" onClick={() => setDraft('')}>
+            <button type="button" className="icon-btn icon-btn--sm search__clear" aria-label={vi ? 'Xóa tìm kiếm' : 'Clear search'} onClick={() => setDraft('')}>
               <X aria-hidden />
             </button>
           )}
         </div>
         <button type="submit" className="btn btn-primary" disabled={busy}>
-          Go
+          <StableLabel text={vi ? 'Tìm' : 'Go'} alt={vi ? 'Go' : 'Tìm'} />
         </button>
         {error && (
           <p id={errId} className="search__error" role="alert">
-            {error}
+            {vi ? (error.startsWith('Type a star') ? 'Hãy nhập tên sao hoặc tọa độ.' : error.startsWith('RA must') ? 'RA phải từ 0 đến 360 độ, hoặc từ 0h đến 24h.' : error.startsWith('Dec must') ? 'Dec phải từ −90 đến +90 độ.' : 'Hãy nhập RA và Dec, ví dụ “269.452 +4.693”.') : error}
           </p>
         )}
       </form>
-      <ul className="presets" aria-label="Featured targets">
+      <ul className="presets" aria-label={vi ? 'Mục tiêu nổi bật' : 'Featured targets'}>
         {TARGETS.map((t) => (
           <li key={t.key}>
-            <button type="button" className="preset" aria-pressed={selectedKey === t.key} title={`${t.name} — ${t.kind}`} onClick={() => onPreset(t.key)}>
+            <button type="button" className="preset" aria-pressed={selectedKey === t.key} title={`${vi ? STORY_COPY.vi.targets[t.key].name : t.name} — ${vi ? STORY_COPY.vi.targets[t.key].kind : t.kind}`} onClick={() => onPreset(t.key)}>
               {t.shortName}
             </button>
           </li>

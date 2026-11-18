@@ -49,6 +49,7 @@ const EXTRA_PLANET_RADIUS = new Map<string, number>(SOLAR_EXTRA_PLANETS.map((p) 
 
 interface Props {
   view: SceneView
+  ariaLabel: string
   paused: boolean
   launching: boolean
   /** Skip the camera/scene transition (reduced motion). */
@@ -489,13 +490,6 @@ function LabelTracker({
   return null
 }
 
-const ARIA: Record<SceneView, string> = {
-  earth:
-    'Earth turning in sunlight, with the SPHEREx telescope circling it over both poles along the line between day and night. Not to scale.',
-  solar:
-    'The Sun at the centre with Mercury, Venus, Earth, Mars, Jupiter, Saturn, Uranus, Neptune, and Pluto orbiting it; SPHEREx keeps circling Earth along the day–night line. Not to scale.',
-}
-
 export default function EarthScene(props: Props) {
   const registry = useMemo(() => new Map<BodyName, THREE.Object3D>(), [])
   const [live] = useState(() => createLive(props.view))
@@ -532,7 +526,7 @@ export default function EarthScene(props: Props) {
       gl={{ antialias: true, alpha: true, powerPreference: 'default' }}
       frameloop="always"
       role="img"
-      aria-label={ARIA[props.view]}
+      aria-label={props.ariaLabel}
     >
       <Director
         view={props.view}

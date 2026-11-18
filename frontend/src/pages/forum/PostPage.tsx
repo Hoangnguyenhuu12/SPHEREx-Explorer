@@ -20,10 +20,15 @@ import { usePost } from '../../features/forum/queries'
 import '../../features/forum/forum.css'
 import { PageShell } from '../../shared/layout/Shell'
 import { useDocumentTitle } from './useDocumentTitle'
+import { useLanguage } from '../../shared/i18n/language'
+import { demoPost } from '../../features/forum/translations'
+import { StableForumCopy } from '../../features/forum/components/StableForumCopy'
 
 type ReportTarget = { type: 'post' | 'comment'; id: string; label: string }
 
 export default function PostPage() {
+  const { lang } = useLanguage()
+  const vi = lang === 'vi'
   const { id = '' } = useParams()
   const post = usePost(id)
   const { user } = useSession()
@@ -40,12 +45,13 @@ export default function PostPage() {
   const view = post.data
   // Authors see their unpublished draft/pending text; everyone else only sees the approved version.
   const content = view?.published ?? (view?.isMine ? view.working : null) ?? null
-  useDocumentTitle(content?.title ?? null)
+  const translated = content && view ? demoPost(view.author.id, content.title, content.body, 'vi') : undefined
+  useDocumentTitle(vi && translated ? translated.title : content?.title ?? null)
 
   if (post.isError && post.error instanceof ForumError && post.error.code === 'NOT_FOUND') {
     return (
       <PageShell headerActions={<ForumHeaderActions />}>
-        <ForumMessage title="Post not found">This post does not exist, or it is not public.</ForumMessage>
+        <ForumMessage title={vi ? 'Không tìm thấy bài viết' : 'Post not found'}>{vi ? 'Bài viết không tồn tại hoặc chưa được công khai.' : 'This post does not exist, or it is not public.'}</ForumMessage>
       </PageShell>
     )
   }
@@ -59,7 +65,7 @@ export default function PostPage() {
     <PageShell headerActions={<ForumHeaderActions />}>
       <div className="wrap forum post-page">
         <Link to={PATHS.forum} className="back-link">
-          <ChevronLeft aria-hidden /> Forum
+          <ChevronLeft aria-hidden /> {vi ? 'Diễn đàn' : 'Forum'}
         </Link>
 
         {post.isPending ? (
@@ -79,11 +85,11 @@ export default function PostPage() {
                 {user?.role === 'admin' && <PostModeration post={view} onDone={flash.show} />}
                 <header className="post__head">
                   <h1 id="post-title" className="post__title">
-                    {content.title || 'Untitled draft'}
+                    {translated ? <StableForumCopy alternate={vi ? content.title : translated.title}>{vi ? translated.title : content.title}</StableForumCopy> : content.title || (vi ? 'Bản nháp chưa có tiêu đề' : 'Untitled draft')}
                   </h1>
                   <p className="post__meta">
                     <span className="post__author">{view.author.displayName}</span>
-                    {view.publishedAt ? <TimeAgo iso={view.publishedAt} prefix="Posted" /> : <span>Not published</span>}
+                    {view.publishedAt ? <TimeAgo iso={view.publishedAt} prefix="Posted" /> : <span>{vi ? 'Chưa công khai' : 'Not published'}</span>}
                     {view.editedAt && <TimeAgo iso={view.editedAt} prefix="Edited" />}
                   </p>
                   <TagChips tags={content.tags} linked={isPublic} />
@@ -97,18 +103,18 @@ export default function PostPage() {
                   </div>
                 )}
 
-                <MarkdownView source={content.body} />
+                {translated ? <div className="forum-bilingual-body"><MarkdownView source={vi ? translated.body : content.body} /><div aria-hidden="true"><MarkdownView source={vi ? content.body : translated.body} /></div></div> : <MarkdownView source={content.body} />}
 
                 {otherLinks.length > 0 && (
                   <div className="post__links">
-                    <h2 className="post__subhead">Links</h2>
+                    <h2 className="post__subhead">{vi ? 'Liên kết' : 'Links'}</h2>
                     <ul>
                       {otherLinks.map((l) => (
                         <li key={l}>
                           <a href={l} target="_blank" rel="noopener noreferrer nofollow ugc">
                             {l}
                             <ExternalLink aria-hidden />
-                            <span className="sr-only"> (opens in a new tab)</span>
+                            <span className="sr-only"> {vi ? '(mở trong thẻ mới)' : '(opens in a new tab)'}</span>
                           </a>
                         </li>
                       ))}
@@ -117,10 +123,10 @@ export default function PostPage() {
                 )}
 
                 <footer className="post__foot">
-                  <p className="caption">{COMMUNITY_NOTE}</p>
+                  <p className="caption">{vi ? 'Bài đăng cộng đồng được kiểm duyệt theo quy định, không phải về độ chính xác khoa học.' : COMMUNITY_NOTE}</p>
                   {isPublic && !view.isMine && (
                     <button type="button" className="btn btn-ghost btn-sm" onClick={() => openReport({ type: 'post', id: view.id, label: 'post' })}>
-                      <Flag aria-hidden /> Report post
+                      <Flag aria-hidden /> {vi ? 'Báo cáo bài viết' : 'Report post'}
                     </button>
                   )}
                 </footer>
@@ -136,12 +142,12 @@ export default function PostPage() {
               </article>
 
               {eyesLinks.length > 0 && (
-                <aside className="post-aside" aria-label="Observation">
-                  <h2 className="post__subhead">Observation</h2>
+                <aside className="post-aside" aria-label={vi ? 'Quan sát' : 'Observation'}>
+                  <h2 className="post__subhead">{vi ? 'Quan sát' : 'Observation'}</h2>
                   {eyesLinks.map((l) => (
                     <ObservationLinkCard key={l} href={l} />
                   ))}
-                  <p className="caption">Opens the same target and settings in The Eyes.</p>
+                  <p className="caption">{vi ? 'Mở cùng mục tiêu và cài đặt trong Đôi mắt.' : 'Opens the same target and settings in The Eyes.'}</p>
                 </aside>
               )}
             </div>
@@ -151,13 +157,13 @@ export default function PostPage() {
 
       <ReasonDialog
         open={report !== null}
-        title={report?.type === 'comment' ? 'Report this comment' : 'Report this post'}
-        description="A moderator will review it. The author is not told who reported it."
-        confirmLabel="Send report"
+        title={report?.type === 'comment' ? (vi ? 'Báo cáo bình luận này' : 'Report this comment') : (vi ? 'Báo cáo bài viết này' : 'Report this post')}
+        description={vi ? 'Người kiểm duyệt sẽ xem xét. Tác giả sẽ không biết ai đã báo cáo.' : 'A moderator will review it. The author is not told who reported it.'}
+        confirmLabel={vi ? 'Gửi báo cáo' : 'Send report'}
         onClose={() => setReport(null)}
         onSubmit={async (reason) => {
           const res = await forumApi.report({ targetType: report!.type, targetId: report!.id, reason })
-          flash.show(res.duplicate ? 'You already reported this. A moderator will look at it.' : 'Report sent. Thank you.')
+          flash.show(res.duplicate ? (vi ? 'Bạn đã báo cáo nội dung này. Người kiểm duyệt sẽ xem xét.' : 'You already reported this. A moderator will look at it.') : (vi ? 'Đã gửi báo cáo. Cảm ơn bạn.' : 'Report sent. Thank you.'))
         }}
       />
       {flash.node}

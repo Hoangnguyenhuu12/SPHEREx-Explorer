@@ -4,12 +4,15 @@ import { LIMITS } from '../config'
 import { checkLink, describeObservation } from '../links'
 import type { TagWithCount } from '../types'
 import { ObservationHint } from './bits'
+import { useLanguage } from '../../../shared/i18n/language'
+import { validationText } from '../translations'
 
 export function FieldError({ id, message }: { id: string; message?: string }) {
+  const { lang } = useLanguage()
   if (!message) return null
   return (
     <p id={id} className="field__error">
-      <AlertCircle aria-hidden /> {message}
+      <AlertCircle aria-hidden /> {validationText(message, lang)}
     </p>
   )
 }
@@ -29,14 +32,16 @@ export function TagPicker({
   error?: string
   disabled?: boolean
 }) {
+  const { lang } = useLanguage()
+  const vi = lang === 'vi'
   const id = useId()
   const full = value.length >= LIMITS.tagsMax
   const selectable = tags.filter((t) => t.active || value.includes(t.id))
   return (
     <fieldset className="field tag-picker" aria-describedby={`${id}-hint${error ? ` ${id}-err` : ''}`} disabled={disabled}>
-      <legend className="field__label">Topics</legend>
+      <legend className="field__label">{vi ? 'Chủ đề' : 'Topics'}</legend>
       <p id={`${id}-hint`} className="field__hint">
-        Choose {LIMITS.tagsMin}–{LIMITS.tagsMax}. {value.length > 0 && `${value.length} selected.`}
+        {vi ? 'Chọn' : 'Choose'} {LIMITS.tagsMin}–{LIMITS.tagsMax}. {value.length > 0 && (vi ? `Đã chọn ${value.length}.` : `${value.length} selected.`)}
       </p>
       <ul className="chip-list" id={`${id}-list`} tabIndex={-1}>
         {selectable.map((t) => {
@@ -51,7 +56,7 @@ export function TagPicker({
                 onClick={() => onToggle(t.id)}
               >
                 #{t.slug}
-                {!t.active && <span className="tag-picker__retired"> (retired, remove)</span>}
+                {!t.active && <span className="tag-picker__retired"> {vi ? '(đã ngừng, hãy xóa)' : '(retired, remove)'}</span>}
               </button>
             </li>
           )
@@ -73,13 +78,15 @@ export function LinkFields({
   errors?: (string | undefined)[]
   disabled?: boolean
 }) {
+  const { lang } = useLanguage()
+  const vi = lang === 'vi'
   const id = useId()
   const set = (i: number, v: string) => onChange(links.map((l, j) => (j === i ? v : l)))
   return (
     <fieldset className="field link-fields" disabled={disabled} aria-describedby={`${id}-hint`}>
-      <legend className="field__label">Links (optional)</legend>
+      <legend className="field__label">{vi ? 'Liên kết (không bắt buộc)' : 'Links (optional)'}</legend>
       <p id={`${id}-hint`} className="field__hint">
-        Paste a link copied from The Eyes to show the observation, or any https:// link. Up to {LIMITS.linksMax}.
+        {vi ? 'Dán liên kết từ Đôi mắt để hiển thị quan sát, hoặc một liên kết https:// bất kỳ. Tối đa' : 'Paste a link copied from The Eyes to show the observation, or any https:// link. Up to'} {LIMITS.linksMax}.
       </p>
       {links.map((l, i) => {
         const err = errors?.[i]
@@ -89,7 +96,7 @@ export function LinkFields({
           <div key={i} className="link-fields__row">
             <div className="link-fields__control">
               <label htmlFor={`${id}-${i}`} className="sr-only">
-                Link {i + 1}
+                {vi ? 'Liên kết' : 'Link'} {i + 1}
               </label>
               <input
                 id={`${id}-${i}`}
@@ -107,7 +114,7 @@ export function LinkFields({
               <button
                 type="button"
                 className="icon-btn"
-                aria-label={`Remove link ${i + 1}`}
+                aria-label={`${vi ? 'Xóa liên kết' : 'Remove link'} ${i + 1}`}
                 onClick={() => onChange(links.filter((_, j) => j !== i))}
               >
                 <Trash2 aria-hidden />
@@ -120,7 +127,7 @@ export function LinkFields({
       })}
       {links.length < LIMITS.linksMax && (
         <button type="button" className="btn btn-ghost btn-sm link-fields__add" onClick={() => onChange([...links, ''])}>
-          <Plus aria-hidden /> Add a link
+          <Plus aria-hidden /> {vi ? 'Thêm liên kết' : 'Add a link'}
         </button>
       )}
     </fieldset>

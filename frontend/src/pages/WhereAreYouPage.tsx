@@ -7,11 +7,16 @@ import { webglAvailable } from '../features/earth-scene/webgl'
 import { StarfieldCanvas } from '../features/artwork/StarfieldCanvas'
 import type { BodyName, SceneView } from '../features/earth-scene/EarthScene'
 import { NavDrawer, SiteFooter, SiteHeader } from '../shared/layout/Shell'
+import { useLanguage } from '../shared/i18n/language'
+import { ORBIT_COPY } from './where/translations'
 import './where/where.css'
 
 const EarthScene = lazy(() => import('../features/earth-scene/EarthScene'))
 
 export default function WhereAreYouPage() {
+  const { lang } = useLanguage()
+  const t = ORBIT_COPY[lang]
+  const alt = ORBIT_COPY[lang === 'en' ? 'vi' : 'en']
   const reduce = useReducedMotion()
   const [userPaused, setUserPaused] = useState(false)
   const [hover, setHover] = useState(false)
@@ -57,14 +62,14 @@ export default function WhereAreYouPage() {
   return (
     <>
       <a href="#main" className="skip-link">
-        Skip to content
+        {t.skip}
       </a>
       <SiteHeader />
       <NavDrawer />
       <main id="main" className={`where${launching && !reduce ? ' is-launching' : ''}${solar ? ' is-solar' : ''}`}>
         <StarfieldCanvas className="where__stars" density={1.1} shootingEverySec={2.2} drift={false} />
         <div className="where__scene">
-          <h1 className="where__title">SPHEREx in Orbit</h1>
+          <h1 className="where__title"><StableOrbitText text={t.title} alt={alt.title} /></h1>
 
           <div className={`where__earth${hover ? ' is-hover' : ''}`}>
             {gl ? (
@@ -72,7 +77,7 @@ export default function WhereAreYouPage() {
                 {!earthReady && !solar && <img className="where__static" src="/textures/earth-static.png" alt="" width={392} height={392} />}
                 {!earthReady && solar && (
                   <p className="where__loading" role="status">
-                    Loading the 3D Solar System…
+                    {t.loading}
                   </p>
                 )}
                 <Suspense fallback={null}>
@@ -86,51 +91,52 @@ export default function WhereAreYouPage() {
                     onHover={setHover}
                     onReady={onReady}
                     labels={labels}
+                    ariaLabel={solar ? t.solarAria : t.earthAria}
                   />
                 </Suspense>
                 <span ref={sunRef} className="where__label where__label--center" aria-hidden>
-                  Sun
+                  {t.sun}
                 </span>
                 <span ref={earthRef} className="where__label where__label--center" aria-hidden>
-                  Earth
+                  {t.earth}
                 </span>
                 <span ref={spherexRef} className="where__label where__label--craft" aria-hidden translate="no">
                   SPHEREx
                 </span>
                 <span ref={mercuryRef} className="where__label where__label--center where__label--planet" aria-hidden>
-                  Mercury
+                  {t.mercury}
                 </span>
                 <span ref={venusRef} className="where__label where__label--center where__label--planet" aria-hidden>
-                  Venus
+                  {t.venus}
                 </span>
                 <span ref={marsRef} className="where__label where__label--center where__label--planet" aria-hidden>
-                  Mars
+                  {t.mars}
                 </span>
                 <span ref={jupiterRef} className="where__label where__label--center where__label--planet" aria-hidden>
-                  Jupiter
+                  {t.jupiter}
                 </span>
                 <span ref={saturnRef} className="where__label where__label--center where__label--planet" aria-hidden>
-                  Saturn
+                  {t.saturn}
                 </span>
                 <span ref={uranusRef} className="where__label where__label--center where__label--planet" aria-hidden>
-                  Uranus
+                  {t.uranus}
                 </span>
                 <span ref={neptuneRef} className="where__label where__label--center where__label--planet" aria-hidden>
-                  Neptune
+                  {t.neptune}
                 </span>
                 <span ref={plutoRef} className="where__label where__label--center where__label--planet" aria-hidden>
-                  Pluto
+                  {t.pluto}
                 </span>
               </>
             ) : (
-              <button type="button" className="where__static-btn" onClick={explore} aria-label="Open The Eyes sky map">
-                <img className="where__static" src="/textures/earth-static.png" alt="Earth, still image" width={392} height={392} />
+              <button type="button" className="where__static-btn" onClick={explore} aria-label={t.openMap}>
+                <img className="where__static" src="/textures/earth-static.png" alt={t.earthAlt} width={392} height={392} />
               </button>
             )}
           </div>
 
           <p className="where__hint" aria-hidden>
-            <span>{solar ? 'Click Earth to zoom in' : 'Click Earth to open The Eyes'}</span>
+            <StableOrbitText text={solar ? t.solarHint : t.earthHint} alt={solar ? alt.solarHint : alt.earthHint} />
             <svg viewBox="0 0 120 40" width="96" height="32" className="where__arrow">
               <path d="M2 30 C 40 34, 80 26, 112 12" fill="none" stroke="currentColor" strokeWidth="1.5" />
               <path d="M104 8 L 114 11 L 108 20" fill="none" stroke="currentColor" strokeWidth="1.5" />
@@ -139,18 +145,18 @@ export default function WhereAreYouPage() {
 
           <div className="where__actions">
             <button type="button" className="btn btn-primary btn-lg" onClick={explore}>
-              Open The Eyes <ArrowRight aria-hidden />
+              <StableOrbitText text={t.open} alt={alt.open} /> <ArrowRight aria-hidden />
             </button>
             {gl && (
               <button type="button" className="btn btn-secondary" onClick={toggleView} aria-pressed={solar}>
                 {solar ? <Globe2 aria-hidden /> : <Sun aria-hidden />}
-                {solar ? 'Zoom to Earth & SPHEREx' : 'Solar System view'}
+                <StableOrbitText text={solar ? t.zoom : t.solarView} alt={solar ? alt.zoom : alt.solarView} />
               </button>
             )}
             {gl && (
               <button type="button" className="btn btn-secondary" onClick={() => setUserPaused((p) => !p)} aria-pressed={paused} disabled={!!reduce}>
                 {paused ? <Play aria-hidden /> : <Pause aria-hidden />}
-                {reduce ? 'Motion off (reduced motion)' : paused ? 'Resume orbit' : 'Pause orbit'}
+                <StableOrbitText text={reduce ? t.motionOff : paused ? t.resume : t.pause} alt={reduce ? alt.motionOff : paused ? alt.resume : alt.pause} />
               </button>
             )}
           </div>
@@ -158,28 +164,19 @@ export default function WhereAreYouPage() {
           {gl && (
             <p className="where__fact" aria-live="polite">
               <span className="where__fact-dot" aria-hidden />
-              {solar ? (
-                <span>
-                  Eight planets (and Pluto) orbit the Sun while Earth carries <strong translate="no">SPHEREx</strong>{' '}
-                  around once a year. Its orbit turns a little every day so it always rides the line between day and night — that is what a
-                  sun-synchronous orbit means.
-                </span>
-              ) : (
-                <span>
-                  <strong translate="no">SPHEREx</strong> circles Earth about 14.5 times a day, roughly 650 km up, passing over both poles
-                  along the line between day and night. On every orbit it scans a full ring of sky. Select Solar System view (or click the
-                  Sun) to see Earth’s yearly path.
-                </span>
-              )}
+              <StableOrbitText text={solar ? t.solarFact : t.earthFact} alt={solar ? alt.solarFact : alt.earthFact} />
             </p>
           )}
           <p className="caption where__caption">
-            Illustrative 3D model — sizes, distances, and SPHEREx’s scale are exaggerated for clarity.
-            {!gl && ' 3D view unavailable on this device; showing a still image.'}
+            <StableOrbitText text={t.caption + (!gl ? t.no3d : '')} alt={alt.caption + (!gl ? alt.no3d : '')} />
           </p>
         </div>
       </main>
       <SiteFooter />
     </>
   )
+}
+
+function StableOrbitText({ text, alt }: { text: string; alt: string }) {
+  return <span className="where__stable-text"><span>{text}</span><span aria-hidden="true">{alt}</span></span>
 }

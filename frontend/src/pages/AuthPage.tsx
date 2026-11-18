@@ -3,6 +3,7 @@ import { StarfieldCanvas } from '../features/artwork/StarfieldCanvas'
 import { AuthForm } from '../features/auth/AuthForm'
 import type { AuthMode } from '../features/auth/validation'
 import { PageShell } from '../shared/layout/Shell'
+import { useLanguage } from '../shared/i18n/language'
 
 const TITLES: Record<AuthMode, string> = {
   login: 'Log in · SPHEREx Explorer',
@@ -11,17 +12,18 @@ const TITLES: Record<AuthMode, string> = {
 
 /** Standalone page for /login and /signup. `key` on the route remounts the form when switching. */
 export default function AuthPage({ mode }: { mode: AuthMode }) {
+  const { lang } = useLanguage()
   useEffect(() => {
     const prev = document.title
-    document.title = TITLES[mode]
+    document.title = lang === 'vi' ? `${mode === 'login' ? 'Đăng nhập' : 'Đăng ký'} · SPHEREx Explorer` : TITLES[mode]
     return () => {
       document.title = prev
     }
-  }, [mode])
+  }, [mode, lang])
 
   return (
     <PageShell header="landing">
-      <section className="auth-page" aria-label={mode === 'login' ? 'Log in' : 'Sign up'}>
+      <section className="auth-page" aria-label={mode === 'login' ? (lang === 'vi' ? 'Đăng nhập' : 'Log in') : (lang === 'vi' ? 'Đăng ký' : 'Sign up')}>
         <div className="auth-page__sky" aria-hidden>
           <StarfieldCanvas className="auth-page__stars" density={0.5} shootingEverySec={4} />
           <span className="auth-page__glow auth-page__glow--a" />

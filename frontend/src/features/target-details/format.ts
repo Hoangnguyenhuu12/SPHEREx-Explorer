@@ -32,6 +32,13 @@ export const WARNING_COPY: Record<string, string> = {
   TARGET_OUTSIDE_COVERAGE: 'The target lies near or beyond the edge of the observed area.',
 }
 
-export function warningText(code: WarningCode): string {
-  return WARNING_COPY[code] ?? `Data note: ${code}`
+const WARNING_VI: Record<string, string> = {
+  SATURATION_POSSIBLE: 'Ngôi sao đủ sáng để làm bão hòa cảm biến. Vùng tâm có thể trông phẳng hoặc không chính xác.',
+  FEW_FRAMES: 'Có ít hơn ba ảnh quan sát nên khó đánh giá sự thay đổi theo thời gian.',
+  TRUNCATED: 'Chỉ một phần ảnh quan sát hiện có được hiển thị.',
+  MIXED_WAVELENGTH: 'Các ảnh được chụp ở bước sóng khác nhau nên chênh lệch độ sáng có thể không phải thay đổi thực.',
+  TARGET_OUTSIDE_COVERAGE: 'Mục tiêu nằm gần hoặc ngoài rìa vùng quan sát.',
+}
+export function warningText(code: WarningCode, lang: 'en' | 'vi' = 'en'): string {
+  return (lang === 'vi' ? WARNING_VI[code] : WARNING_COPY[code]) ?? `${lang === 'vi' ? 'Lưu ý dữ liệu' : 'Data note'}: ${code}`
 }

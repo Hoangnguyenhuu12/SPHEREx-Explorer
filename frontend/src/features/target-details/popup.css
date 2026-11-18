@@ -379,6 +379,13 @@
   align-items: center;
   gap: 6px;
   margin-left: auto;
+  max-width: 100%;
+  min-width: 0;
+}
+.viewer-source-select .select {
+  width: 15rem;
+  max-width: 100%;
+  min-width: 0;
 }
 .viewer-source-select__label {
   font-size: 12px;
@@ -1166,4 +1173,14 @@
   font-size: 9.5px;
   font-weight: 700;
   font-family: var(--font-body);
+}
+.eyes-copy { display: inline-grid; width: 100%; min-width: 0; vertical-align: top; }
+.eyes-copy > * { grid-area: 1 / 1; min-width: 0; }
+.eyes-copy > [aria-hidden='true'] { visibility: hidden; pointer-events: none; }
+.popup .facts dd,
+.viewer-meta,
+.viewer-fov,
+.compare-result__facts dd { font-variant-numeric: tabular-nums; }
+@media (pointer: coarse) {
+  .popup .icon-btn { min-width: 44px; min-height: 44px; }
 }

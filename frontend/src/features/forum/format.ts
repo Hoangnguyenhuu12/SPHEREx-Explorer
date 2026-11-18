@@ -12,15 +12,15 @@ const UNITS: [Intl.RelativeTimeFormatUnit, number][] = [
 ]
 
 /** "3 days ago", "just now". Older than 30 days: a date. */
-export function relativeTime(iso: string, now = Date.now()): string {
+export function relativeTime(iso: string, now = Date.now(), lang: 'en' | 'vi' = 'en'): string {
   const diff = new Date(iso).getTime() - now
   const abs = Math.abs(diff)
-  if (abs < 60_000) return 'just now'
-  if (abs > 30 * 86_400_000) return day.format(new Date(iso))
+  if (abs < 60_000) return lang === 'vi' ? 'vừa xong' : 'just now'
+  if (abs > 30 * 86_400_000) return lang === 'vi' ? new Intl.DateTimeFormat('vi', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(iso)) : day.format(new Date(iso))
   for (const [unit, ms] of UNITS) {
-    if (abs >= ms) return rtf.format(Math.round(diff / ms), unit)
+    if (abs >= ms) return (lang === 'vi' ? new Intl.RelativeTimeFormat('vi', { numeric: 'auto' }) : rtf).format(Math.round(diff / ms), unit)
   }
-  return 'just now'
+  return lang === 'vi' ? 'vừa xong' : 'just now'
 }
 
 export function fullDate(iso: string): string {

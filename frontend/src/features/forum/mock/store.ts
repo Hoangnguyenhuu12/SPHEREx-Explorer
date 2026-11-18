@@ -181,7 +181,7 @@ const AUTHORS: Record<string, string> = {
   seed_sara: 'Sara M.',
 }
 
-const PUBLISHED: SeedPost[] = [
+export const PUBLISHED: readonly SeedPost[] = [
   {
     author: 'seed_linh',
     title: 'How do I tell a moving star from noise in the difference view?',

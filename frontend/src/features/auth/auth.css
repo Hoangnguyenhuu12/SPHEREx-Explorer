@@ -48,6 +48,19 @@
   backdrop-filter: blur(6px);
   box-shadow: 0 24px 64px rgb(0 0 0 / 0.45);
 }
+.auth-copy {
+  display: inline-grid;
+  min-width: 0;
+  max-width: 100%;
+  vertical-align: top;
+}
+.auth-copy > span { grid-area: 1 / 1; min-width: 0; }
+.auth-copy > span[aria-hidden='true'] { visibility: hidden; pointer-events: none; }
+.auth-card__lead .auth-copy,
+.auth-card__switch .auth-copy,
+.auth-card__demo .auth-copy,
+.auth-card__notice .auth-copy,
+.auth-field__error .auth-copy { width: 100%; }
 .auth-card__title {
   font-size: 32px;
   line-height: 40px;

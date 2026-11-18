@@ -5,9 +5,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useLocation, useSearchParams } from 'react-router'
 import { config, PATHS } from '../app/config'
 import { api } from '../shared/api'
-import { describeError } from '../shared/api/errors'
+import { describeErrorLocalized } from '../shared/api/errors'
 import { TARGET_BY_KEY, isTargetKey, type TargetKey } from '../shared/config/targets'
 import { CompactFooter, NavDrawer, SiteHeader } from '../shared/layout/Shell'
+import { LanguageSwitch, useLanguage } from '../shared/i18n/language'
+import { StableLabel } from '../shared/i18n/StableLabel'
 import { useOverlay } from '../shared/layout/overlay'
 import { formatDecDms, formatRaHms } from '../features/target-search/coordinates'
 import { usePlayer } from '../features/blink/player'
@@ -25,6 +27,9 @@ import { GuideToggle, GuideTour, type TourStep } from '../features/guide/guide'
 import { GuideProvider, readGuide, writeGuide } from '../features/guide/guide-state'
 import { Horizon } from '../features/sky-map/Horizon'
 import './eyes/eyes.css'
+import { ORBIT_COPY } from './where/translations'
+import { PLANET_CATEGORY_VI, PLANET_FACTS_VI } from './eyes/planetVi'
+import { EyesCopy } from '../features/target-details/EyesCopy'
 
 const DEFAULT_TOGGLES: ViewerToggles = { mode: 'original', crosshair: true, flags: false, trail: false, pick: true, gaiaOverlays: true }
 const COMBINED_TARGETS = new Set<TargetKey>(['wise0855', 'epsindib', 'barnard', 'rwaur', 'rdra'])
@@ -41,15 +46,18 @@ function isInteractiveTarget(el: EventTarget | null): boolean {
   return !!t && !!t.closest('button, a, summary, [role="tab"], input, textarea, select')
 }
 
-function formatLightTime(minutes: number): string {
-  if (minutes < 0.05) return '0 min'
-  if (minutes < 60) return `${minutes.toFixed(1)} min light-time`
+function formatLightTime(minutes: number, vi = false): string {
+  if (minutes < 0.05) return vi ? '0 phút' : '0 min'
+  if (minutes < 60) return vi ? `${minutes.toFixed(1)} phút ánh sáng` : `${minutes.toFixed(1)} min light-time`
   const h = Math.floor(minutes / 60)
   const m = Math.round(minutes % 60)
-  return `${h}h ${m}m light-time`
+  return vi ? `${h} giờ ${m} phút ánh sáng` : `${h}h ${m}m light-time`
 }
 
 export default function TheEyesPage() {
+  const { lang } = useLanguage()
+  const vi = lang === 'vi'
+  const label = (en: string, vn: string) => <StableLabel text={vi ? vn : en} alt={vi ? en : vn} />
   const location = useLocation()
   const [, setSearchParams] = useSearchParams()
   const sel = useMemo(() => parseSelection(location.search), [location.search])
@@ -124,7 +132,7 @@ export default function TheEyesPage() {
     [target, coords, survey.epochMjd],
   )
 
-  const title = target?.name ?? (rq.kind === 'name' && resolved.data ? resolved.data.name : coords ? 'Custom position' : '')
+  const title = target?.name ?? (rq.kind === 'name' && resolved.data ? resolved.data.name : coords ? (vi ? 'Vị trí tùy chọn' : 'Custom position') : '')
   const detector = sel.detector || target?.recommendedDetector || 6
   const spherexOnly = sel.seq === 'spherex' || detector !== 6
   const canCombine = target != null && COMBINED_TARGETS.has(target.key)
@@ -449,7 +457,7 @@ export default function TheEyesPage() {
   const shareUrl = typeof window !== 'undefined' ? `${window.location.origin}${PATHS.explorer}${serializeSelection(sel)}` : ''
   const embedUrl = `${shareUrl}${shareUrl.includes('?') ? '&' : '?'}embed=1`
   const isMock = config.useMock || session.data?.mode === 'mock'
-  const dataLabel = isMock ? 'Observation data: Illustrative demo (generated)' : timeline ? 'Observation data: unWISE and SPHEREx' : 'Observation data: NASA/IPAC IRSA, SPHEREx'
+  const dataLabel = isMock ? (vi ? 'Dữ liệu quan sát: minh họa (tạo giả lập)' : 'Observation data: Illustrative demo (generated)') : timeline ? (vi ? 'Dữ liệu quan sát: unWISE và SPHEREx' : 'Observation data: unWISE and SPHEREx') : (vi ? 'Dữ liệu quan sát: NASA/IPAC IRSA, SPHEREx' : 'Observation data: NASA/IPAC IRSA, SPHEREx')
   // In the TAN projection, scale is proportional to the inverse tangent of half the field of view.
   const zoomLabel = mapFovDeg === null ? '—' : zoomFormat.format(
     Math.tan(DEFAULT_MAP_FOV_DEG * Math.PI / 360) / Math.tan(mapFovDeg * Math.PI / 360),
@@ -552,8 +560,24 @@ export default function TheEyesPage() {
         body: <p>Open this tutorial again any time with the <strong>Tutorial</strong> button or the T key.</p>,
       },
     )
-    return steps
-  }, [canCombine, hasGaiaOverlay, popupOpen])
+    const translated: Record<string, { title: string; body: string; done?: string }> = {
+      'Choose a target': { title: 'Chọn mục tiêu', body: 'Hãy chọn một ngôi sao nổi bật hoặc nhập tên sao hay tọa độ RA/Dec rồi nhấn Tìm. Hướng dẫn sẽ tiếp tục khi mục tiêu mở ra.', done: 'Đã chọn mục tiêu.' },
+      'Pick an infrared channel': { title: 'Chọn kênh hồng ngoại', body: 'Hãy chọn cảm biến khác. D1 có bước sóng ngắn nhất (0,75 µm), D6 dài nhất (5 µm); sao lùn nâu lạnh hiện rõ hơn ở D5–D6.', done: 'Ảnh sẽ tải lại theo cảm biến đã chọn. D6 là mặc định cho các sao nổi bật.' },
+      'Step through the dates': { title: 'Xem các thời điểm', body: 'Nhấn Phát, kéo thanh trượt hoặc dùng phím ← →. Ngày phía trên ảnh là ngày chụp của khung hình.', done: 'Các sao nền gần như đứng yên, còn mục tiêu có thể dịch chuyển.' },
+      'Read the image': { title: 'Đọc hình ảnh', body: hasGaiaOverlay ? 'Các vòng tròn xanh đánh dấu sao tham chiếu Gaia DR3. Nhấn vào vòng tròn để nhận diện sao, hoặc tắt chọn sao để đánh dấu một điểm; cuộn để phóng to.' : 'Nhấn vào một ngôi sao trên ảnh để đánh dấu, hoặc cuộn để phóng to.', done: 'Đã chọn hoặc đánh dấu trên ảnh. Cuộn hoặc dùng − / + để quan sát kỹ hơn.' },
+      'Switch observation source': { title: 'Đổi nguồn quan sát', body: 'Chuỗi unWISE W2 + SPHEREx D6 kéo dài hơn một thập kỷ. Chọn chỉ SPHEREx để so sánh các thời điểm SPHEREx và dùng chế độ ảnh hiệu.', done: 'Bạn có thể chuyển lại chuỗi kết hợp bất cứ lúc nào.' },
+      'Markers on or off': { title: 'Bật hoặc tắt dấu sao', body: 'Tắt sao tham chiếu Gaia để xem ảnh hồng ngoại gốc, rồi bật lại để hiện các vòng tròn danh mục.', done: 'Các vòng tròn tham chiếu Gaia đã hiện hoặc ẩn trên ảnh.' },
+      'Spot what changed': { title: 'Tìm sự thay đổi', body: 'So sánh hai ngày đặt hai ảnh cạnh nhau. Trong dòng thời gian, ảnh hiệu trừ ảnh đầu tiên: sao đứng yên biến mất và một cặp sáng–tối có thể cho thấy chuyển động.', done: 'Hãy đối chiếu kết quả với ảnh gốc trước khi kết luận.' },
+      'That’s it': { title: 'Hoàn tất', body: 'Bạn có thể mở lại hướng dẫn bất cứ lúc nào bằng nút Hướng dẫn hoặc phím T.' },
+    }
+    return steps.map((step) => {
+      const item = translated[step.title]
+      if (!item) return step
+      return vi
+        ? { ...step, title: item.title, alternateTitle: step.title, body: <p>{item.body}</p>, alternateBody: step.body, done: item.done }
+        : { ...step, alternateTitle: item.title, alternateBody: <p>{item.body}</p> }
+    })
+  }, [canCombine, hasGaiaOverlay, popupOpen, vi])
 
   const ensureTourTarget = useCallback(() => {
     if (coords) open('target')
@@ -564,7 +588,7 @@ export default function TheEyesPage() {
     <GuideProvider value={guide}>
     <div className={`eyes${embed ? ' eyes--embed' : ''}`}>
       <a href="#sky" className="skip-link">
-        Skip to sky map
+        {vi ? 'Chuyển đến bản đồ bầu trời' : 'Skip to sky map'}
       </a>
       {embed ? (
         <header className="eyes-embed-head">
@@ -575,6 +599,7 @@ export default function TheEyesPage() {
       ) : (
         <>
           <SiteHeader variant="eyes">
+            <LanguageSwitch />
             <TargetSearch
               key={sel.q}
               value={rq.kind === 'target' ? '' : sel.q}
@@ -621,7 +646,7 @@ export default function TheEyesPage() {
 
         {mapStatus.s !== 'ready' && (
           <div className={`map-status${mapStatus.s === 'error' ? ' is-error' : ''}`} role={mapStatus.s === 'error' ? 'alert' : 'status'}>
-            {mapStatus.s === 'loading' ? 'Loading the sky map…' : `The sky map could not start. ${mapStatus.msg ?? ''} The SPHEREx observations still work from the search.`}
+            {mapStatus.s === 'loading' ? (vi ? 'Đang tải bản đồ bầu trời…' : 'Loading the sky map…') : vi ? `Không thể mở bản đồ bầu trời. ${mapStatus.msg ?? ''} Bạn vẫn có thể tìm ảnh quan sát SPHEREx.` : `The sky map could not start. ${mapStatus.msg ?? ''} The SPHEREx observations still work from the search.`}
           </div>
         )}
 
@@ -629,7 +654,7 @@ export default function TheEyesPage() {
           <div className="map-epoch-warn notice notice--warn" role="status">
             <AlertTriangle aria-hidden />
             <span>
-              <strong>DSS2 fallback (1950s–1990s optical plates):</strong> target markers (DR1 MJD {DR1_MAP_MJD}) and Gaia DR3 stars (J2016.0) are not aligned to the DSS2 plate epoch.
+              <strong>{vi ? 'DSS2 dự phòng (các tấm quang học thập niên 1950–1990):' : 'DSS2 fallback (1950s–1990s optical plates):'}</strong> {vi ? `dấu mục tiêu (DR1 MJD ${DR1_MAP_MJD}) và sao Gaia DR3 (J2016.0) chưa được căn theo thời điểm tấm DSS2.` : `target markers (DR1 MJD ${DR1_MAP_MJD}) and Gaia DR3 stars (J2016.0) are not aligned to the DSS2 plate epoch.`}
             </span>
           </div>
         )}
@@ -637,8 +662,7 @@ export default function TheEyesPage() {
         {ground && <Horizon />}
         {skyMotion && (
           <p className="sky-motion-note" role="status">
-            Sky motion on: the view turns the way the sky does as Earth rotates, sped up about 700 times. This is a visualisation,
-            not SPHEREx data.
+            {vi ? 'Chuyển động bầu trời đang bật: khung nhìn xoay theo chuyển động do Trái Đất tự quay, nhanh hơn khoảng 700 lần. Đây là hình minh họa, không phải dữ liệu SPHEREx.' : 'Sky motion on: the view turns the way the sky does as Earth rotates, sped up about 700 times. This is a visualisation, not SPHEREx data.'}
           </p>
         )}
 
@@ -652,56 +676,56 @@ export default function TheEyesPage() {
               open('target')
             }}
           >
-            <Eye aria-hidden /> Show {title}
+            <Eye aria-hidden /> {vi ? `Hiện ${title}` : `Show ${title}`}
           </button>
         )}
 
         {rq.kind === 'name' && resolved.isError && (
           <div className="map-toast notice notice--warn" role="alert">
             <span>
-              <strong>{describeError(resolved.error).title}.</strong> {describeError(resolved.error).body}
+              <strong>{describeErrorLocalized(resolved.error, lang).title}.</strong> {describeErrorLocalized(resolved.error, lang).body}
             </span>
-            <button type="button" className="icon-btn icon-btn--sm" aria-label="Dismiss" onClick={() => commit({ q: '' }, true)}>
+            <button type="button" className="icon-btn icon-btn--sm" aria-label={vi ? 'Đóng thông báo' : 'Dismiss'} onClick={() => commit({ q: '' }, true)}>
               <X aria-hidden />
             </button>
           </div>
         )}
 
         {!popupOpen && !selectedPlanet && !embed && planets && mapStatus.s === 'ready' && (
-          <nav className="planet-strip" aria-label="Solar System planets">
+          <nav className="planet-strip" aria-label={vi ? 'Các hành tinh trong Hệ Mặt Trời' : 'Solar System planets'}>
             {planetPositions.map((p) => (
               <button
                 key={p.key}
                 type="button"
                 className={`planet-chip${selectedPlanetKey === p.key ? ' is-selected' : ''}`}
                 aria-pressed={selectedPlanetKey === p.key}
-                title={p.isObserver ? 'Earth (observer beneath low-Earth orbit)' : `${p.name} · ${p.geoAu.toFixed(2)} AU from Earth`}
+                title={p.isObserver ? (vi ? 'Trái Đất (người quan sát dưới quỹ đạo thấp)' : 'Earth (observer beneath low-Earth orbit)') : `${vi ? ORBIT_COPY.vi[p.key] : p.name} · ${p.geoAu.toFixed(2)} AU ${vi ? 'từ Trái Đất' : 'from Earth'}`}
                 onClick={() => focusPlanet(p)}
               >
                 <span className="planet-chip__sym" style={{ color: p.color }} aria-hidden>
                   {p.symbol}
                 </span>
-                <span>{p.name}</span>
+                {label(p.name, ORBIT_COPY.vi[p.key])}
               </button>
             ))}
           </nav>
         )}
 
         {selectedPlanet && (
-          <section className="source-card planet-card" aria-label="Solar System planet">
+          <section className="source-card planet-card" aria-label={vi ? 'Hành tinh trong Hệ Mặt Trời' : 'Solar System planet'}>
             <div className="source-card__head">
               <h2 className="source-card__title">
                 <span style={{ color: selectedPlanet.color }} aria-hidden>
                   {selectedPlanet.symbol}{' '}
                 </span>
-                {selectedPlanet.name}
+                {label(selectedPlanet.name, ORBIT_COPY.vi[selectedPlanet.key])}
               </h2>
-              <button type="button" className="icon-btn icon-btn--sm" aria-label="Close planet details" onClick={() => setSelectedPlanetKey(null)}>
+              <button type="button" className="icon-btn icon-btn--sm" aria-label={vi ? 'Đóng chi tiết hành tinh' : 'Close planet details'} onClick={() => setSelectedPlanetKey(null)}>
                 <X aria-hidden />
               </button>
             </div>
             <div className="planet-card__meta">
-              <span className="pill">{selectedPlanet.category}</span>
+              <span className="pill">{label(selectedPlanet.category, PLANET_CATEGORY_VI[selectedPlanet.category])}</span>
               {!selectedPlanet.isObserver && (
                 <div className="planet-card__epoch" role="group" aria-label="Planet position epoch">
                   <button
@@ -710,7 +734,7 @@ export default function TheEyesPage() {
                     aria-pressed={planetEpochMode === 'survey'}
                     onClick={() => setPlanetEpochMode('survey')}
                   >
-                    {survey.epochLabel ?? 'Survey'}
+                    {survey.epochLabel ?? (vi ? 'Khảo sát' : 'Survey')}
                   </button>
                   <button
                     type="button"
@@ -721,7 +745,7 @@ export default function TheEyesPage() {
                       setPlanetEpochMode('now')
                     }}
                   >
-                    Today
+                    {label('Today', 'Hôm nay')}
                   </button>
                 </div>
               )}
@@ -731,19 +755,19 @@ export default function TheEyesPage() {
               <>
                 <dl className="facts">
                   <div>
-                    <dt>Distance from Earth</dt>
+                    <dt>{vi ? 'Khoảng cách từ Trái Đất' : 'Distance from Earth'}</dt>
                     <dd className="num">
                       {selectedPlanet.isObserver
-                        ? '0 AU — SPHEREx flies ~650 km overhead'
-                        : `${selectedPlanet.geoAu.toFixed(2)} AU (${formatLightTime(selectedPlanet.lightTimeMin)})`}
+                        ? (vi ? '0 AU — SPHEREx bay ở độ cao khoảng 650 km' : '0 AU — SPHEREx flies ~650 km overhead')
+                        : `${selectedPlanet.geoAu.toFixed(2)} AU (${formatLightTime(selectedPlanet.lightTimeMin, vi)})`}
                     </dd>
                   </div>
                   <div>
-                    <dt>Distance from the Sun</dt>
+                    <dt>{vi ? 'Khoảng cách từ Mặt Trời' : 'Distance from the Sun'}</dt>
                     <dd className="num">{selectedPlanet.helioAu.toFixed(2)} AU</dd>
                   </div>
                 </dl>
-                <p className="caption planet-card__fact">{selectedPlanet.funFact}</p>
+                <p className="caption planet-card__fact"><EyesCopy alternate={vi ? selectedPlanet.funFact : PLANET_FACTS_VI[selectedPlanet.key].fun}>{vi ? PLANET_FACTS_VI[selectedPlanet.key].fun : selectedPlanet.funFact}</EyesCopy></p>
               </>
             ) : (
               <>
@@ -751,47 +775,47 @@ export default function TheEyesPage() {
                   {selectedPlanet.isObserver ? (
                     <>
                       <div>
-                        <dt>Orbital radius (r)</dt>
+                        <dt>{vi ? 'Bán kính quỹ đạo (r)' : 'Orbital radius (r)'}</dt>
                         <dd className="num">{selectedPlanet.helioAu.toFixed(4)} AU</dd>
                       </div>
                       <div>
-                        <dt>Observer orbit</dt>
-                        <dd>~650 km Sun-synchronous LEO along the terminator</dd>
+                        <dt>{vi ? 'Quỹ đạo quan sát' : 'Observer orbit'}</dt>
+                        <dd>{vi ? 'Quỹ đạo thấp đồng bộ Mặt Trời ở độ cao khoảng 650 km, dọc ranh giới ngày đêm' : '~650 km Sun-synchronous LEO along the terminator'}</dd>
                       </div>
                     </>
                   ) : (
                     <>
                       <div>
                         <dt>
-                          Apparent ICRS ({planetEpochMode === 'now' ? 'Live today' : (survey.epochLabel ?? `MJD ${DR1_MAP_MJD}`)})
+                          {vi ? 'ICRS biểu kiến' : 'Apparent ICRS'} ({planetEpochMode === 'now' ? (vi ? 'Hôm nay' : 'Live today') : (survey.epochLabel ?? `MJD ${DR1_MAP_MJD}`)})
                         </dt>
                         <dd className="num">
                           {formatRaHms(selectedPlanet.ra)} {formatDecDms(selectedPlanet.dec)}
                         </dd>
                       </div>
                       <div>
-                        <dt>Heliocentric r / Geocentric Δ</dt>
+                        <dt>{vi ? 'Nhật tâm r / địa tâm Δ' : 'Heliocentric r / Geocentric Δ'}</dt>
                         <dd className="num">
                           {selectedPlanet.helioAu.toFixed(3)} AU / {selectedPlanet.geoAu.toFixed(3)} AU
                         </dd>
                       </div>
                       <div>
-                        <dt>Solar elongation · Light time</dt>
+                        <dt>{vi ? 'Góc ly Mặt Trời · Thời gian ánh sáng' : 'Solar elongation · Light time'}</dt>
                         <dd className="num">
-                          {selectedPlanet.elongationDeg.toFixed(1)}° · {formatLightTime(selectedPlanet.lightTimeMin)}
+                          {selectedPlanet.elongationDeg.toFixed(1)}° · {formatLightTime(selectedPlanet.lightTimeMin, vi)}
                         </dd>
                       </div>
                     </>
                   )}
                 </dl>
-                <p className="caption planet-card__fact">{selectedPlanet.spherexNote}</p>
+                <p className="caption planet-card__fact"><EyesCopy alternate={vi ? selectedPlanet.spherexNote : PLANET_FACTS_VI[selectedPlanet.key].science}>{vi ? PLANET_FACTS_VI[selectedPlanet.key].science : selectedPlanet.spherexNote}</EyesCopy></p>
               </>
             )}
 
             <div className="planet-card__actions">
               {selectedPlanet.isObserver ? (
                 <button type="button" className="btn btn-secondary" onClick={() => setGround((g) => !g)}>
-                  <Mountain aria-hidden /> {ground ? 'Hide Earth horizon' : 'Show Earth horizon'}
+                  <Mountain aria-hidden /> {ground ? label('Hide Earth horizon', 'Ẩn chân trời Trái Đất') : label('Show Earth horizon', 'Hiện chân trời Trái Đất')}
                 </button>
               ) : (
                 <button
@@ -802,17 +826,17 @@ export default function TheEyesPage() {
                     mapRef.current?.focus(selectedPlanet.ra, selectedPlanet.dec, 28)
                   }}
                 >
-                  <LocateFixed aria-hidden /> Center on {selectedPlanet.name}
+                  <LocateFixed aria-hidden /> {vi ? `Căn giữa tại ${ORBIT_COPY.vi[selectedPlanet.key]}` : `Center on ${selectedPlanet.name}`}
                 </button>
               )}
-              <div className="planet-card__jumper" aria-label="Jump to another planet">
+              <div className="planet-card__jumper" aria-label={vi ? 'Chuyển đến hành tinh khác' : 'Jump to another planet'}>
                 {planetPositions.map((p) => (
                   <button
                     key={p.key}
                     type="button"
                     className={`planet-jump-btn${p.key === selectedPlanet.key ? ' is-selected' : ''}`}
-                    title={p.name}
-                    aria-label={p.name}
+                    title={vi ? ORBIT_COPY.vi[p.key] : p.name}
+                    aria-label={vi ? ORBIT_COPY.vi[p.key] : p.name}
                     onClick={() => focusPlanet(p)}
                   >
                     <span style={{ color: p.color }}>{p.symbol}</span>
@@ -824,45 +848,45 @@ export default function TheEyesPage() {
         )}
 
         {source && (
-          <section className="source-card" aria-label="Gaia DR3 star">
+          <section className="source-card" aria-label={vi ? 'Sao Gaia DR3' : 'Gaia DR3 star'}>
             <div className="source-card__head">
-              <h2 className="source-card__title">Gaia DR3 star</h2>
-              <button type="button" className="icon-btn icon-btn--sm" aria-label="Close star details" onClick={() => setSource(null)}>
+              <h2 className="source-card__title">{vi ? 'Sao Gaia DR3' : 'Gaia DR3 star'}</h2>
+              <button type="button" className="icon-btn icon-btn--sm" aria-label={vi ? 'Đóng chi tiết sao' : 'Close star details'} onClick={() => setSource(null)}>
                 <X aria-hidden />
               </button>
             </div>
             <dl className="facts">
               {source.sourceId && (
                 <div>
-                  <dt>Source ID</dt>
+                  <dt>{vi ? 'Mã nguồn' : 'Source ID'}</dt>
                   <dd className="num">{source.sourceId}</dd>
                 </div>
               )}
               <div>
-                <dt>RA / Dec (ICRS, catalog epoch J2016.0)</dt>
+                <dt>{vi ? 'RA / Dec (ICRS, thời điểm danh mục J2016.0)' : 'RA / Dec (ICRS, catalog epoch J2016.0)'}</dt>
                 <dd className="num">
                   {formatRaHms(source.catalogRa)} {formatDecDms(source.catalogDec)}
                 </dd>
               </div>
               {source.propagated && (
                 <div>
-                  <dt>Map position ({source.epochLabel})</dt>
+                  <dt>{vi ? 'Vị trí trên bản đồ' : 'Map position'} ({source.epochLabel})</dt>
                   <dd className="num">
                     {formatRaHms(source.ra)} {formatDecDms(source.dec)}
                   </dd>
                 </div>
               )}
               <div>
-                <dt>Brightness</dt>
-                <dd className="num">{source.gmag != null ? `G = ${source.gmag.toFixed(2)} mag` : 'Not available'}</dd>
+                <dt>{vi ? 'Độ sáng' : 'Brightness'}</dt>
+                <dd className="num">{source.gmag != null ? `G = ${source.gmag.toFixed(2)} mag` : (vi ? 'Không có dữ liệu' : 'Not available')}</dd>
               </div>
             </dl>
             <p className="caption">
-              Source: ESA Gaia DR3 via {source.catalogSource === 'sky_archive' ? 'Supabase sky_archive' : 'VizieR'}
-              {source.propagated ? ' (propagated with angular_proper_motion_only)' : ' (pmRA/pmDE absent or DSS2 fallback: kept at J2016.0)'}. Not a SPHEREx measurement.
+              {vi ? 'Nguồn' : 'Source'}: ESA Gaia DR3 {vi ? 'qua' : 'via'} {source.catalogSource === 'sky_archive' ? 'Supabase sky_archive' : 'VizieR'}
+              {source.propagated ? (vi ? ' (đã quy đổi theo chuyển động góc)' : ' (propagated with angular_proper_motion_only)') : (vi ? ' (thiếu pmRA/pmDE hoặc dùng DSS2: giữ tại J2016.0)' : ' (pmRA/pmDE absent or DSS2 fallback: kept at J2016.0)')}. {vi ? 'Không phải phép đo SPHEREx.' : 'Not a SPHEREx measurement.'}
             </p>
             <button type="button" className="btn btn-secondary" onClick={() => { submitQuery(`${source.catalogRa.toFixed(6)} ${source.catalogDec >= 0 ? '+' : ''}${source.catalogDec.toFixed(6)}`); setSource(null) }}>
-              View SPHEREx observations here
+              {label('View SPHEREx observations here', 'Xem quan sát SPHEREx tại đây')}
             </button>
           </section>
         )}
@@ -919,50 +943,50 @@ export default function TheEyesPage() {
               onExperienceModeChange={setExperienceMode}
             />
           )}
-        <div className="dock" role="toolbar" aria-label="Sky tools">
+        <div className="dock" role="toolbar" aria-label={vi ? 'Công cụ bầu trời' : 'Sky tools'}>
           {!popupOpen && (
             <>
-              <div className="dock__switch dock__switch--mode" role="group" aria-label="Experience mode">
+              <div className="dock__switch dock__switch--mode" role="group" aria-label={vi ? 'Chế độ trải nghiệm' : 'Experience mode'}>
                 <button
                   type="button"
                   className="dock__btn"
                   aria-pressed={experienceMode === 'explore'}
-                  title="Explore mode for beginners & students"
+                  title={vi ? 'Chế độ khám phá cho người mới và học sinh' : 'Explore mode for beginners & students'}
                   onClick={() => setExperienceMode('explore')}
                 >
-                  <span>Explore</span>
+                  {label('Explore', 'Khám phá')}
                 </button>
                 <button
                   type="button"
                   className="dock__btn"
                   aria-pressed={experienceMode === 'science'}
-                  title="Science mode for citizen scientists & researchers"
+                  title={vi ? 'Chế độ khoa học cho nhà nghiên cứu và cộng đồng' : 'Science mode for citizen scientists & researchers'}
                   onClick={() => setExperienceMode('science')}
                 >
-                  <span>Science</span>
+                  {label('Science', 'Khoa học')}
                 </button>
               </div>
               <span className="dock__sep" role="separator" aria-orientation="vertical" />
             </>
           )}
-          <button type="button" className="dock__btn" aria-pressed={grid} title="RA/Dec grid (G)" onClick={() => setGrid((g) => !g)}>
+          <button type="button" className="dock__btn" aria-pressed={grid} title={vi ? 'Lưới RA/Dec (G)' : 'RA/Dec grid (G)'} onClick={() => setGrid((g) => !g)}>
             <Grid3x3 aria-hidden /> <span>RA/Dec</span>
           </button>
           <button
             type="button"
             className="dock__btn dock__wide-only"
             aria-pressed={skyMotion}
-            title={reduceMotion ? 'Turned off because reduced motion is on' : 'Turn the whole sky as Earth rotates (M)'}
+            title={reduceMotion ? (vi ? 'Đã tắt vì thiết bị bật chế độ giảm chuyển động' : 'Turned off because reduced motion is on') : (vi ? 'Xoay bầu trời theo chuyển động Trái Đất (M)' : 'Turn the whole sky as Earth rotates (M)')}
             disabled={!!reduceMotion || mapStatus.s !== 'ready'}
             onClick={() => setSkyMotion((m) => !m)}
           >
-            <Orbit aria-hidden /> <span>Sky motion</span>
+            <Orbit aria-hidden /> {label('Sky motion', 'Bầu trời xoay')}
           </button>
-          <button type="button" className="dock__btn dock__wide-only" aria-pressed={ground} title="Show the ground and horizon" onClick={() => setGround((g) => !g)}>
-            <Mountain aria-hidden /> <span>Ground</span>
+          <button type="button" className="dock__btn dock__wide-only" aria-pressed={ground} title={vi ? 'Hiện mặt đất và chân trời' : 'Show the ground and horizon'} onClick={() => setGround((g) => !g)}>
+            <Mountain aria-hidden /> {label('Ground', 'Chân trời')}
           </button>
-          <button type="button" className="dock__btn" aria-pressed={gaia} title="Gaia DR3 stars around the view or target" disabled={mapStatus.s !== 'ready'} onClick={() => setGaia((g) => !g)}>
-            <Sparkles aria-hidden /> <span>Gaia stars</span>
+          <button type="button" className="dock__btn" aria-pressed={gaia} title={vi ? 'Sao Gaia DR3 quanh khung nhìn hoặc mục tiêu' : 'Gaia DR3 stars around the view or target'} disabled={mapStatus.s !== 'ready'} onClick={() => setGaia((g) => !g)}>
+            <Sparkles aria-hidden /> {label('Gaia stars', 'Sao Gaia')}
           </button>
           <button
             type="button"
@@ -970,13 +994,13 @@ export default function TheEyesPage() {
             aria-pressed={planets}
             title={
               experienceMode === 'explore'
-                ? 'Show or hide the 9 Solar System planets along the sky'
-                : 'Overlay Solar System planets along the ecliptic at the active epoch'
+                ? (vi ? 'Hiện hoặc ẩn 9 thiên thể Hệ Mặt Trời trên bầu trời' : 'Show or hide the 9 Solar System planets along the sky')
+                : (vi ? 'Hiện các hành tinh dọc hoàng đạo tại thời điểm đang chọn' : 'Overlay Solar System planets along the ecliptic at the active epoch')
             }
             disabled={mapStatus.s !== 'ready'}
             onClick={() => setPlanets((p) => !p)}
           >
-            <Globe2 aria-hidden /> <span>Planets</span>
+            <Globe2 aria-hidden /> {label('Planets', 'Hành tinh')}
           </button>
           <span className="dock__sep" role="separator" aria-orientation="vertical" />
           <div className="dock__switch" role="group" aria-label="Sky background survey">
@@ -1013,24 +1037,24 @@ export default function TheEyesPage() {
           </div>
           <span className="dock__sep" role="separator" aria-orientation="vertical" />
           {coords && (
-            <button type="button" className="dock__btn" title="Center on the selected target (C)" onClick={center}>
-              <LocateFixed aria-hidden /> <span>Center</span>
+            <button type="button" className="dock__btn" title={vi ? 'Căn giữa tại mục tiêu đã chọn (C)' : 'Center on the selected target (C)'} onClick={center}>
+              <LocateFixed aria-hidden /> {label('Center', 'Căn giữa')}
             </button>
           )}
-          <button type="button" className="dock__icon dock__wide-only" aria-label="Zoom out map" title="Zoom out map" onClick={() => mapRef.current?.zoomOut()}>
+          <button type="button" className="dock__icon dock__wide-only" aria-label={vi ? 'Thu nhỏ bản đồ' : 'Zoom out map'} title={vi ? 'Thu nhỏ bản đồ' : 'Zoom out map'} onClick={() => mapRef.current?.zoomOut()}>
             <Minus aria-hidden />
           </button>
           <span className="dock__zoom dock__wide-only" aria-label={`Map zoom ${mapFovDeg === null ? 'unavailable' : zoomLabel}`} title="Zoom relative to the default sky view">
             {zoomLabel}
           </span>
-          <button type="button" className="dock__icon dock__wide-only" aria-label="Zoom in map" title="Zoom in map" onClick={() => mapRef.current?.zoomIn()}>
+          <button type="button" className="dock__icon dock__wide-only" aria-label={vi ? 'Phóng to bản đồ' : 'Zoom in map'} title={vi ? 'Phóng to bản đồ' : 'Zoom in map'} onClick={() => mapRef.current?.zoomIn()}>
             <Plus aria-hidden />
           </button>
           <span className="dock__sep" role="separator" aria-orientation="vertical" />
-          <button type="button" className="dock__icon" aria-label="Help and shortcuts" title="Help (?)" onClick={() => setHelp(true)}>
+          <button type="button" className="dock__icon" aria-label={vi ? 'Trợ giúp và phím tắt' : 'Help and shortcuts'} title={vi ? 'Trợ giúp (?)' : 'Help (?)'} onClick={() => setHelp(true)}>
             <HelpCircle aria-hidden />
           </button>
-          <button type="button" className="dock__icon dock__wide-only" aria-label={isFullscreen ? 'Exit full screen' : 'Full screen'} aria-pressed={isFullscreen} title="Full screen" onClick={toggleFullscreen}>
+          <button type="button" className="dock__icon dock__wide-only" aria-label={isFullscreen ? (vi ? 'Thoát toàn màn hình' : 'Exit full screen') : (vi ? 'Toàn màn hình' : 'Full screen')} aria-pressed={isFullscreen} title={vi ? 'Toàn màn hình' : 'Full screen'} onClick={toggleFullscreen}>
             {isFullscreen ? <Minimize2 aria-hidden /> : <Maximize2 aria-hidden />}
           </button>
         </div>
@@ -1039,8 +1063,8 @@ export default function TheEyesPage() {
       <CompactFooter>
         <span className="sep">·</span>
         <span>
-          Sky survey: {survey.label}
-          {survey.cube ? `, detector D${detector}` : ''}
+          {vi ? 'Khảo sát bầu trời' : 'Sky survey'}: {survey.label}
+          {survey.cube ? `, ${vi ? 'cảm biến' : 'detector'} D${detector}` : ''}
           {survey.epochLabel ? ` · ${survey.epochLabel}` : ''} ({survey.credit})
           {survey.fromArchive ? ' · sky_archive' : ''}
         </span>

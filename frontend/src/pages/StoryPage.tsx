@@ -1,24 +1,21 @@
 import { Link } from 'react-router'
-import type { ReactNode } from 'react'
 import { PATHS } from '../app/config'
 import { Artwork } from '../features/artwork/Artwork'
 import { DETECTORS, TARGETS } from '../shared/config/targets'
 import { TEAM_NAME } from '../shared/config/team'
 import { useLanguage, type Language } from '../shared/i18n/language'
+import { StableLabel } from '../shared/i18n/StableLabel'
 import { STORY_COPY } from '../shared/i18n/storyTranslations'
 import { PageShell } from '../shared/layout/Shell'
 import { ColourDiagram, DifferenceDiagram, MotionDiagram, SurveyTimeline } from './story/diagrams'
 import { ShootingStarLink } from './story/ShootingStarLink'
 import { ShootingStars } from './story/ShootingStars'
 import { TeamGrid } from './story/TeamGrid'
+import { StableCopy } from './story/StableCopy'
 import './story/story.css'
 
 function Status({ kind, label }: { kind: 'planned' | 'built' | 'pending'; label: string }) {
   return <span className={`status status--${kind}`}>{label}</span>
-}
-
-function StableCopy({ children, alternate }: { children: ReactNode; alternate: ReactNode }) {
-  return <span className="story-copy-slot"><span>{children}</span><span aria-hidden="true">{alternate}</span></span>
 }
 
 function ToolbarItem({ kind, lang }: { kind: 'radec' | 'gaia' | 'surveys' | 'nav'; lang: Language }) {
@@ -98,23 +95,23 @@ export default function StoryPage() {
       <header className="story-head">
         <Artwork variant="corner" className="story-head__art" />
         <div className="wrap">
-          <p className="eyebrow">{t.eyebrow}</p>
-          <h1 className="story-head__title">{t.title}</h1>
-          <p className="story-head__lead">{t.lead}</p>
+          <p className="eyebrow"><StableCopy alternate={otherT.eyebrow}>{t.eyebrow}</StableCopy></p>
+          <h1 className="story-head__title"><StableCopy alternate={otherT.title}>{t.title}</StableCopy></h1>
+          <p className="story-head__lead"><StableCopy alternate={otherT.lead}>{t.lead}</StableCopy></p>
           <ol className="flow-trail" aria-label={t.flowTrailLabel}>
             <li>
-              <Link to={PATHS.home}>{t.flowHome}</Link>
+              <Link to={PATHS.home}><StableLabel text={t.flowHome} alt={otherT.flowHome} /></Link>
             </li>
             <li aria-current="step">
-              <span className="flow-trail__here">{t.flowStory}</span> <span className="flow-trail__tag">{t.flowHereTag}</span>
+              <span className="flow-trail__here"><StableLabel text={t.flowStory} alt={otherT.flowStory} /></span> <span className="flow-trail__tag"><StableLabel text={t.flowHereTag} alt={otherT.flowHereTag} /></span>
             </li>
             <li>
               <Link to={PATHS.entry} className="flow-trail__next">
-                {t.flowOrbit}
+                <StableLabel text={t.flowOrbit} alt={otherT.flowOrbit} />
               </Link>{' '}
-              <span className="flow-trail__tag">{t.flowNextTag}</span>
+              <span className="flow-trail__tag"><StableLabel text={t.flowNextTag} alt={otherT.flowNextTag} /></span>
             </li>
-            <li>{t.flowEyes}</li>
+            <li><StableLabel text={t.flowEyes} alt={otherT.flowEyes} /></li>
           </ol>
         </div>
       </header>
@@ -135,24 +132,24 @@ export default function StoryPage() {
         <article className="story-body">
           <section id="purpose" className="chapter">
             <p className="chapter__num">01</p>
-            <h2>{t.sections[0].title}</h2>
-            <p>{t.purposeIntro}</p>
+            <h2><StableCopy alternate={otherT.sections[0].title}>{t.sections[0].title}</StableCopy></h2>
+            <p><StableCopy alternate={otherT.purposeIntro}>{t.purposeIntro}</StableCopy></p>
             <ul className="plain-list">
               <li>
-                <strong>{t.purposeSeeMove}</strong> {movers.join(', ')}.
+                <StableCopy alternate={<><strong>{otherT.purposeSeeMove}</strong> {TARGETS.filter((target) => target.change === 'motion').map((target) => otherT.targets[target.key].name).join(', ')}.</>}><strong>{t.purposeSeeMove}</strong> {movers.join(', ')}.</StableCopy>
               </li>
               <li>
-                <strong>{t.purposeSeeBrightness}</strong> {changers.join(', ')}.
+                <StableCopy alternate={<><strong>{otherT.purposeSeeBrightness}</strong> {TARGETS.filter((target) => target.change === 'brightness').map((target) => otherT.targets[target.key].name).join(', ')}.</>}><strong>{t.purposeSeeBrightness}</strong> {changers.join(', ')}.</StableCopy>
               </li>
               <li>
-                <strong>{t.purposeLookAnywhereLabel}</strong> {t.purposeLookAnywhereBody}
+                <StableCopy alternate={<><strong>{otherT.purposeLookAnywhereLabel}</strong> {otherT.purposeLookAnywhereBody}</>}><strong>{t.purposeLookAnywhereLabel}</strong> {t.purposeLookAnywhereBody}</StableCopy>
               </li>
             </ul>
-            <h3 className="chapter__sub">{t.whoTitle}</h3>
+            <h3 className="chapter__sub"><StableCopy alternate={otherT.whoTitle}>{t.whoTitle}</StableCopy></h3>
             <ul className="plain-list">
-              {t.whoItems.map((item) => (
+              {t.whoItems.map((item, i) => (
                 <li key={item.label}>
-                  <strong>{item.label}</strong> {item.body}
+                  <StableCopy alternate={<><strong>{otherT.whoItems[i].label}</strong> {otherT.whoItems[i].body}</>}><strong>{item.label}</strong> {item.body}</StableCopy>
                 </li>
               ))}
             </ul>
@@ -160,13 +157,15 @@ export default function StoryPage() {
 
           <section id="how" className="chapter">
             <p className="chapter__num">02</p>
-            <h2>{t.sections[1].title}</h2>
+            <h2><StableCopy alternate={otherT.sections[1].title}>{t.sections[1].title}</StableCopy></h2>
             <p>
+              <StableCopy alternate={<>{otherT.howIntroPrefix}<strong>{otherT.howIntroOrbit}</strong>{otherT.howIntroMiddle}<strong>{otherT.howIntroEyes}</strong>{otherT.howIntroSuffix}</>}>
               {t.howIntroPrefix}
               <strong>{t.howIntroOrbit}</strong>
               {t.howIntroMiddle}
               <strong>{t.howIntroEyes}</strong>
               {t.howIntroSuffix}
+              </StableCopy>
             </p>
             <ol className="steps" aria-label={t.stepsLabel}>
               {t.steps.map((s, i) => (
@@ -200,17 +199,17 @@ export default function StoryPage() {
 
           <section id="science" className="chapter">
             <p className="chapter__num">03</p>
-            <h2>{t.sections[2].title}</h2>
-            <p>{t.scienceIntro}</p>
-            <h3 className="chapter__sub">{t.scienceSubs[0]}</h3>
+            <h2><StableCopy alternate={otherT.sections[2].title}>{t.sections[2].title}</StableCopy></h2>
+            <p><StableCopy alternate={otherT.scienceIntro}>{t.scienceIntro}</StableCopy></p>
+            <h3 className="chapter__sub"><StableCopy alternate={otherT.scienceSubs[0]}>{t.scienceSubs[0]}</StableCopy></h3>
             <ColourDiagram />
-            <h3 className="chapter__sub">{t.scienceSubs[1]}</h3>
+            <h3 className="chapter__sub"><StableCopy alternate={otherT.scienceSubs[1]}>{t.scienceSubs[1]}</StableCopy></h3>
             <MotionDiagram />
-            <h3 className="chapter__sub">{t.scienceSubs[2]}</h3>
+            <h3 className="chapter__sub"><StableCopy alternate={otherT.scienceSubs[2]}>{t.scienceSubs[2]}</StableCopy></h3>
             <DifferenceDiagram />
-            <h3 className="chapter__sub">{t.scienceSubs[3]}</h3>
+            <h3 className="chapter__sub"><StableCopy alternate={otherT.scienceSubs[3]}>{t.scienceSubs[3]}</StableCopy></h3>
             <SurveyTimeline />
-            <p className="note">{t.scienceNote}</p>
+            <p className="note"><StableCopy alternate={otherT.scienceNote}>{t.scienceNote}</StableCopy></p>
           </section>
 
           <section id="honest" className="chapter">

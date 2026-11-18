@@ -74,3 +74,27 @@ export function isAbort(error: unknown): boolean {
     (error instanceof DOMException && error.name === 'AbortError')
   )
 }
+
+/** Keep service codes intact while translating their user-facing explanations. */
+export function describeErrorLocalized(error: unknown, lang: 'en' | 'vi'): ErrorCopy {
+  const copy = describeError(error)
+  if (lang === 'en') return copy
+  const translations: Record<string, [string, string]> = {
+    'Coordinates not accepted': ['Tọa độ không hợp lệ', 'Hãy kiểm tra RA và Dec rồi thử lại.'],
+    'Request not accepted': ['Yêu cầu không hợp lệ', 'Một cài đặt nằm ngoài phạm vi cho phép.'],
+    'Name not found': ['Không tìm thấy tên', 'Hãy thử tên khác hoặc nhập RA và Dec.'],
+    'No SPHEREx observations here': ['Không có quan sát SPHEREx tại đây', 'Chưa có ảnh phát hành cho vị trí và cảm biến này. Hãy thử cảm biến hoặc mục tiêu khác.'],
+    'No measured spectrum here': ['Không có phổ đo tại đây', 'Không có phổ FITS SPHEREx bao phủ vị trí này. Hãy chọn điểm hoặc mục tiêu khác.'],
+    'Spectrum file unavailable': ['Tệp phổ không khả dụng', 'Có hồ sơ danh mục nhưng không đọc được tệp FITS từ kho đã cấu hình.'],
+    'Images expired': ['Ảnh đã hết hạn', 'Dịch vụ ảnh đã khởi động lại. Hãy tải lại ảnh quan sát.'],
+    'WISE 0855 images unavailable': ['Ảnh WISE 0855 không khả dụng', 'Không thể tải ảnh đã xử lý. Hãy thử lại hoặc chỉ chọn SPHEREx.'],
+    'Archive unavailable': ['Kho lưu trữ không khả dụng', 'Kho NASA không phản hồi đúng. Hãy thử lại sau.'],
+    'The image service is slow': ['Dịch vụ ảnh phản hồi chậm', 'Máy chủ có thể cần một phút để khởi động. Hãy thử lại.'],
+    'Connection problem': ['Lỗi kết nối', 'Không thể kết nối dịch vụ ảnh.'],
+    'Not available yet': ['Chưa khả dụng', 'Công cụ này cần dữ liệu mà dịch vụ chưa cung cấp.'],
+    Cancelled: ['Đã hủy', 'Yêu cầu đã được hủy.'],
+    'Something went wrong': ['Đã xảy ra lỗi', 'Đã xảy ra lỗi không mong muốn.'],
+  }
+  const localized = translations[copy.title]
+  return localized ? { ...copy, title: localized[0], body: localized[1] } : copy
+}

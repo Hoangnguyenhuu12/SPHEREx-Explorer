@@ -8,6 +8,7 @@ import { useReducedMotion } from 'motion/react'
 import { useLanguage } from '../../shared/i18n/language'
 import { StableLabel } from '../../shared/i18n/StableLabel'
 import { STORY_COPY } from '../../shared/i18n/storyTranslations'
+import { StableCopy } from './StableCopy'
 
 const ink: CSSProperties = { fill: 'var(--fg)' }
 const muted: CSSProperties = { fill: 'var(--muted)' }
@@ -17,12 +18,14 @@ const line: CSSProperties = { stroke: 'var(--line-strong)', fill: 'none' }
 function Figure({
   label,
   note,
+  altNote,
   height = 220,
   controls,
   children,
 }: {
   label: string
   note: ReactNode
+  altNote: ReactNode
   height?: number
   /** Buttons or a slider under the drawing that change it. */
   controls?: ReactNode
@@ -30,6 +33,7 @@ function Figure({
 }) {
   const { lang } = useLanguage()
   const notePrefix = STORY_COPY[lang].diagrams.notePrefix
+  const altPrefix = STORY_COPY[lang === 'en' ? 'vi' : 'en'].diagrams.notePrefix
   return (
     <figure className="diagram">
       <svg viewBox={`0 0 560 ${height}`} role="img" aria-label={label}>
@@ -37,7 +41,7 @@ function Figure({
       </svg>
       {controls && <div className="diagram-controls">{controls}</div>}
       <figcaption className="diagram-note">
-        <strong>{notePrefix}</strong> {note}
+        <StableCopy alternate={<><strong>{altPrefix}</strong> {altNote}</>}><strong>{notePrefix}</strong> {note}</StableCopy>
       </figcaption>
     </figure>
   )
@@ -108,14 +112,17 @@ export function ColourDiagram() {
             </button>
           )}
           <span className="caption" aria-live="polite">
+            <StableCopy alternate={<>{otherC.stars[i].label}{otherC.livePrefix}<strong style={{ color: stars[i].colour }}>{otherC.stars[i].um}</strong>.</>}>
             {stars[i].label}
             {c.livePrefix}
             <strong style={{ color: stars[i].colour }}>{stars[i].um}</strong>.
+            </StableCopy>
           </span>
         </>
       }
       label={c.ariaLabel}
       note={c.note}
+      altNote={otherC.note}
     >
       <defs>
         <linearGradient id="lvf" x1="0" x2="1" y1="0" y2="0">
@@ -190,6 +197,7 @@ export function MotionDiagram() {
       }
       label={m.ariaLabel}
       note={m.note}
+      altNote={otherM.note}
     >
       {Array.from({ length: cols + 1 }, (_, i) => (
         <line key={`v${i}`} x1={x0 + i * size} x2={x0 + i * size} y1={y0} y2={y0 + rows * size} style={{ stroke: 'var(--line)' }} />
@@ -233,6 +241,7 @@ export function MotionDiagram() {
 export function DifferenceDiagram() {
   const { lang } = useLanguage()
   const d = STORY_COPY[lang].diagrams.difference
+  const otherD = STORY_COPY[lang === 'en' ? 'vi' : 'en'].diagrams.difference
   // How far the star has moved by the later date: 0 = not at all, 1 = the full step drawn here.
   const [shift, setShift] = useState(1)
   const lx = 70 + 12 * shift
@@ -251,15 +260,16 @@ export function DifferenceDiagram() {
     <Figure
       controls={
         <label className="diagram-slider">
-          <span>{d.sliderLabel}</span>
+          <span><StableCopy alternate={otherD.sliderLabel}>{d.sliderLabel}</StableCopy></span>
           <input type="range" min={0} max={1} step={0.05} value={shift} onChange={(e) => setShift(Number(e.target.value))} />
           <span className="caption" aria-live="polite">
-            {shift === 0 ? d.stillText : d.movedText}
+            <StableCopy alternate={shift === 0 ? otherD.stillText : otherD.movedText}>{shift === 0 ? d.stillText : d.movedText}</StableCopy>
           </span>
         </label>
       }
       label={d.ariaLabel}
       note={d.note}
+      altNote={otherD.note}
     >
       {cell(
         0,
@@ -302,6 +312,7 @@ export function DifferenceDiagram() {
 export function SurveyTimeline() {
   const { lang } = useLanguage()
   const tl = STORY_COPY[lang].diagrams.timeline
+  const otherTl = STORY_COPY[lang === 'en' ? 'vi' : 'en'].diagrams.timeline
   // Position Launch clearly to the left of Survey starts so all five labels align on clean horizontal rows.
   const xs = [56, 152, 264, 376, 488] as const
   const strongs = [false, false, true, true, true] as const
@@ -317,11 +328,12 @@ export function SurveyTimeline() {
     <Figure
       controls={
         <p className="caption diagram-info" aria-live="polite">
-          <strong>{marks[sel].top}:</strong> {marks[sel].info} <span className="diagram-hint">{tl.clickHint}</span>
+          <StableCopy alternate={<><strong>{otherTl.marks[sel].top}:</strong> {otherTl.marks[sel].info} <span className="diagram-hint">{otherTl.clickHint}</span></>}><strong>{marks[sel].top}:</strong> {marks[sel].info} <span className="diagram-hint">{tl.clickHint}</span></StableCopy>
         </p>
       }
       label={tl.ariaLabel}
       note={tl.note}
+      altNote={otherTl.note}
     >
       <line x1={marks[0].x} x2={marks[4].x + 20} y1="110" y2="110" style={{ stroke: 'var(--line-strong)', strokeWidth: 2 }} />
       <rect x={marks[1].x} y="104" width={marks[4].x - marks[1].x} height="12" rx="6" style={{ fill: 'var(--blue)', opacity: 0.35 }} />

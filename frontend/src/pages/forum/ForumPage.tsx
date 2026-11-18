@@ -15,9 +15,13 @@ import { usePosts, useTags } from '../../features/forum/queries'
 import '../../features/forum/forum.css'
 import { PageShell } from '../../shared/layout/Shell'
 import { useDocumentTitle } from './useDocumentTitle'
+import { useLanguage } from '../../shared/i18n/language'
+import { StableForumCopy } from '../../features/forum/components/StableForumCopy'
 
 export default function ForumPage() {
-  useDocumentTitle('Forum')
+  const { lang } = useLanguage()
+  const vi = lang === 'vi'
+  useDocumentTitle(vi ? 'Diễn đàn' : 'Forum')
   const [params, setParams] = useSearchParams()
   const q = params.get('q') ?? ''
   const tag = params.get('tag') || null
@@ -72,10 +76,10 @@ export default function ForumPage() {
     <PageShell headerActions={<ForumHeaderActions />}>
       <div className="wrap forum">
         <header className="forum__head">
-          <h1>Forum</h1>
-          <p className="forum__lead">Ask about SPHEREx images, share what you spotted, and help others read the sky.</p>
+          <h1><StableForumCopy alternate={vi ? 'Forum' : 'Diễn đàn'}>{vi ? 'Diễn đàn' : 'Forum'}</StableForumCopy></h1>
+          <p className="forum__lead"><StableForumCopy alternate={vi ? 'Ask about SPHEREx images, share what you spotted, and help others read the sky.' : 'Đặt câu hỏi về ảnh SPHEREx, chia sẻ điều bạn khám phá và cùng nhau tìm hiểu bầu trời.'}>{vi ? 'Đặt câu hỏi về ảnh SPHEREx, chia sẻ điều bạn khám phá và cùng nhau tìm hiểu bầu trời.' : 'Ask about SPHEREx images, share what you spotted, and help others read the sky.'}</StableForumCopy></p>
           {USING_DEMO_DATA && (
-            <p className="demo-tag forum__demo">Illustrative demo: sample posts, stored only in this browser. New posts wait for a moderator.</p>
+            <p className="demo-tag forum__demo"><StableForumCopy alternate={vi ? 'Illustrative demo: sample posts, stored only in this browser. New posts wait for a moderator.' : 'Bản minh họa: bài mẫu chỉ được lưu trong trình duyệt này. Bài mới cần được kiểm duyệt.'}>{vi ? 'Bản minh họa: bài mẫu chỉ được lưu trong trình duyệt này. Bài mới cần được kiểm duyệt.' : 'Illustrative demo: sample posts, stored only in this browser. New posts wait for a moderator.'}</StableForumCopy></p>
           )}
         </header>
 
@@ -85,7 +89,7 @@ export default function ForumPage() {
           <section className="forum-main" aria-labelledby="results-title">
             <form className="forum-search" role="search" onSubmit={submit}>
               <label htmlFor="forum-q" className="sr-only">
-                Search posts
+                {vi ? 'Tìm bài viết' : 'Search posts'}
               </label>
               <Search className="forum-search__icon" aria-hidden />
               <input
@@ -94,7 +98,7 @@ export default function ForumPage() {
                 name="q"
                 className="input forum-search__input"
                 type="search"
-                placeholder="Search posts, e.g. Barnard…"
+                placeholder={vi ? 'Tìm bài viết, ví dụ: Barnard…' : 'Search posts, e.g. Barnard…'}
                 value={text}
                 onChange={(e) => setText(e.target.value)}
                 autoComplete="off"
@@ -103,7 +107,7 @@ export default function ForumPage() {
                 <button
                   type="button"
                   className="icon-btn icon-btn--sm forum-search__clear"
-                  aria-label="Clear search"
+                  aria-label={vi ? 'Xóa tìm kiếm' : 'Clear search'}
                   onClick={() => {
                     setText('')
                     apply('')
@@ -118,20 +122,20 @@ export default function ForumPage() {
             <div className="forum-status">
               <h2 id="results-title" className="forum-status__text" aria-live="polite">
                 {posts.isPending
-                  ? 'Loading posts…'
+                  ? (vi ? 'Đang tải bài viết…' : 'Loading posts…')
                   : total === null
-                    ? 'Posts'
+                    ? (vi ? 'Bài viết' : 'Posts')
                     : filtered
-                      ? `${plural(total, 'post')}${q ? ` for “${q}”` : ''}${tag ? ` in #${tag}` : ''}`
-                      : 'Latest posts'}
+                      ? `${vi ? `${total} bài viết` : plural(total, 'post')}${q ? ` ${vi ? 'cho' : 'for'} “${q}”` : ''}${tag ? ` ${vi ? 'trong' : 'in'} #${tag}` : ''}`
+                      : (vi ? 'Bài viết mới nhất' : 'Latest posts')}
               </h2>
               {filtered && (
                 <Link className="btn btn-ghost btn-sm" to={PATHS.forum}>
-                  Clear filters
+                  {vi ? 'Xóa bộ lọc' : 'Clear filters'}
                 </Link>
               )}
             </div>
-            {tagInfo && !tagInfo.active && <p className="caption">This topic is retired. You can still read its posts.</p>}
+            {tagInfo && !tagInfo.active && <p className="caption">{vi ? 'Chủ đề này đã ngừng sử dụng nhưng bạn vẫn có thể đọc bài viết.' : 'This topic is retired. You can still read its posts.'}</p>}
 
             {posts.isPending ? (
               <div className="post-list">
@@ -146,25 +150,25 @@ export default function ForumPage() {
             ) : posts.data.items.length === 0 ? (
               filtered ? (
                 <EmptyState
-                  title="No posts match"
+                  title={vi ? 'Không tìm thấy bài viết phù hợp' : 'No posts match'}
                   action={
                     <Link className="btn btn-secondary" to={PATHS.forum}>
-                      Clear filters
+                      {vi ? 'Xóa bộ lọc' : 'Clear filters'}
                     </Link>
                   }
                 >
-                  Try fewer words, or look in all topics.
+                  {vi ? 'Hãy thử ít từ hơn hoặc xem tất cả chủ đề.' : 'Try fewer words, or look in all topics.'}
                 </EmptyState>
               ) : (
                 <EmptyState
-                  title="No posts yet"
+                  title={vi ? 'Chưa có bài viết' : 'No posts yet'}
                   action={
                     <Link className="btn btn-primary" to={writeHref}>
-                      Write the first post
+                      {vi ? 'Viết bài đầu tiên' : 'Write the first post'}
                     </Link>
                   }
                 >
-                  Ask a question about something you saw in The Eyes.
+                  {vi ? 'Hãy đặt câu hỏi về điều bạn nhìn thấy trong Đôi mắt.' : 'Ask a question about something you saw in The Eyes.'}
                 </EmptyState>
               )
             ) : (

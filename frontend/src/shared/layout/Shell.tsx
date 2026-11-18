@@ -1,7 +1,7 @@
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { BookOpen, Eye, FileText, Globe2, Home, LogIn, LogOut, Menu, MessagesSquare, UserPlus, X } from 'lucide-react'
-import { useEffect, useRef, type ReactNode } from 'react'
-import { Link, NavLink } from 'react-router'
+import { useEffect, useLayoutEffect, useRef, type ReactNode } from 'react'
+import { Link, NavLink, useLocation } from 'react-router'
 import { PATHS } from '../../app/config'
 import { AccountMenu } from '../../features/auth/AccountMenu'
 import { useLogOut } from '../../features/auth/RequireAuth'
@@ -25,6 +25,72 @@ const ACCOUNT_NAV = [
   { to: PATHS.login, key: 'login' as const, icon: LogIn },
   { to: PATHS.signup, key: 'signup' as const, icon: UserPlus },
 ] as const
+
+let previousNavIndicator: { x: number; width: number } | null = null
+
+function TopNavigation() {
+  const { lang } = useLanguage()
+  const t = SHELL_COPY[lang]
+  const otherT = SHELL_COPY[lang === 'en' ? 'vi' : 'en']
+  const { pathname } = useLocation()
+  const navRef = useRef<HTMLElement>(null)
+  const indicatorRef = useRef<HTMLSpanElement>(null)
+
+  useLayoutEffect(() => {
+    const nav = navRef.current
+    const indicator = indicatorRef.current
+    if (!nav || !indicator) return
+    let frame = 0
+    const target = () => {
+      const active = nav.querySelector<HTMLElement>('a[aria-current="page"]')
+      if (!active || !nav.getBoundingClientRect().width) return null
+      const container = nav.getBoundingClientRect()
+      const rect = active.getBoundingClientRect()
+      return { x: rect.left - container.left + 8, width: Math.max(0, rect.width - 16) }
+    }
+    const place = (position: { x: number; width: number }) => {
+      indicator.style.transform = `translateX(${position.x}px) scaleX(${position.width})`
+      indicator.style.opacity = '1'
+    }
+    const next = target()
+    if (next) {
+      nav.classList.add('topnav--measured')
+      indicator.style.transition = 'none'
+      place(previousNavIndicator ?? next)
+      frame = requestAnimationFrame(() => {
+        indicator.style.removeProperty('transition')
+        place(next)
+      })
+    } else {
+      nav.classList.remove('topnav--measured')
+      indicator.style.opacity = '0'
+    }
+    const onResize = () => {
+      const position = target()
+      if (position) { nav.classList.add('topnav--measured'); place(position) }
+      else { nav.classList.remove('topnav--measured'); indicator.style.opacity = '0' }
+    }
+    window.addEventListener('resize', onResize)
+    return () => {
+      cancelAnimationFrame(frame)
+      window.removeEventListener('resize', onResize)
+      const container = nav.getBoundingClientRect()
+      const rect = indicator.getBoundingClientRect()
+      if (container.width && rect.width) previousNavIndicator = { x: rect.left - container.left, width: rect.width }
+    }
+  }, [pathname, lang])
+
+  return (
+    <nav ref={navRef} aria-label={t.pagesLabel} className="topnav">
+      <ul>
+        {NAV.map(({ to, key }) => (
+          <li key={to}><NavLink to={to} end><StableLabel text={t.nav[key]} alt={otherT.nav[key]} /></NavLink></li>
+        ))}
+      </ul>
+      <span ref={indicatorRef} className="topnav__indicator" aria-hidden="true" />
+    </nav>
+  )
+}
 
 export function MenuButton() {
   const { overlay, toggleNav } = useOverlay()
@@ -206,17 +272,7 @@ export function SiteHeader({ variant = 'default', children }: { variant?: Header
           children
         ) : (
           <>
-            <nav aria-label={t.pagesLabel} className="topnav">
-              <ul>
-                {NAV.map(({ to, key }) => (
-                  <li key={to}>
-                    <NavLink to={to} end>
-                      <StableLabel text={t.nav[key]} alt={otherT.nav[key]} />
-                    </NavLink>
-                  </li>
-                ))}
-              </ul>
-            </nav>
+            <TopNavigation />
             <LanguageSwitch />
             <div className="site-header__actions">
               {isLanding ? (

@@ -1,5 +1,6 @@
 import A from 'aladin-lite'
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react'
+import { useLanguage } from '../../shared/i18n/language'
 import { config } from '../../app/config'
 import { api } from '../../shared/api'
 import { DR1_MAP_MJD, mapPosition } from '../../shared/config/epoch'
@@ -149,6 +150,7 @@ export const AladinMap = forwardRef<SkyMapHandle, Props>(function AladinMap(
   },
   ref,
 ) {
+  const { lang } = useLanguage()
   const hostRef = useRef<HTMLDivElement>(null)
   const aladinRef = useRef<AladinInstance>(null)
   const startupRef = useRef<Promise<AladinInstance> | null>(null)
@@ -627,7 +629,7 @@ export const AladinMap = forwardRef<SkyMapHandle, Props>(function AladinMap(
   )
 
   return (
-    <div className="sky-map-wrap" role="application" aria-label="Sky as seen from the center of the celestial sphere. Drag to look around, scroll to zoom.">
+    <div className="sky-map-wrap" role="application" aria-label={lang === 'vi' ? 'Bầu trời nhìn từ tâm thiên cầu. Kéo để quan sát xung quanh, cuộn để thu phóng.' : 'Sky as seen from the center of the celestial sphere. Drag to look around, scroll to zoom.'}>
       <div ref={hostRef} className="sky-map" />
     </div>
   )

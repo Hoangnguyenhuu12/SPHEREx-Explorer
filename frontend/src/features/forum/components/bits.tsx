@@ -6,6 +6,8 @@ import { PATHS } from '../../../app/config'
 import { fullDate, relativeTime } from '../format'
 import { describeObservation } from '../links'
 import type { RevisionState, Tag } from '../types'
+import { useLanguage } from '../../../shared/i18n/language'
+import { StableLabel } from '../../../shared/i18n/StableLabel'
 
 export type BadgeKind = RevisionState | 'published' | 'hidden'
 
@@ -21,12 +23,13 @@ const BADGES: Record<BadgeKind, { label: string; icon: LucideIcon; tone: string 
 
 /** Status shown with words and an icon, never colour alone. */
 export function StatusBadge({ kind, label }: { kind: BadgeKind; label?: string }) {
+  const { lang } = useLanguage()
   const b = BADGES[kind]
   const Icon = b.icon
   return (
     <span className={`status status--${b.tone}`}>
       <Icon aria-hidden />
-      {label ?? b.label}
+      {label ?? (lang === 'vi' ? ({ draft: 'Bản nháp', pending: 'Chờ kiểm duyệt', approved: 'Đã duyệt', published: 'Đã đăng', rejected: 'Không được duyệt', withdrawn: 'Đã rút lại', hidden: 'Đã ẩn' } as const)[kind] : b.label)}
     </span>
   )
 }
@@ -51,16 +54,22 @@ export function TagChips({ tags, linked = true }: { tags: Tag[]; linked?: boolea
 }
 
 export function TimeAgo({ iso, prefix }: { iso: string; prefix?: string }) {
+  const { lang } = useLanguage()
+  const displayPrefix = lang === 'vi' ? ({ Posted: 'Đã đăng', Edited: 'Đã sửa', Saved: 'Đã lưu' } as Record<string, string>)[prefix ?? ''] ?? prefix : prefix
+  const otherPrefix = lang === 'en' ? ({ Posted: 'Đã đăng', Edited: 'Đã sửa', Saved: 'Đã lưu' } as Record<string, string>)[prefix ?? ''] ?? prefix : prefix
+  const now = Date.now()
+  const text = `${displayPrefix ? `${displayPrefix} ` : ''}${relativeTime(iso, now, lang)}`
+  const alt = `${otherPrefix ? `${otherPrefix} ` : ''}${relativeTime(iso, now, lang === 'vi' ? 'en' : 'vi')}`
   return (
     <time dateTime={iso} title={fullDate(iso)}>
-      {prefix ? `${prefix} ` : ''}
-      {relativeTime(iso)}
+      <StableLabel text={text} alt={alt} />
     </time>
   )
 }
 
 /** Compact one-line hint for lists: "◎ Barnard's Star · D6". */
 export function ObservationHint({ href }: { href: string }) {
+  const { lang } = useLanguage()
   const obs = describeObservation(href)
   if (!obs) return null
   return (
@@ -68,7 +77,7 @@ export function ObservationHint({ href }: { href: string }) {
       <Telescope aria-hidden />
       <span>
         {obs.label}
-        {obs.detector ? `, detector D${obs.detector}` : ''}
+        {obs.detector ? `, ${lang === 'vi' ? 'cảm biến' : 'detector'} D${obs.detector}` : ''}
       </span>
     </p>
   )
@@ -76,9 +85,10 @@ export function ObservationHint({ href }: { href: string }) {
 
 /** The one accent element of the Forum: a link to The Eyes shown as an observation card (AC14). */
 export function ObservationLinkCard({ href }: { href: string }) {
+  const { lang } = useLanguage()
   const obs = describeObservation(href)
   if (!obs) return null
-  const details = [obs.detector ? `Detector D${obs.detector}` : null, obs.fovArcmin ? `${obs.fovArcmin}′ field` : null].filter(Boolean)
+  const details = [obs.detector ? `${lang === 'vi' ? 'Cảm biến' : 'Detector'} D${obs.detector}` : null, obs.fovArcmin ? (lang === 'vi' ? `trường nhìn ${obs.fovArcmin}′` : `${obs.fovArcmin}′ field`) : null].filter(Boolean)
   return (
     <div className="obs-card">
       <Telescope className="obs-card__icon" aria-hidden />
@@ -87,7 +97,7 @@ export function ObservationLinkCard({ href }: { href: string }) {
         {details.length > 0 && <p className="obs-card__meta">{details.join(', ')}</p>}
       </div>
       <Link to={obs.href} className="btn btn-secondary btn-sm">
-        Open in The Eyes
+        {lang === 'vi' ? 'Mở trong Đôi mắt' : 'Open in The Eyes'}
       </Link>
     </div>
   )

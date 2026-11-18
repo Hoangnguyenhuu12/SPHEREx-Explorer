@@ -3,8 +3,8 @@
    Pages can set --chat-bottom (launcher offset) and --chat-top (room kept under the header) on body. */
 .star-chat {
   position: fixed;
-  right: var(--space-4);
-  bottom: var(--chat-bottom, var(--space-4));
+  right: max(var(--space-4), env(safe-area-inset-right, 0px));
+  bottom: calc(var(--chat-bottom, var(--space-4)) + env(safe-area-inset-bottom, 0px));
   /* Above the header and nav drawer, below target popups (300), dialogs (400) and route transitions (500). */
   z-index: 250;
   display: flex;
@@ -55,6 +55,12 @@ body:has(.tour) .star-chat {
 .star-chat .star-chat__fab svg.star-chat__logo {
   width: 30px;
   height: 18px;
+}
+@media (pointer: coarse) {
+  .star-chat .icon-btn {
+    min-width: 44px;
+    min-height: 44px;
+  }
 }
 
 .star-chat__panel {

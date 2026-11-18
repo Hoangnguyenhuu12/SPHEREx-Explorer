@@ -1,9 +1,11 @@
 import { useEffect } from 'react'
 import { useBlocker } from 'react-router'
 import { Dialog } from '../../../shared/ui/Dialog'
+import { useLanguage } from '../../../shared/i18n/language'
 
 /** Ask before leaving a page with unsaved changes: in-app navigation (dialog) and tab close (browser prompt). */
 export function useLeaveGuard(when: boolean) {
+  const { lang } = useLanguage()
   const blocker = useBlocker(({ currentLocation, nextLocation }) => when && currentLocation.pathname !== nextLocation.pathname)
 
   useEffect(() => {
@@ -18,16 +20,16 @@ export function useLeaveGuard(when: boolean) {
   return (
     <Dialog
       open={blocker.state === 'blocked'}
-      title="Leave without saving?"
-      description="Your changes since the last save will be lost."
+      title={lang === 'vi' ? 'Rời đi mà không lưu?' : 'Leave without saving?'}
+      description={lang === 'vi' ? 'Những thay đổi từ lần lưu gần nhất sẽ bị mất.' : 'Your changes since the last save will be lost.'}
       onClose={() => blocker.reset?.()}
       actions={
         <>
           <button type="button" className="btn btn-secondary" onClick={() => blocker.proceed?.()}>
-            Leave
+            {lang === 'vi' ? 'Rời đi' : 'Leave'}
           </button>
           <button type="button" className="btn btn-primary" onClick={() => blocker.reset?.()}>
-            Keep editing
+            {lang === 'vi' ? 'Tiếp tục chỉnh sửa' : 'Keep editing'}
           </button>
         </>
       }

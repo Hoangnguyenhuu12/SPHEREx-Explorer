@@ -26,6 +26,9 @@ import { useQuery } from '@tanstack/react-query'
 import { config } from '../../app/config'
 import { api } from '../../shared/api'
 import './popup.css'
+import { useLanguage } from '../../shared/i18n/language'
+import { StableLabel } from '../../shared/i18n/StableLabel'
+import { STORY_COPY } from '../../shared/i18n/storyTranslations'
 
 const TABS = ['Overview', 'Motion', 'Brightness', 'Details', 'More tools'] as const
 type Tab = (typeof TABS)[number]
@@ -59,6 +62,9 @@ interface Props {
 }
 
 export function TargetPopup(p: Props) {
+  const { lang } = useLanguage()
+  const vi = lang === 'vi'
+  const labels: Record<Tab, string> = { Overview: 'Tổng quan', Motion: 'Chuyển động', Brightness: 'Độ sáng', Details: 'Chi tiết', 'More tools': 'Công cụ khác' }
   const reduce = useReducedMotion()
   const guideOn = useGuide()
   const [tab, setTab] = useState<Tab>('Overview')
@@ -333,7 +339,7 @@ export function TargetPopup(p: Props) {
   return (
     <motion.aside
       className={wideCompare ? 'popup popup--wide' : 'popup'}
-      aria-label={`${p.title} details`}
+      aria-label={vi ? `Chi tiết ${p.title}` : `${p.title} details`}
       initial={reduce || guideOn ? { opacity: 0 } : { opacity: 0, x: -24 }}
       animate={reduce || guideOn ? { opacity: 1 } : { opacity: 1, x: 0 }}
       transition={{ duration: 0.22, ease: [0.2, 0.8, 0.2, 1] }}
@@ -342,20 +348,20 @@ export function TargetPopup(p: Props) {
         <div>
           <h2 className="popup__title">{p.title}</h2>
           <p className="popup__kind">
-            {p.target?.kind ?? 'Custom position'}
+            {p.target ? (vi ? STORY_COPY.vi.targets[p.target.key].kind : p.target.kind) : (vi ? 'Vị trí tùy chọn' : 'Custom position')}
             {p.target?.aliases.length ? <span className="caption"> · {p.target.aliases.join(' · ')}</span> : null}
           </p>
         </div>
         <div className="popup__actions">
           {p.onExperienceModeChange && (
-            <div className="segmented" role="group" aria-label="Experience mode">
+            <div className="segmented" role="group" aria-label={vi ? 'Chế độ trải nghiệm' : 'Experience mode'}>
               <button
                 type="button"
                 aria-pressed={experienceMode === 'explore'}
                 title="Beginner & student mode: plain-language guides and Spot-the-Star feedback"
                 onClick={() => p.onExperienceModeChange?.('explore')}
               >
-                Explore
+                <StableLabel text={vi ? 'Khám phá' : 'Explore'} alt={vi ? 'Explore' : 'Khám phá'} />
               </button>
               <button
                 type="button"
@@ -363,18 +369,18 @@ export function TargetPopup(p: Props) {
                 title="Research mode: astrometry ruler, contrast stretch, CSV/FITS/Python export"
                 onClick={() => p.onExperienceModeChange?.('science')}
               >
-                Science
+                <StableLabel text={vi ? 'Khoa học' : 'Science'} alt={vi ? 'Science' : 'Khoa học'} />
               </button>
             </div>
           )}
           <button type="button" className="btn btn-secondary btn--compact" onClick={p.onClose}>
             <ArrowLeft aria-hidden />
-            <span>Back to map</span>
+            <StableLabel text={vi ? 'Về bản đồ' : 'Back to map'} alt={vi ? 'Back to map' : 'Về bản đồ'} />
           </button>
-          <button type="button" className="icon-btn" aria-label="Center map on target" title="Center on map" onClick={p.onCenter}>
+          <button type="button" className="icon-btn" aria-label={vi ? 'Căn giữa bản đồ tại mục tiêu' : 'Center map on target'} title={vi ? 'Căn giữa bản đồ' : 'Center on map'} onClick={p.onCenter}>
             <LocateFixed aria-hidden />
           </button>
-          <button type="button" className="icon-btn" aria-label="Close details" title="Close (Esc)" onClick={p.onClose}>
+          <button type="button" className="icon-btn" aria-label={vi ? 'Đóng chi tiết' : 'Close details'} title={vi ? 'Đóng (Esc)' : 'Close (Esc)'} onClick={p.onClose}>
             <X aria-hidden />
           </button>
         </div>
@@ -424,13 +430,13 @@ export function TargetPopup(p: Props) {
             {data.warnings.map((w) => (
               <li key={w} className="notice notice--warn">
                 <AlertTriangle aria-hidden />
-                <span>{warningText(w)}</span>
+                <span>{warningText(w, lang)}</span>
               </li>
             ))}
           </ul>
         )}
 
-        <div className="tabs" role="tablist" aria-label="Target details">
+        <div className="tabs" role="tablist" aria-label={vi ? 'Chi tiết mục tiêu' : 'Target details'}>
           {TABS.map((t) => (
             <button
               key={t}
@@ -455,7 +461,7 @@ export function TargetPopup(p: Props) {
                 }
               }}
             >
-              {t}
+              <StableLabel text={vi ? labels[t] : t} alt={vi ? t : labels[t]} />
             </button>
           ))}
         </div>

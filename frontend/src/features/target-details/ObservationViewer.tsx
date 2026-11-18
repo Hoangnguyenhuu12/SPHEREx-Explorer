@@ -24,9 +24,12 @@ import {
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type Dispatch, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { useModalDialog } from '../../shared/ui/useModalDialog'
+import { useLanguage } from '../../shared/i18n/language'
+import { StableLabel } from '../../shared/i18n/StableLabel'
+import { EyesCopy } from './EyesCopy'
 import { Link } from 'react-router'
 import { PATHS } from '../../app/config'
-import { describeError } from '../../shared/api/errors'
+import { describeErrorLocalized } from '../../shared/api/errors'
 import { DETECTORS, type TargetInfo } from '../../shared/config/targets'
 import wiseReferenceConfig from '../../shared/config/wise-reference.json'
 import { useGuide } from '../guide/guide-state'
@@ -173,6 +176,9 @@ function BlinkPreview() {
 }
 
 export function ObservationViewer(props: Props) {
+  const { lang } = useLanguage()
+  const vi = lang === 'vi'
+  const label = (en: string, vn: string) => <StableLabel text={vi ? vn : en} alt={vi ? en : vn} />
   const { session, player, dispatch, toggles, setToggles, targetName } = props
   const guideOn = useGuide()
   const canvasRef = useRef<BlinkCanvasHandle>(null)
@@ -529,18 +535,18 @@ export function ObservationViewer(props: Props) {
         <div className="viewer-state" role="status">
           <BlinkPreview />
           <p>
-            <Loader2 className="spin spin--inline" aria-hidden /> Loading observations…
+            <Loader2 className="spin spin--inline" aria-hidden /> {vi ? 'Đang tải ảnh quan sát…' : 'Loading observations…'}
           </p>
           {elapsed >= 5 && (
-            <p className="caption">Waiting {elapsed} s · waking up server…</p>
+            <p className="caption">{vi ? `Đã đợi ${elapsed} giây · đang khởi động máy chủ…` : `Waiting ${elapsed} s · waking up server…`}</p>
           )}
           <button type="button" className="btn btn-secondary" onClick={session.cancel}>
-            Cancel
+            {label('Cancel', 'Hủy')}
           </button>
         </div>
       )
     if (session.status === 'error') {
-      const copy = describeError(session.error)
+      const copy = describeErrorLocalized(session.error, lang)
       return (
         <div className="viewer-state" role="alert">
           <AlertTriangle className="is-warn" aria-hidden />
@@ -548,7 +554,7 @@ export function ObservationViewer(props: Props) {
           <p className="caption">{copy.body}</p>
           {copy.retry && (
             <button type="button" className="btn btn-secondary" onClick={session.retry}>
-              <RotateCw aria-hidden /> Try again
+              <RotateCw aria-hidden /> {label('Try again', 'Thử lại')}
             </button>
           )}
         </div>
@@ -558,17 +564,17 @@ export function ObservationViewer(props: Props) {
       return (
         <div className="viewer-state" role="status">
           <AlertTriangle className="is-warn" aria-hidden />
-          <p className="viewer-state__title">No observations for detector D{data?.detector}</p>
-          <p className="caption">Choose another detector in the Details tab below.</p>
+          <p className="viewer-state__title">{vi ? `Không có ảnh quan sát cho cảm biến D${data?.detector}` : `No observations for detector D${data?.detector}`}</p>
+          <p className="caption">{vi ? 'Hãy chọn cảm biến khác trong thẻ Chi tiết bên dưới.' : 'Choose another detector in the Details tab below.'}</p>
         </div>
       )
     if (!slotBitmap && slotFailed)
       return (
         <div className="viewer-state" role="alert">
           <AlertTriangle className="is-warn" aria-hidden />
-          <p>{isDiff ? 'Difference image' : 'Observation'} {frameIdx + 1} could not be loaded.</p>
+          <p>{vi ? `Không thể tải ${isDiff ? 'ảnh hiệu' : 'ảnh quan sát'} ${frameIdx + 1}.` : `${isDiff ? 'Difference image' : 'Observation'} ${frameIdx + 1} could not be loaded.`}</p>
           <button type="button" className="btn btn-secondary" onClick={session.retry}>
-            <RotateCw aria-hidden /> Reload observations
+            <RotateCw aria-hidden /> {label('Reload observations', 'Tải lại ảnh quan sát')}
           </button>
         </div>
       )
@@ -576,7 +582,7 @@ export function ObservationViewer(props: Props) {
       return (
         <div className="viewer-state viewer-state--soft" role="status">
           <Loader2 className="spin" aria-hidden />
-          <p>Loading difference images…</p>
+          <p>{vi ? 'Đang tải ảnh hiệu…' : 'Loading difference images…'}</p>
         </div>
       )
     if (!slotBitmap && session.status === 'decoding')
@@ -584,9 +590,9 @@ export function ObservationViewer(props: Props) {
         <div className="viewer-state" role="status">
           <Loader2 className="spin" aria-hidden />
           <p>
-            Loading images <span className="num">{session.loaded}</span> / <span className="num">{session.total}</span>
+            {vi ? 'Đang tải ảnh' : 'Loading images'} <span className="num">{session.loaded}</span> / <span className="num">{session.total}</span>
           </p>
-          <progress max={session.total} value={session.loaded} aria-label="Observation images loaded" />
+          <progress max={session.total} value={session.loaded} aria-label={vi ? 'Ảnh quan sát đã tải' : 'Observation images loaded'} />
         </div>
       )
     return null
@@ -598,15 +604,15 @@ export function ObservationViewer(props: Props) {
     return (
       <div className={`compare-card__meta${!sideBySide && activeSlot === slot ? ' is-active' : ''}`}>
         <div className="compare-card__head">
-          <span className="compare-badge num">Date {slot}</span>
+          <span className="compare-badge num">{vi ? 'Ngày' : 'Date'} {slot}</span>
           <span className={`mission-tag mission-tag--${f ? frameMission(f).toLowerCase() : 'spherex'}`}>
             {f ? frameSourceLabel(f, data?.detector) : '—'}
           </span>
-          {fDemo && <span className="compare-demo-badge">Illustrative demo</span>}
+          {fDemo && <span className="compare-demo-badge">{vi ? 'Dữ liệu minh họa' : 'Illustrative demo'}</span>}
         </div>
-        <div className="compare-card__date num">{f ? `${formatUtcDate(f.iso)} UTC` : 'Loading…'}</div>
+        <div className="compare-card__date num">{f ? `${formatUtcDate(f.iso)} UTC` : (vi ? 'Đang tải…' : 'Loading…')}</div>
         <label className="compare-card__select">
-          <span className="sr-only">Choose Date {slot}</span>
+          <span className="sr-only">{vi ? 'Chọn ngày' : 'Choose Date'} {slot}</span>
           <select
             className="select select--compact"
             value={fIdx}
@@ -631,7 +637,7 @@ export function ObservationViewer(props: Props) {
           <>
             <span className="num viewer-meta__date">{formatUtcDate(frame.iso)} UTC</span>
             <span className="num">
-              Observation {displayIndex + 1} / {session.total}
+              {vi ? 'Quan sát' : 'Observation'} {displayIndex + 1} / {session.total}
             </span>
             {session.streaming && session.streaming.found > session.streaming.done && (
               <span className="pill num" aria-live="polite">
@@ -644,25 +650,25 @@ export function ObservationViewer(props: Props) {
             </span>
           </>
         ) : (
-          <span className="caption">No observation selected</span>
+          <span className="caption">{vi ? 'Chưa chọn ảnh quan sát' : 'No observation selected'}</span>
         )}
       </div>
 
       <div className="viewer-player" data-tour={idSuffix === 'main' ? 'player' : undefined}>
-        <button type="button" className="icon-btn" aria-label="Previous observation" disabled={!canStep(player)} onClick={() => dispatch({ type: 'prev' })}>
+        <button type="button" className="icon-btn" aria-label={vi ? 'Ảnh quan sát trước' : 'Previous observation'} disabled={!canStep(player)} onClick={() => dispatch({ type: 'prev' })}>
           <SkipBack aria-hidden />
         </button>
         <button
           type="button"
           className="icon-btn icon-btn--play"
-          aria-label={player.playing ? 'Pause' : 'Play'}
+          aria-label={player.playing ? (vi ? 'Tạm dừng' : 'Pause') : (vi ? 'Phát' : 'Play')}
           disabled={!canPlay}
-          title={!canPlay && ready ? 'Playback needs at least two observations' : undefined}
+          title={!canPlay && ready ? (vi ? 'Cần ít nhất hai ảnh quan sát để phát' : 'Playback needs at least two observations') : undefined}
           onClick={() => dispatch({ type: 'toggle' })}
         >
           {player.playing ? <Pause aria-hidden /> : <Play aria-hidden />}
         </button>
-        <button type="button" className="icon-btn" aria-label="Next observation" disabled={!canStep(player)} onClick={() => dispatch({ type: 'next' })}>
+        <button type="button" className="icon-btn" aria-label={vi ? 'Ảnh quan sát tiếp theo' : 'Next observation'} disabled={!canStep(player)} onClick={() => dispatch({ type: 'next' })}>
           <SkipForward aria-hidden />
         </button>
         <div className="viewer-scrub">
@@ -673,8 +679,8 @@ export function ObservationViewer(props: Props) {
             step={1}
             value={player.index}
             disabled={!canSeek}
-            aria-label="Observation date"
-            aria-valuetext={frame ? `${formatUtcDate(frame.iso)}, observation ${player.index + 1} of ${session.total}` : undefined}
+            aria-label={vi ? 'Ngày quan sát' : 'Observation date'}
+            aria-valuetext={frame ? `${formatUtcDate(frame.iso)}, ${vi ? 'quan sát' : 'observation'} ${player.index + 1} ${vi ? 'trên' : 'of'} ${session.total}` : undefined}
             onChange={(e) => dispatch({ type: 'seek', index: Number(e.target.value) })}
             list={`obs-ticks-${idSuffix}`}
           />
@@ -689,7 +695,7 @@ export function ObservationViewer(props: Props) {
           </div>
         </div>
         <label className="viewer-speed">
-          <span className="sr-only">Playback speed</span>
+          <span className="sr-only">{vi ? 'Tốc độ phát' : 'Playback speed'}</span>
           <select className="select" value={player.fps} onChange={(e) => dispatch({ type: 'speed', fps: Number(e.target.value) })}>
             {SPEEDS.map((s) => (
               <option key={s} value={s}>
@@ -711,9 +717,9 @@ export function ObservationViewer(props: Props) {
       )}
 
       <div className="viewer-tools">
-        <div className="segmented" role="group" aria-label="Image display" data-tour={idSuffix === 'main' ? 'display' : undefined}>
+        <div className="segmented" role="group" aria-label={vi ? 'Hiển thị ảnh' : 'Image display'} data-tour={idSuffix === 'main' ? 'display' : undefined}>
           <button type="button" aria-pressed={!isDiff} onClick={() => setToggles({ mode: 'original' })}>
-            Original
+            {label('Original', 'Ảnh gốc')}
           </button>
           <button
             type="button"
@@ -721,12 +727,12 @@ export function ObservationViewer(props: Props) {
             disabled={!canPlay}
             title={
               session.total < 2
-                ? 'Difference needs at least two observations'
-                : 'Each observation minus its baseline image; check bright-dark pairs against the originals'
+                ? (vi ? 'Ảnh hiệu cần ít nhất hai ảnh quan sát' : 'Difference needs at least two observations')
+                : (vi ? 'Trừ ảnh gốc tham chiếu khỏi từng ảnh quan sát; đối chiếu cặp sáng–tối với ảnh gốc' : 'Each observation minus its baseline image; check bright-dark pairs against the originals')
             }
             onClick={() => setToggles({ mode: 'difference' })}
           >
-            Difference
+            {label('Difference', 'Ảnh hiệu')}
           </button>
         </div>
         {rgbCoords && (
@@ -734,11 +740,11 @@ export function ObservationViewer(props: Props) {
             type="button"
             className="btn btn-secondary btn--compact"
             aria-pressed={rgbOpen}
-            title="Combine detectors D6 (red), D4 (green), D2 (blue) into a false-color RGB view"
+            title={vi ? 'Kết hợp D6 (đỏ), D4 (lục), D2 (lam) thành ảnh màu giả RGB' : 'Combine detectors D6 (red), D4 (green), D2 (blue) into a false-color RGB view'}
             onClick={() => setRgbOpen((v) => !v)}
           >
             <Layers aria-hidden />
-            <span>False-color RGB</span>
+            {label('False-color RGB', 'Màu giả RGB')}
           </button>
         )}
         {frames.length >= 2 && (
@@ -746,7 +752,7 @@ export function ObservationViewer(props: Props) {
             type="button"
             className="btn btn-secondary btn--compact"
             disabled={session.originals.filter(Boolean).length < 2}
-            title="Export loaded observations as an animated GIF"
+            title={vi ? 'Xuất ảnh quan sát đã tải thành GIF động' : 'Export loaded observations as an animated GIF'}
             onClick={() => {
               const bitmaps: ImageBitmap[] = []
               const labels: string[] = []
@@ -770,7 +776,7 @@ export function ObservationViewer(props: Props) {
             }}
           >
             {gifSaved ? <Check aria-hidden /> : <Download aria-hidden />}
-            <span>{gifSaved ? 'Saved GIF' : 'Download GIF'}</span>
+            {gifSaved ? label('Saved GIF', 'Đã lưu GIF') : label('Download GIF', 'Tải GIF')}
           </button>
         )}
       </div>
@@ -789,13 +795,13 @@ export function ObservationViewer(props: Props) {
 
       {isDiff ? (
         <p className="caption viewer-legend">
-          Difference: {mixedSequence ? 'each observation minus the first observation of its mission.' : 'each observation minus the first.'} A bright–dark pair is a sign to check back against the original images to separate true motion from artifacts.
+          {vi ? `Ảnh hiệu: ${mixedSequence ? 'mỗi ảnh trừ ảnh đầu tiên của cùng sứ mệnh.' : 'mỗi ảnh trừ ảnh đầu tiên.'} Hãy đối chiếu cặp sáng–tối với ảnh gốc để phân biệt chuyển động thực và nhiễu.` : `Difference: ${mixedSequence ? 'each observation minus the first observation of its mission.' : 'each observation minus the first.'} A bright–dark pair is a sign to check back against the original images to separate true motion from artifacts.`}
         </p>
       ) : (
         mixedSequence &&
         hasMultipleFrames && (
           <p className="caption viewer-legend">
-            Original images remain the default here because this sequence spans different missions or bands, where subtraction compares within each survey (bright–dark pairs always need checking against the original images).
+            {vi ? 'Ảnh gốc được dùng mặc định vì chuỗi gồm nhiều sứ mệnh hoặc dải; phép trừ được thực hiện trong từng khảo sát. Luôn đối chiếu cặp sáng–tối với ảnh gốc.' : 'Original images remain the default here because this sequence spans different missions or bands, where subtraction compares within each survey (bright–dark pairs always need checking against the original images).'}
           </p>
         )
       )}
@@ -803,16 +809,16 @@ export function ObservationViewer(props: Props) {
   )
 
   return (
-    <section className="viewer" aria-label="Observation viewer">
+    <section className="viewer" aria-label={vi ? 'Trình xem ảnh quan sát' : 'Observation viewer'}>
       {/* Priority bar: Compare / Source timeline switcher */}
       <div className="viewer-priority">
-        <div className="segmented" role="group" aria-label="Comparison view" data-tour="view-mode">
+        <div className="segmented" role="group" aria-label={vi ? 'Chế độ so sánh' : 'Comparison view'} data-tour="view-mode">
           <button
             type="button"
             aria-pressed={viewMode === 'timeline'}
             onClick={() => switchToMode('timeline')}
           >
-            Timeline
+            {label('Timeline', 'Dòng thời gian')}
           </button>
           <button
             type="button"
@@ -820,7 +826,7 @@ export function ObservationViewer(props: Props) {
             disabled={!hasMultipleFrames}
             onClick={() => switchToMode('compare')}
           >
-            Compare two dates
+            {label('Compare two dates', 'So sánh hai ngày')}
           </button>
         </div>
 
@@ -832,7 +838,7 @@ export function ObservationViewer(props: Props) {
             onClick={() => setOptionsOpen((o) => !o)}
           >
             <SlidersHorizontal aria-hidden />
-            <span>{optionsOpen ? 'Fewer options' : 'More options'}</span>
+            {optionsOpen ? label('Fewer options', 'Ít tùy chọn') : label('More options', 'Thêm tùy chọn')}
           </button>
         )}
 
@@ -854,14 +860,14 @@ export function ObservationViewer(props: Props) {
 
         {showOptions && props.timelineControl && (
           <label className="viewer-source-select" data-tour="source">
-            <span className="viewer-source-select__label">Source</span>
+            <span className="viewer-source-select__label">{label('Source', 'Nguồn')}</span>
             <select
               className="select select--compact"
               value={combined && props.detector === 6 ? 'combined' : 'spherex'}
               onChange={(e) => props.timelineControl?.setCombined(e.target.value === 'combined')}
             >
               <option value="combined">unWISE W2 + SPHEREx D6</option>
-              <option value="spherex">SPHEREx D{props.detector} only</option>
+              <option value="spherex">{vi ? `Chỉ SPHEREx D${props.detector}` : `SPHEREx D${props.detector} only`}</option>
             </select>
           </label>
         )}
@@ -870,7 +876,7 @@ export function ObservationViewer(props: Props) {
       {demo && hasRealUnwise && props.target && (
         <div className="viewer-real-callout">
           <span className="caption">
-            Offline demo active — Real NASA unWISE infrared sequence (2010–2024) is available
+            {vi ? 'Đang dùng bản minh họa ngoại tuyến — có chuỗi hồng ngoại unWISE thực của NASA (2010–2024)' : 'Offline demo active — Real NASA unWISE infrared sequence (2010–2024) is available'}
           </span>
           <button
             type="button"
@@ -878,7 +884,7 @@ export function ObservationViewer(props: Props) {
             aria-pressed={showRealUnwise}
             onClick={() => setShowRealUnwise((v) => !v)}
           >
-            {showRealUnwise ? 'Hide real NASA unWISE blink' : 'Show real NASA unWISE blink'}
+            {showRealUnwise ? label('Hide real NASA unWISE blink', 'Ẩn chuỗi unWISE thực của NASA') : label('Show real NASA unWISE blink', 'Hiện chuỗi unWISE thực của NASA')}
           </button>
         </div>
       )}
@@ -892,7 +898,7 @@ export function ObservationViewer(props: Props) {
           {ready && (pairResolution.missingA || pairResolution.missingB) && (
             <div className="notice notice--warn" role="alert">
               <div>
-                <strong>Saved frame unavailable — showing nearest verified pair</strong>
+                <strong>{vi ? 'Ảnh đã lưu không khả dụng — đang hiện cặp gần nhất đã xác minh' : 'Saved frame unavailable — showing nearest verified pair'}</strong>
                 <p className="caption">
                   {[
                     pairResolution.missingA ? `Date A frame (${pairResolution.missingA})` : null,
@@ -911,7 +917,7 @@ export function ObservationViewer(props: Props) {
                   props.compareSelection?.onResetFrames?.()
                 }}
               >
-                Use default dates
+                {label('Use default dates', 'Dùng ngày mặc định')}
               </button>
             </div>
           )}
@@ -945,7 +951,7 @@ export function ObservationViewer(props: Props) {
                   onClick={() => setLayoutPref((v) => (v === 'side' ? 'flip' : 'side'))}
                 >
                   <Columns2 aria-hidden />
-                  <span>{layoutPref === 'side' ? 'A / B flip' : 'Side by side'}</span>
+                  {layoutPref === 'side' ? label('A / B flip', 'Chuyển A / B') : label('Side by side', 'Đặt cạnh nhau')}
                 </button>
               )}
               {!sideBySide && (
@@ -956,7 +962,7 @@ export function ObservationViewer(props: Props) {
                   onClick={() => setActiveSlot((s) => (s === 'A' ? 'B' : 'A'))}
                 >
                   <Layers aria-hidden />
-                  <span>Flip A / B</span>
+                  {label('Flip A / B', 'Chuyển A / B')}
                 </button>
               )}
             </div>
@@ -964,7 +970,7 @@ export function ObservationViewer(props: Props) {
 
           {compareDiffersInMissionOrBand && (
             <p className="caption">
-              Original A/B is active because Date A and Date B are from different missions or bands.
+              {vi ? 'Đang dùng ảnh gốc A/B vì hai ngày thuộc các sứ mệnh hoặc dải khác nhau.' : 'Original A/B is active because Date A and Date B are from different missions or bands.'}
             </p>
           )}
 
@@ -1066,20 +1072,20 @@ export function ObservationViewer(props: Props) {
               disabled={!ready || frames.length < 2}
             >
               <MapPin aria-hidden />
-              <span>{markA ? 'Move mark in A' : 'Mark position in A'}</span>
+              {markA ? label('Move mark in A', 'Di chuyển dấu A') : label('Mark position in A', 'Đánh dấu vị trí A')}
             </button>
             {markA && (
               <button
                 type="button"
                 className="btn btn-secondary btn--compact"
-                aria-label="Clear mark in A"
+                aria-label={vi ? 'Xóa dấu A' : 'Clear mark in A'}
                 onClick={() => {
                   setMark('A', null)
                   if (markingSlot === 'A') setMarkingSlot(null)
                 }}
               >
                 <X aria-hidden />
-                <span>Clear A</span>
+                {label('Clear A', 'Xóa A')}
               </button>
             )}
 
@@ -1091,20 +1097,20 @@ export function ObservationViewer(props: Props) {
               disabled={!ready || frames.length < 2}
             >
               <MapPin aria-hidden />
-              <span>{markB ? 'Move mark in B' : 'Mark position in B'}</span>
+              {markB ? label('Move mark in B', 'Di chuyển dấu B') : label('Mark position in B', 'Đánh dấu vị trí B')}
             </button>
             {markB && (
               <button
                 type="button"
                 className="btn btn-secondary btn--compact"
-                aria-label="Clear mark in B"
+                aria-label={vi ? 'Xóa dấu B' : 'Clear mark in B'}
                 onClick={() => {
                   setMark('B', null)
                   if (markingSlot === 'B') setMarkingSlot(null)
                 }}
               >
                 <X aria-hidden />
-                <span>Clear B</span>
+                {label('Clear B', 'Xóa B')}
               </button>
             )}
 
@@ -1115,19 +1121,19 @@ export function ObservationViewer(props: Props) {
               disabled={!ready || frames.length < 2}
             >
               {copiedLink ? <Check aria-hidden /> : <Copy aria-hidden />}
-              <span>{copiedLink ? 'Copied comparison link' : 'Copy comparison link'}</span>
+              {copiedLink ? label('Copied comparison link', 'Đã sao chép liên kết') : label('Copy comparison link', 'Sao chép liên kết so sánh')}
             </button>
           </div>
 
           {markingSlot && (
             <p className="caption compare-mark-hint" role="status">
-              Click or tap inside Date {markingSlot} (or focus the image and press Enter) to place your mark on Date {markingSlot}.
+              {vi ? `Nhấn vào ảnh ngày ${markingSlot} (hoặc chọn ảnh và nhấn Enter) để đặt dấu.` : `Click or tap inside Date ${markingSlot} (or focus the image and press Enter) to place your mark on Date ${markingSlot}.`}
             </p>
           )}
 
           {copiedLink && (
             <div className="compare-copy-url" role="status">
-              <span className="caption">Shareable comparison URL ready:</span>
+              <span className="caption">{vi ? 'Liên kết so sánh có thể chia sẻ:' : 'Shareable comparison URL ready:'}</span>
               <input
                 type="text"
                 className="input input--compact num"
@@ -1142,14 +1148,14 @@ export function ObservationViewer(props: Props) {
           <div className="compare-result" aria-label="Comparison measurement summary">
             <div className="compare-result__head">
               <div>
-                <span className="compare-result__kicker">Estimate from your user-selected marks</span>
+                <span className="compare-result__kicker">{vi ? 'Ước tính từ các điểm bạn đánh dấu' : 'Estimate from your user-selected marks'}</span>
                 {compareMeasurement.formattedOffset ? (
                   <p className="compare-result__offset num" data-testid="compare-offset-value">
-                    Angular shift: <strong>{compareMeasurement.formattedOffset}</strong>
+                    {vi ? 'Độ dịch chuyển góc' : 'Angular shift'}: <strong>{compareMeasurement.formattedOffset}</strong>
                   </p>
                 ) : !compareMeasurement.hasWcs && ready ? (
                   <p className="compare-result__missing" role="status">
-                    WCS astrometry is missing or incomplete on this grid — angular separation cannot be calculated from marks.
+                    {vi ? 'Dữ liệu tọa độ WCS bị thiếu hoặc chưa đầy đủ trên lưới này nên không thể tính khoảng cách góc từ các dấu.' : 'WCS astrometry is missing or incomplete on this grid — angular separation cannot be calculated from marks.'}
                   </p>
                 ) : (
                   <p className="compare-result__pending">
@@ -1162,43 +1168,43 @@ export function ObservationViewer(props: Props) {
                 )}
               </div>
               {compareMeasurement.hasWcs && compareMeasurement.markA?.sky && compareMeasurement.markB?.sky && (
-                <span className="badge badge--ready">Estimated from user marks</span>
+                <span className="badge badge--ready">{vi ? 'Ước tính từ dấu của bạn' : 'Estimated from user marks'}</span>
               )}
             </div>
 
             <dl className="compare-result__facts">
               <div>
-                <dt>Date A</dt>
+                <dt>{vi ? 'Ngày A' : 'Date A'}</dt>
                 <dd className="num">
                   {frameA ? `${formatUtcDate(frameA.iso)} UTC` : '—'} ·{' '}
                   {frameA ? `${frameSourceLabel(frameA, data?.detector)} (${frameBand(frameA, data?.detector)})` : '—'}
                 </dd>
               </div>
               <div>
-                <dt>Your mark A (◇)</dt>
+                <dt>{vi ? 'Dấu A của bạn (◇)' : 'Your mark A (◇)'}</dt>
                 <dd className="num">
                   {markA
                     ? compareMeasurement.markA?.sky
                       ? `${formatRaHms(compareMeasurement.markA.sky.ra)} ${formatDecDms(compareMeasurement.markA.sky.dec)} (${compareMeasurement.markA.sky.ra.toFixed(5)}°, ${compareMeasurement.markA.sky.dec >= 0 ? '+' : ''}${compareMeasurement.markA.sky.dec.toFixed(5)}°) · px (${markA[0].toFixed(1)}, ${markA[1].toFixed(1)})`
                       : `px (${markA[0].toFixed(1)}, ${markA[1].toFixed(1)}) · WCS unavailable`
-                    : 'Not marked'}
+                    : (vi ? 'Chưa đánh dấu' : 'Not marked')}
                 </dd>
               </div>
               <div>
-                <dt>Date B</dt>
+                <dt>{vi ? 'Ngày B' : 'Date B'}</dt>
                 <dd className="num">
                   {frameB ? `${formatUtcDate(frameB.iso)} UTC` : '—'} ·{' '}
                   {frameB ? `${frameSourceLabel(frameB, data?.detector)} (${frameBand(frameB, data?.detector)})` : '—'}
                 </dd>
               </div>
               <div>
-                <dt>Your mark B (◇)</dt>
+                <dt>{vi ? 'Dấu B của bạn (◇)' : 'Your mark B (◇)'}</dt>
                 <dd className="num">
                   {markB
                     ? compareMeasurement.markB?.sky
                       ? `${formatRaHms(compareMeasurement.markB.sky.ra)} ${formatDecDms(compareMeasurement.markB.sky.dec)} (${compareMeasurement.markB.sky.ra.toFixed(5)}°, ${compareMeasurement.markB.sky.dec >= 0 ? '+' : ''}${compareMeasurement.markB.sky.dec.toFixed(5)}°) · px (${markB[0].toFixed(1)}, ${markB[1].toFixed(1)})`
                       : `px (${markB[0].toFixed(1)}, ${markB[1].toFixed(1)}) · WCS unavailable`
-                    : 'Not marked'}
+                    : (vi ? 'Chưa đánh dấu' : 'Not marked')}
                 </dd>
               </div>
             </dl>
@@ -1260,7 +1266,7 @@ export function ObservationViewer(props: Props) {
       {experienceMode === 'science' && (
         <div className="viewer-science" role="toolbar" aria-label="Science measurement tools">
           <div className="viewer-science__row">
-            <span className="viewer-science__tag">Science tools</span>
+            <span className="viewer-science__tag">{label('Science tools', 'Công cụ khoa học')}</span>
             <button
               type="button"
               className="btn btn-secondary btn--compact"
@@ -1269,7 +1275,7 @@ export function ObservationViewer(props: Props) {
               title="Read measured SPHEREx flux by wavelength at the selected position"
             >
               <Sparkles aria-hidden />
-              <span>Spectrum at point</span>
+              {label('Spectrum at point', 'Phổ tại điểm')}
             </button>
             <button
               type="button"
@@ -1286,19 +1292,19 @@ export function ObservationViewer(props: Props) {
                 }
               }}
             >
-              <span>{rulerActive ? 'Ruler A→B (active)' : 'Measure offset (A→B)'}</span>
+              {rulerActive ? label('Ruler A→B (active)', 'Thước A→B (đang bật)') : label('Measure offset (A→B)', 'Đo độ lệch (A→B)')}
             </button>
             <label className="viewer-source-select">
-              <span className="sr-only">Image contrast stretch</span>
+            <span className="sr-only">{vi ? 'Giãn tương phản ảnh' : 'Image contrast stretch'}</span>
               <select
                 className="select select--compact"
                 value={stretch}
                 onChange={(e) => setStretch(e.target.value as CanvasStretch)}
-                aria-label="Image contrast stretch"
+                aria-label={vi ? 'Giãn tương phản ảnh' : 'Image contrast stretch'}
               >
-                <option value="default">Stretch: Standard</option>
-                <option value="high-contrast">Stretch: High contrast</option>
-                <option value="invert">Stretch: Inverted (print)</option>
+                <option value="default">{vi ? 'Giãn ảnh: Tiêu chuẩn' : 'Stretch: Standard'}</option>
+                <option value="high-contrast">{vi ? 'Giãn ảnh: Tương phản cao' : 'Stretch: High contrast'}</option>
+                <option value="invert">{vi ? 'Giãn ảnh: Đảo màu (in)' : 'Stretch: Inverted (print)'}</option>
               </select>
             </label>
           </div>
@@ -1334,14 +1340,16 @@ export function ObservationViewer(props: Props) {
       {/* Guiding question & Gaia overlay legend */}
       <div className="viewer-prompt">
         <p className="viewer-prompt__question">
-          {props.target?.change === 'brightness'
-            ? 'Did this star stay at the same position while changing brightness?'
-            : 'Which point moved relative to the surrounding stars?'}
+          <EyesCopy alternate={props.target?.change === 'brightness' ? (vi ? 'Did this star stay at the same position while changing brightness?' : 'Ngôi sao có giữ nguyên vị trí trong khi độ sáng thay đổi không?') : (vi ? 'Which point moved relative to the surrounding stars?' : 'Điểm nào đã dịch chuyển so với các sao xung quanh?')}>
+            {props.target?.change === 'brightness' ? (vi ? 'Ngôi sao có giữ nguyên vị trí trong khi độ sáng thay đổi không?' : 'Did this star stay at the same position while changing brightness?') : (vi ? 'Điểm nào đã dịch chuyển so với các sao xung quanh?' : 'Which point moved relative to the surrounding stars?')}
+          </EyesCopy>
         </p>
         <p className="caption">
+          <EyesCopy alternate={inCompare ? (vi ? 'Use “Mark position in A” and “Mark position in B” (or click directly on each image), check the estimated shift in arcseconds.' : 'Dùng “Đánh dấu vị trí trong A” và “Đánh dấu vị trí trong B” (hoặc nhấn trực tiếp trên ảnh), rồi kiểm tra độ dịch chuyển ước tính bằng giây cung.') : (vi ? 'Watch the surrounding field stars stay nearly fixed, click to mark what moves across observation dates.' : 'Quan sát các sao nền gần như đứng yên; nhấn để đánh dấu điểm dịch chuyển giữa các ngày quan sát.')}>
           {inCompare
-            ? 'Use “Mark position in A” and “Mark position in B” (or click directly on each image), check the estimated shift in arcseconds.'
-            : 'Watch the surrounding field stars stay nearly fixed, click to mark what moves across observation dates.'}
+            ? (vi ? 'Dùng “Đánh dấu vị trí trong A” và “Đánh dấu vị trí trong B” (hoặc nhấn trực tiếp trên ảnh), rồi kiểm tra độ dịch chuyển ước tính bằng giây cung.' : 'Use “Mark position in A” and “Mark position in B” (or click directly on each image), check the estimated shift in arcseconds.')
+            : (vi ? 'Quan sát các sao nền gần như đứng yên; nhấn để đánh dấu điểm dịch chuyển giữa các ngày quan sát.' : 'Watch the surrounding field stars stay nearly fixed, click to mark what moves across observation dates.')}
+          </EyesCopy>
         </p>
 
         <div className="viewer-prompt__actions" data-tour="markers">
@@ -1354,7 +1362,7 @@ export function ObservationViewer(props: Props) {
               onClick={() => setToggles({ crosshair: !toggles.crosshair })}
             >
               <Crosshair aria-hidden />
-              <span>Target crosshair</span>
+              {label('Target crosshair', 'Tâm ngắm mục tiêu')}
             </button>
           )}
           {catalogAvailable && (
@@ -1365,7 +1373,7 @@ export function ObservationViewer(props: Props) {
               onClick={() => setToggles({ gaiaOverlays: !toggles.gaiaOverlays })}
             >
               <Sparkles aria-hidden />
-              <span>Gaia reference stars</span>
+              {label('Gaia reference stars', 'Sao tham chiếu Gaia')}
             </button>
           )}
 
@@ -1385,21 +1393,21 @@ export function ObservationViewer(props: Props) {
               }}
             >
               <X aria-hidden />
-              <span>Clear marks</span>
+              {label('Clear marks', 'Xóa dấu')}
             </button>
           ) : (
             props.picked &&
             props.onClearPick && (
               <button type="button" className="btn btn-secondary btn--compact" onClick={props.onClearPick}>
                 <X aria-hidden />
-                <span>Clear mark</span>
+                {label('Clear mark', 'Xóa dấu')}
               </button>
             )
           )}
         </div>
 
         {catalogAvailable && toggles.gaiaOverlays && (
-          <div className="star-picker" aria-label="Identify catalog stars">
+          <div className="star-picker" aria-label={vi ? 'Nhận diện sao trong danh mục' : 'Identify catalog stars'}>
             <label className="check">
               <input
                 type="checkbox"
@@ -1407,37 +1415,37 @@ export function ObservationViewer(props: Props) {
                 disabled={rulerActive || Boolean(markingSlot)}
                 onChange={(e) => setIdentifyStars(e.target.checked)}
               />
-              Select a star on the image
+              {vi ? 'Chọn một sao trên ảnh' : 'Select a star on the image'}
             </label>
             <p className="caption">
               {rulerActive || Boolean(markingSlot)
-                ? 'Star click selection is paused while measuring offset or marking positions.'
-                : 'Click a blue circle or choose a star below. Turn off star selection to mark freely. Catalog positions do not confirm a detection in this image.'}
+                ? (vi ? 'Chức năng chọn sao tạm dừng khi đo độ lệch hoặc đánh dấu vị trí.' : 'Star click selection is paused while measuring offset or marking positions.')
+                : (vi ? 'Nhấn vào vòng tròn xanh hoặc chọn sao bên dưới. Tắt chọn sao để đánh dấu tự do. Vị trí danh mục không xác nhận sao đã được phát hiện trong ảnh.' : 'Click a blue circle or choose a star below. Turn off star selection to mark freely. Catalog positions do not confirm a detection in this image.')}
             </p>
-            {props.gaiaOverlayMeta?.loading ? <p role="status">Loading star catalog…</p>
-              : props.gaiaOverlayMeta?.error ? <p role="status">Star identification is unavailable because the catalog could not be loaded.</p>
-              : visibleStars.length === 0 ? <p role="status">No selectable catalog stars in this frame.</p>
+            {props.gaiaOverlayMeta?.loading ? <p role="status">{vi ? 'Đang tải danh mục sao…' : 'Loading star catalog…'}</p>
+              : props.gaiaOverlayMeta?.error ? <p role="status">{vi ? 'Không thể nhận diện sao vì không tải được danh mục.' : 'Star identification is unavailable because the catalog could not be loaded.'}</p>
+              : visibleStars.length === 0 ? <p role="status">{vi ? 'Không có sao danh mục nào có thể chọn trong ảnh này.' : 'No selectable catalog stars in this frame.'}</p>
               : (
                 <label className="star-picker__select">
-                  <span className="sr-only">Choose catalog star</span>
-                  <select className="select" aria-label="Choose catalog star" value={currentStar?.sourceId ?? ''}
+                  <span className="sr-only">{vi ? 'Chọn sao trong danh mục' : 'Choose catalog star'}</span>
+                  <select className="select" aria-label={vi ? 'Chọn sao trong danh mục' : 'Choose catalog star'} value={currentStar?.sourceId ?? ''}
                     onChange={(e) => selectStar(visibleStars.find((s) => s.sourceId === e.target.value) ?? null)}>
-                    <option value="">Choose a star ({visibleStars.length})</option>
+                    <option value="">{vi ? 'Chọn một sao' : 'Choose a star'} ({visibleStars.length})</option>
                     {visibleStars.map((s) => <option key={s.sourceId} value={s.sourceId}>
                       {demo ? 'Demo star' : 'Gaia DR3'} {s.sourceId}{s.gMag != null ? ` · G ${s.gMag.toFixed(1)}` : ''}
                     </option>)}
                   </select>
                 </label>
               )}
-            {selection && !selectedStar && <p className="caption" role="status">No catalog star selected. Choose a marked circle; unmarked points have no identification here.</p>}
+            {selection && !selectedStar && <p className="caption" role="status">{vi ? 'Chưa chọn sao trong danh mục. Hãy chọn một vòng tròn; các điểm không đánh dấu không được nhận diện ở đây.' : 'No catalog star selected. Choose a marked circle; unmarked points have no identification here.'}</p>}
             {selectedStar && (
               <div className="star-picker__details" role="status">
-                <strong>{demo ? 'Selected demo star' : 'Selected Gaia DR3 star'}</strong>
+                <strong>{demo ? (vi ? 'Sao minh họa đã chọn' : 'Selected demo star') : (vi ? 'Sao Gaia DR3 đã chọn' : 'Selected Gaia DR3 star')}</strong>
                 <span className="num star-picker__id">{selectedStar.sourceId}</span>
                 {selectedStar.catalogRa != null && selectedStar.catalogDec != null && <span className="caption num">
                   Catalog RA {selectedStar.catalogRa.toFixed(6)}° · Dec {selectedStar.catalogDec.toFixed(6)}°
                 </span>}
-                <span className="caption">G magnitude: {selectedStar.gMag?.toFixed(2) ?? 'Unavailable'}</span>
+                <span className="caption">{vi ? 'Cấp sao G' : 'G magnitude'}: {selectedStar.gMag?.toFixed(2) ?? (vi ? 'Không có dữ liệu' : 'Unavailable')}</span>
                 {!currentStar && <span className="caption">This star is not among the displayed markers for this frame.</span>}
                 <div className="viewer-prompt__actions">
                   <button type="button" className="btn btn-secondary btn--compact" disabled={!currentStar}
@@ -1445,8 +1453,8 @@ export function ObservationViewer(props: Props) {
                       if (!currentStar) return
                       const ref = sideBySide && activeSlot === 'B' ? canvasBRef : canvasRef
                       ref.current?.centerOnPixel(currentStar.px)
-                    }}>Center on selected star</button>
-                  <button type="button" className="btn btn-secondary btn--compact" onClick={() => setStarSelection(null)}>Clear selection</button>
+                    }}>{label('Center on selected star', 'Căn giữa tại sao đã chọn')}</button>
+                  <button type="button" className="btn btn-secondary btn--compact" onClick={() => setStarSelection(null)}>{label('Clear selection', 'Bỏ chọn')}</button>
                 </div>
               </div>
             )}

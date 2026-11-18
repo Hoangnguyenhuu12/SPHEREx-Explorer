@@ -5,6 +5,8 @@ import { LIMITS, REASONS, type ReasonCode } from '../config'
 import { describeForumError } from '../errors'
 import { charCount, validateReason } from '../validation'
 import type { ModerationReason } from '../types'
+import { useLanguage } from '../../../shared/i18n/language'
+import { validationText } from '../translations'
 
 interface ReasonDialogProps {
   open: boolean
@@ -20,6 +22,8 @@ interface ReasonDialogProps {
 
 /** One dialog for Report, Reject and Hide: pick a reason, optionally explain (required for "Other"). */
 export function ReasonDialog({ open, title, description, confirmLabel, tone = 'primary', noteLabel = 'Details (optional)', onClose, onSubmit }: ReasonDialogProps) {
+  const { lang } = useLanguage()
+  const vi = lang === 'vi'
   const id = useId()
   const [code, setCode] = useState<ReasonCode | null>(null)
   const [note, setNote] = useState('')
@@ -73,10 +77,10 @@ export function ReasonDialog({ open, title, description, confirmLabel, tone = 'p
       actions={
         <>
           <button type="button" className="btn btn-secondary" onClick={close} disabled={busy}>
-            Cancel
+            {vi ? 'Hủy' : 'Cancel'}
           </button>
           <button type="submit" form={`${id}-form`} className={`btn ${tone === 'danger' ? 'btn-danger' : 'btn-primary'}`} disabled={busy}>
-            {busy ? 'Sending…' : confirmLabel}
+            {busy ? (vi ? 'Đang gửi…' : 'Sending…') : confirmLabel}
           </button>
         </>
       }
@@ -91,8 +95,8 @@ export function ReasonDialog({ open, title, description, confirmLabel, tone = 'p
           </div>
         )}
         <fieldset className="reason-form__set" aria-describedby={errors.code ? `${id}-code-err` : undefined}>
-          <legend className="field__label">Reason</legend>
-          {REASONS.map((r) => (
+          <legend className="field__label">{vi ? 'Lý do' : 'Reason'}</legend>
+          {REASONS.map((r, i) => (
             <label key={r.code} className="radio">
               <input
                 id={`${id}-r-${r.code}`}
@@ -105,19 +109,19 @@ export function ReasonDialog({ open, title, description, confirmLabel, tone = 'p
                   setErrors((e) => ({ ...e, code: undefined }))
                 }}
               />
-              <span>{r.label}</span>
+              <span>{vi ? ['Không đúng chủ đề', 'Thư rác hoặc quảng cáo', 'Xúc phạm hoặc công kích', 'Chia sẻ thông tin cá nhân', 'Cần thêm bối cảnh hoặc nguồn', 'Lý do khác'][i] : r.label}</span>
             </label>
           ))}
           {errors.code && (
             <p id={`${id}-code-err`} className="field__error">
-              <AlertCircle aria-hidden /> {errors.code}
+              <AlertCircle aria-hidden /> {validationText(errors.code, lang)}
             </p>
           )}
         </fieldset>
         <div className="field">
           <div className="field__row">
             <label htmlFor={`${id}-note`} className="field__label">
-              {code === 'other' ? 'Explain the reason' : noteLabel}
+              {code === 'other' ? (vi ? 'Giải thích lý do' : 'Explain the reason') : vi && noteLabel === 'Details (optional)' ? 'Chi tiết (không bắt buộc)' : noteLabel}
             </label>
             <span className={`field__count${n > LIMITS.reasonNoteMax ? ' field__count--over' : ''}`}>
               {n}/{LIMITS.reasonNoteMax}
@@ -139,7 +143,7 @@ export function ReasonDialog({ open, title, description, confirmLabel, tone = 'p
           />
           {errors.note && (
             <p id={`${id}-note-err`} className="field__error">
-              <AlertCircle aria-hidden /> {errors.note}
+              <AlertCircle aria-hidden /> {validationText(errors.note, lang)}
             </p>
           )}
         </div>

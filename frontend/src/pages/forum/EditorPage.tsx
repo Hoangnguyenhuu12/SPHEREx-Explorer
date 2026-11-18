@@ -23,6 +23,7 @@ import { Dialog } from '../../shared/ui/Dialog'
 import '../../features/forum/forum.css'
 import { PageShell } from '../../shared/layout/Shell'
 import { useDocumentTitle } from './useDocumentTitle'
+import { useLanguage } from '../../shared/i18n/language'
 
 const EMPTY: PostContent = { title: '', body: '', tagIds: [], links: [] }
 
@@ -37,6 +38,7 @@ export default function EditorPage() {
 }
 
 function EditorRoute() {
+  const { lang } = useLanguage()
   const { id } = useParams()
   const editor = useQuery({
     queryKey: forumKeys.editor(id ?? 'new'),
@@ -53,7 +55,7 @@ function EditorRoute() {
     )
   if (editor.isError) {
     if (editor.error instanceof ForumError && editor.error.code === 'NOT_FOUND')
-      return <ForumMessage title="Post not found">You can only edit your own posts.</ForumMessage>
+      return <ForumMessage title={lang === 'vi' ? 'Không tìm thấy bài viết' : 'Post not found'}>{lang === 'vi' ? 'Bạn chỉ có thể sửa bài viết của mình.' : 'You can only edit your own posts.'}</ForumMessage>
     return (
       <div className="wrap forum">
         <ErrorNotice error={editor.error} onRetry={() => editor.refetch()} />
@@ -64,8 +66,10 @@ function EditorRoute() {
 }
 
 function EditorForm({ data, onReload }: { data: EditorData | null; onReload?: () => void }) {
+  const { lang } = useLanguage()
+  const vi = lang === 'vi'
   const mode = data?.mode ?? 'new'
-  useDocumentTitle(mode === 'edit' ? 'Edit post' : 'Write a post')
+  useDocumentTitle(mode === 'edit' ? (vi ? 'Sửa bài viết' : 'Edit post') : (vi ? 'Viết bài' : 'Write a post'))
   const uid = useId()
   const navigate = useNavigate()
   const location = useLocation()
@@ -163,12 +167,12 @@ function EditorForm({ data, onReload }: { data: EditorData | null; onReload?: ()
       setBusy(null)
       if (!postId) {
         setPostId(res.postId)
-        leaveTo(forumEditPath(res.postId), 'Draft saved. Only you can see it.')
+        leaveTo(forumEditPath(res.postId), vi ? 'Đã lưu bản nháp. Chỉ bạn có thể xem.' : 'Draft saved. Only you can see it.')
         return
       }
       setDirty(false)
       setSavedAt(res.savedAt)
-      flash.show('Draft saved. Only you can see it.')
+      flash.show(vi ? 'Đã lưu bản nháp. Chỉ bạn có thể xem.' : 'Draft saved. Only you can see it.')
     } catch (err) {
       setBusy(null)
       applyServerError(err)
@@ -193,7 +197,7 @@ function EditorForm({ data, onReload }: { data: EditorData | null; onReload?: ()
       qc.removeQueries({ queryKey: forumKeys.post(res.postId) })
       setConfirm(false)
       setBusy(null)
-      leaveTo(forumPostPath(res.postId), mode === 'edit' ? 'Edit sent for review. Readers still see the published version.' : 'Sent for review. Only you can see it until it is approved.')
+      leaveTo(forumPostPath(res.postId), mode === 'edit' ? (vi ? 'Đã gửi bản sửa để duyệt. Mọi người vẫn thấy bản đã đăng.' : 'Edit sent for review. Readers still see the published version.') : (vi ? 'Đã gửi kiểm duyệt. Chỉ bạn thấy bài cho đến khi được duyệt.' : 'Sent for review. Only you can see it until it is approved.'))
     } catch (err) {
       setConfirm(false)
       setBusy(null)
@@ -208,12 +212,12 @@ function EditorForm({ data, onReload }: { data: EditorData | null; onReload?: ()
   return (
     <div className="wrap forum editor-page">
       <Link to={backHref} className="back-link">
-        <ChevronLeft aria-hidden /> {postId && data ? 'Back to post' : 'Forum'}
+        <ChevronLeft aria-hidden /> {postId && data ? (vi ? 'Trở lại bài viết' : 'Back to post') : (vi ? 'Diễn đàn' : 'Forum')}
       </Link>
       <div className="editor-layout">
         <form className="editor" onSubmit={askSubmit} noValidate aria-labelledby={`${uid}-h`}>
           <h1 id={`${uid}-h`} className="editor__title">
-            {mode === 'edit' ? 'Suggest an edit' : mode === 'draft' ? 'Edit draft' : 'Write a post'}
+            {mode === 'edit' ? (vi ? 'Đề xuất chỉnh sửa' : 'Suggest an edit') : mode === 'draft' ? (vi ? 'Sửa bản nháp' : 'Edit draft') : (vi ? 'Viết bài' : 'Write a post')}
           </h1>
 
           {locked ? (
@@ -221,10 +225,10 @@ function EditorForm({ data, onReload }: { data: EditorData | null; onReload?: ()
               <Info aria-hidden />
               <div>
                 <p>
-                  <strong>This version is waiting for review.</strong> Withdraw it from the post page before you change it.
+                  <strong>{vi ? 'Phiên bản này đang chờ kiểm duyệt.' : 'This version is waiting for review.'}</strong> {vi ? 'Hãy rút lại tại trang bài viết trước khi chỉnh sửa.' : 'Withdraw it from the post page before you change it.'}
                 </p>
                 <Link to={forumPostPath(data!.postId)} className="btn btn-secondary btn-sm editor__notice-action">
-                  Go to the post
+                  {vi ? 'Đến bài viết' : 'Go to the post'}
                 </Link>
               </div>
             </div>
@@ -235,17 +239,17 @@ function EditorForm({ data, onReload }: { data: EditorData | null; onReload?: ()
                 <p>
                   {mode === 'edit' ? (
                     <>
-                      <strong>Readers keep seeing the published version</strong> until a moderator approves your edit.
+                      <strong>{vi ? 'Mọi người vẫn thấy bản đã công khai' : 'Readers keep seeing the published version'}</strong> {vi ? 'cho đến khi người kiểm duyệt duyệt bản sửa.' : 'until a moderator approves your edit.'}
                     </>
                   ) : (
                     <>
-                      <strong>A moderator checks every post</strong> before it appears in the Forum.
+                      <strong>{vi ? 'Người kiểm duyệt xem xét mọi bài viết' : 'A moderator checks every post'}</strong> {vi ? 'trước khi bài xuất hiện trên diễn đàn.' : 'before it appears in the Forum.'}
                     </>
                   )}
                 </p>
                 <ul className="editor__rules">
-                  {COMMUNITY_RULES.slice(0, 3).map((r) => (
-                    <li key={r}>{r}</li>
+                  {COMMUNITY_RULES.slice(0, 3).map((r, i) => (
+                    <li key={r}>{vi ? ['Trao đổi đúng chủ đề: SPHEREx, bầu trời và công cụ này.', 'Thêm bối cảnh: bạn đã xem gì, dùng cảm biến nào và mong đợi điều gì.', 'Không chia sẻ thông tin cá nhân của bạn hoặc người khác.'][i] : r}</li>
                   ))}
                 </ul>
               </div>
@@ -256,7 +260,7 @@ function EditorForm({ data, onReload }: { data: EditorData | null; onReload?: ()
             <div className="notice notice--error">
               <AlertCircle aria-hidden />
               <p>
-                <strong>Moderator feedback on your last version.</strong> <ReasonText reason={data.lastRejection} />
+                <strong>{vi ? 'Phản hồi của người kiểm duyệt về phiên bản trước.' : 'Moderator feedback on your last version.'}</strong> <ReasonText reason={data.lastRejection} />
               </p>
             </div>
           )}
@@ -266,7 +270,7 @@ function EditorForm({ data, onReload }: { data: EditorData | null; onReload?: ()
             <div className="field">
               <div className="field__row">
                 <label htmlFor={`${uid}-title`} className="field__label">
-                  Title
+                  {vi ? 'Tiêu đề' : 'Title'}
                 </label>
                 <span className={`field__count${titleN > LIMITS.titleMax ? ' field__count--over' : ''}`}>
                   {titleN}/{LIMITS.titleMax}
@@ -279,7 +283,7 @@ function EditorForm({ data, onReload }: { data: EditorData | null; onReload?: ()
                 autoComplete="off"
                 className="input editor__title-input"
                 value={content.title}
-                placeholder="For example: Is this faint dot near WISE 0855 the brown dwarf…"
+                placeholder={vi ? 'Ví dụ: Chấm mờ gần WISE 0855 có phải sao lùn nâu không…' : 'For example: Is this faint dot near WISE 0855 the brown dwarf…'}
                 aria-invalid={errors.title ? true : undefined}
                 aria-describedby={errors.title ? `${uid}-title-err` : undefined}
                 onChange={(e) => update('title', e.target.value)}
@@ -290,14 +294,14 @@ function EditorForm({ data, onReload }: { data: EditorData | null; onReload?: ()
             <div className="field">
               <div className="field__row">
                 <span className="field__label" id={`${uid}-body-label`}>
-                  Post
+                  {vi ? 'Nội dung' : 'Post'}
                 </span>
-                <div className="segmented segmented--sm" role="group" aria-label="Editor view">
+                <div className="segmented segmented--sm" role="group" aria-label={vi ? 'Chế độ soạn thảo' : 'Editor view'}>
                   <button type="button" aria-pressed={tab === 'write'} onClick={() => setTab('write')}>
-                    Write
+                    {vi ? 'Soạn' : 'Write'}
                   </button>
                   <button type="button" aria-pressed={tab === 'preview'} onClick={() => setTab('preview')}>
-                    Preview
+                    {vi ? 'Xem trước' : 'Preview'}
                   </button>
                 </div>
               </div>
@@ -314,12 +318,12 @@ function EditorForm({ data, onReload }: { data: EditorData | null; onReload?: ()
                     aria-labelledby={`${uid}-body-label`}
                     aria-invalid={errors.body ? true : undefined}
                     aria-describedby={`${uid}-body-hint${errors.body ? ` ${uid}-body-err` : ''}`}
-                    placeholder="What did you look at (target, detector)? What did you see, and what would you like to know?"
+                    placeholder={vi ? 'Bạn đã xem mục tiêu và cảm biến nào? Bạn thấy gì và muốn biết thêm điều gì?' : 'What did you look at (target, detector)? What did you see, and what would you like to know?'}
                     onChange={(e) => update('body', e.target.value)}
                   />
                   <div className="field__row">
                     <p id={`${uid}-body-hint`} className="field__hint">
-                      Formatting: **bold**, *italic*, lines starting with “- ” for a list, [text](https://link).
+                      {vi ? 'Định dạng: **in đậm**, *in nghiêng*, bắt đầu dòng bằng “- ” để tạo danh sách, [chữ](https://link).' : 'Formatting: **bold**, *italic*, lines starting with “- ” for a list, [text](https://link).'}
                     </p>
                     <span className={`field__count${bodyN > LIMITS.bodyMax ? ' field__count--over' : ''}`}>
                       {bodyN.toLocaleString('en')}/{LIMITS.bodyMax.toLocaleString('en')}
@@ -328,7 +332,7 @@ function EditorForm({ data, onReload }: { data: EditorData | null; onReload?: ()
                 </>
               ) : (
                 <div className="editor__preview" aria-live="polite">
-                  {content.body.trim() ? <MarkdownView source={content.body} /> : <p className="field__hint">Nothing to preview yet.</p>}
+                  {content.body.trim() ? <MarkdownView source={content.body} /> : <p className="field__hint">{vi ? 'Chưa có nội dung để xem trước.' : 'Nothing to preview yet.'}</p>}
                 </div>
               )}
               <FieldError id={`${uid}-body-err`} message={errors.body} />
@@ -349,16 +353,16 @@ function EditorForm({ data, onReload }: { data: EditorData | null; onReload?: ()
 
           <div className="editor__bar">
             <p className="editor__saved caption" aria-live="polite">
-              {busy === 'save' ? 'Saving…' : dirty ? 'Unsaved changes' : savedAt ? <TimeAgo iso={savedAt} prefix="Saved" /> : null}
+              {busy === 'save' ? (vi ? 'Đang lưu…' : 'Saving…') : dirty ? (vi ? 'Có thay đổi chưa lưu' : 'Unsaved changes') : savedAt ? <TimeAgo iso={savedAt} prefix="Saved" /> : null}
             </p>
             <Link to={backHref} className="btn btn-ghost">
-              Cancel
+              {vi ? 'Hủy' : 'Cancel'}
             </Link>
             <button type="button" className="btn btn-secondary" onClick={save} disabled={locked || busy !== null}>
-              {busy === 'save' ? 'Saving…' : 'Save draft'}
+              {busy === 'save' ? (vi ? 'Đang lưu…' : 'Saving…') : (vi ? 'Lưu bản nháp' : 'Save draft')}
             </button>
             <button type="submit" className="btn btn-primary" disabled={locked || busy !== null}>
-              Submit for review
+              {vi ? 'Gửi kiểm duyệt' : 'Submit for review'}
             </button>
           </div>
         </form>
@@ -366,21 +370,21 @@ function EditorForm({ data, onReload }: { data: EditorData | null; onReload?: ()
 
       <Dialog
         open={confirm}
-        title="Send for review?"
+        title={vi ? 'Gửi kiểm duyệt?' : 'Send for review?'}
         description={
           mode === 'edit'
-            ? 'A moderator checks your edit. Until it is approved, readers see the current version.'
-            : 'A moderator checks your post before it appears in the Forum. You can withdraw it while it waits.'
+            ? (vi ? 'Người kiểm duyệt sẽ xem bản sửa. Mọi người vẫn thấy bản hiện tại cho đến khi được duyệt.' : 'A moderator checks your edit. Until it is approved, readers see the current version.')
+            : (vi ? 'Người kiểm duyệt xem bài trước khi đăng lên diễn đàn. Bạn có thể rút lại trong lúc chờ.' : 'A moderator checks your post before it appears in the Forum. You can withdraw it while it waits.')
         }
         onClose={() => setConfirm(false)}
         busy={busy === 'submit'}
         actions={
           <>
             <button type="button" className="btn btn-secondary" onClick={() => setConfirm(false)} disabled={busy === 'submit'}>
-              Keep editing
+              {vi ? 'Tiếp tục chỉnh sửa' : 'Keep editing'}
             </button>
             <button type="button" className="btn btn-primary" onClick={submit} disabled={busy === 'submit'}>
-              {busy === 'submit' ? 'Sending…' : 'Send for review'}
+              {busy === 'submit' ? (vi ? 'Đang gửi…' : 'Sending…') : (vi ? 'Gửi kiểm duyệt' : 'Send for review')}
             </button>
           </>
         }

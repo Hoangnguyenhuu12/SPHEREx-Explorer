@@ -3,20 +3,25 @@ import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties
 import { createPortal } from 'react-dom'
 import { useReducedMotion } from 'motion/react'
 import './guide.css'
+import { useLanguage } from '../../shared/i18n/language'
+import { StableLabel } from '../../shared/i18n/StableLabel'
+import { EyesCopy } from '../target-details/EyesCopy'
 
 export function GuideToggle({ on, onChange }: { on: boolean; onChange: (on: boolean) => void }) {
+  const { lang } = useLanguage()
+  const vi = lang === 'vi'
   return (
     <button
       type="button"
       className="guide-toggle"
       data-tour="tour-toggle"
       aria-pressed={on}
-      title={`${on ? 'Close' : 'Start'} the tutorial (T)`}
+      title={vi ? `${on ? 'Đóng' : 'Mở'} hướng dẫn (T)` : `${on ? 'Close' : 'Start'} the tutorial (T)`}
       onClick={() => onChange(!on)}
     >
       <GraduationCap aria-hidden />
-      <span>Tutorial</span>
-      <span className="guide-toggle__state">{on ? 'On' : 'Off'}</span>
+      <StableLabel text={vi ? 'Hướng dẫn' : 'Tutorial'} alt={vi ? 'Tutorial' : 'Hướng dẫn'} />
+      <span className="guide-toggle__state"><StableLabel text={vi ? (on ? 'Bật' : 'Tắt') : (on ? 'On' : 'Off')} alt={vi ? (on ? 'On' : 'Off') : (on ? 'Bật' : 'Tắt')} /></span>
     </button>
   )
 }
@@ -25,7 +30,9 @@ export interface TourStep {
   /** `data-tour` values to point at; the first one on screen wins. Empty: a centred card. */
   anchors: string[]
   title: string
+  alternateTitle?: string
   body: ReactNode
+  alternateBody?: ReactNode
   /** Shown once the visitor has clicked the highlighted control. */
   done?: ReactNode
   /** The step lives in the target panel: open a target first if none is shown. */
@@ -79,6 +86,8 @@ export function GuideTour({
   ensureTarget: () => void
   onClose: () => void
 }) {
+  const { lang } = useLanguage()
+  const vi = lang === 'vi'
   const reduce = useReducedMotion()
   const uid = useId()
   const [index, setIndex] = useState(0)
@@ -228,27 +237,27 @@ export function GuideTour({
         {cardPos && cardPos.side !== 'none' && <span className="tour__arrow" style={cardPos.arrow} aria-hidden />}
         <div className="tour__head">
           <span className="tour__count num">
-            Step {index + 1} of {steps.length}
+            {vi ? 'Bước' : 'Step'} {index + 1} {vi ? 'trên' : 'of'} {steps.length}
           </span>
-          <button type="button" className="icon-btn icon-btn--sm" aria-label="Close tutorial" onClick={onClose}>
+          <button type="button" className="icon-btn icon-btn--sm" aria-label={vi ? 'Đóng hướng dẫn' : 'Close tutorial'} onClick={onClose}>
             <X aria-hidden />
           </button>
         </div>
         <h2 id={`${uid}-t`} className="tour__title">
-          {step.title}
+          {step.alternateTitle ? <EyesCopy alternate={step.alternateTitle}>{step.title}</EyesCopy> : step.title}
         </h2>
         <div id={`${uid}-b`} className="tour__body" aria-live="polite">
-          {step.body}
+          {step.alternateBody ? <div className="eyes-copy"><div>{step.body}</div><div aria-hidden="true">{step.alternateBody}</div></div> : step.body}
           {done && step.done && <p className="tour__done">✓ {step.done}</p>}
-          {step.anchors.length > 0 && !ring && <p className="caption">Loading this part of the page…</p>}
+          {step.anchors.length > 0 && !ring && <p className="caption">{vi ? 'Đang tải phần này…' : 'Loading this part of the page…'}</p>}
         </div>
         <div className="tour__actions">
           <button type="button" className="btn btn-ghost btn--compact" onClick={onClose}>
-            Skip
+            <StableLabel text={vi ? 'Bỏ qua' : 'Skip'} alt={vi ? 'Skip' : 'Bỏ qua'} />
           </button>
           <span className="tour__spacer" />
           <button type="button" className="btn btn-secondary btn--compact" onClick={() => go(-1)} disabled={index === 0}>
-            Back
+            <StableLabel text={vi ? 'Quay lại' : 'Back'} alt={vi ? 'Back' : 'Quay lại'} />
           </button>
           <button
             ref={nextRef}
@@ -256,7 +265,7 @@ export function GuideTour({
             className={`btn btn-primary btn--compact${done ? ' tour__next--ready' : ''}`}
             onClick={() => (last ? onClose() : go(1))}
           >
-            {last ? 'Finish' : 'Next'}
+            <StableLabel text={last ? (vi ? 'Hoàn tất' : 'Finish') : (vi ? 'Tiếp' : 'Next')} alt={last ? (vi ? 'Finish' : 'Hoàn tất') : (vi ? 'Next' : 'Tiếp')} />
           </button>
         </div>
       </div>
