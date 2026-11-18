@@ -1,4 +1,5 @@
 import { Link } from 'react-router'
+import type { ReactNode } from 'react'
 import { PATHS } from '../app/config'
 import { Artwork } from '../features/artwork/Artwork'
 import { DETECTORS, TARGETS } from '../shared/config/targets'
@@ -14,6 +15,10 @@ import './story/story.css'
 
 function Status({ kind, label }: { kind: 'planned' | 'built' | 'pending'; label: string }) {
   return <span className={`status status--${kind}`}>{label}</span>
+}
+
+function StableCopy({ children, alternate }: { children: ReactNode; alternate: ReactNode }) {
+  return <span className="story-copy-slot"><span>{children}</span><span aria-hidden="true">{alternate}</span></span>
 }
 
 function ToolbarItem({ kind, lang }: { kind: 'radec' | 'gaia' | 'surveys' | 'nav'; lang: Language }) {
@@ -169,20 +174,20 @@ export default function StoryPage() {
                   <span className="step__num" aria-hidden>
                     {i + 1}
                   </span>
-                  <strong className="step__title">{s.title}</strong>
-                  <span className="step__text">{s.text}</span>
+                  <strong className="step__title"><StableCopy alternate={otherT.steps[i].title}>{s.title}</StableCopy></strong>
+                  <span className="step__text"><StableCopy alternate={otherT.steps[i].text}>{s.text}</StableCopy></span>
                 </li>
               ))}
             </ol>
-            <h3 className="chapter__sub">{t.toolbarTitle}</h3>
+            <h3 className="chapter__sub"><StableCopy alternate={otherT.toolbarTitle}>{t.toolbarTitle}</StableCopy></h3>
             <ul className="plain-list">
               {t.toolbarItems.map((item) => (
                 <li key={item.kind}>
-                  <ToolbarItem kind={item.kind} lang={lang} />
+                  <StableCopy alternate={<ToolbarItem kind={item.kind} lang={lang === 'en' ? 'vi' : 'en'} />}><ToolbarItem kind={item.kind} lang={lang} /></StableCopy>
                 </li>
               ))}
             </ul>
-            <p className="note">{t.illustrativeNote}</p>
+            <p className="note"><StableCopy alternate={otherT.illustrativeNote}>{t.illustrativeNote}</StableCopy></p>
             <p className="story-cta">
               <ShootingStarLink
                 label={t.headerActionLabel}
@@ -244,13 +249,13 @@ export default function StoryPage() {
                 const localized = t.targets[target.key]
                 return (
                   <article key={target.key} className="target-note">
-                    <h4>{localized.name}</h4>
+                    <h4><StableCopy alternate={otherT.targets[target.key].name}>{localized.name}</StableCopy></h4>
                     <p className="caption">
-                      {localized.kind} · {localized.distance}
+                      <StableCopy alternate={<>{otherT.targets[target.key].kind} · {otherT.targets[target.key].distance}</>}>{localized.kind} · {localized.distance}</StableCopy>
                     </p>
-                    <p>{localized.description}</p>
+                    <p><StableCopy alternate={otherT.targets[target.key].description}>{localized.description}</StableCopy></p>
                     <p className="target-note__look">
-                      <strong>{target.change === 'motion' ? t.targetMotionTag : t.targetBrightnessTag}</strong> {localized.lookFor}
+                      <StableCopy alternate={<><strong>{target.change === 'motion' ? otherT.targetMotionTag : otherT.targetBrightnessTag}</strong> {otherT.targets[target.key].lookFor}</>}><strong>{target.change === 'motion' ? t.targetMotionTag : t.targetBrightnessTag}</strong> {localized.lookFor}</StableCopy>
                     </p>
                   </article>
                 )

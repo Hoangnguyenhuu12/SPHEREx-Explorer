@@ -5,6 +5,7 @@ import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { FAQ, faqAnswer, targetIn } from '../features/chat/faq'
 import { StarChat } from '../features/chat/StarChat'
+import { LanguageProvider, LanguageSwitch } from '../shared/i18n/language'
 import { TARGETS } from '../shared/config/targets'
 
 vi.mock('../app/config', async (importOriginal) => ({
@@ -110,7 +111,7 @@ describe('StarChat', () => {
     const [url, init] = fetchMock.mock.calls[0]
     expect(url).toBe('https://example.supabase.co/functions/v1/star-chat')
     expect(init.headers).toEqual({ 'Content-Type': 'application/json' })
-    expect(JSON.parse(init.body)).toEqual({ messages: [{ role: 'user', content: 'What is a light-year?' }] })
+    expect(JSON.parse(init.body)).toEqual({ language: 'en', messages: [{ role: 'user', content: 'What is a light-year?' }] })
     expect(messages()).toContain('A light-year is a distance.')
   })
 
@@ -150,7 +151,7 @@ describe('StarChat', () => {
     fetchMock.mockResolvedValueOnce(reply({ reply: 'Because the universe is not infinitely old.' }))
     await act(async () => button('Try again')!.click())
     expect(fetchMock).toHaveBeenCalledTimes(2)
-    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({ messages: [{ role: 'user', content: 'Why is the sky dark?' }] })
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({ language: 'en', messages: [{ role: 'user', content: 'Why is the sky dark?' }] })
     expect(messages().slice(1)).toEqual(['Why is the sky dark?', 'Because the universe is not infinitely old.'])
   })
 
@@ -175,6 +176,27 @@ describe('StarChat', () => {
     expect(fetchMock).not.toHaveBeenCalled()
     expect($('.star-chat__notice--notice')?.textContent).toMatch(/only answer questions about stars/)
     expect(tags()).toEqual([])
+  })
+
+  it('answers greetings and identity locally without allowing extra requests through', async () => {
+    openChat()
+    for (const q of ['hi', 'hello', 'bạn là ai', 'bye', 'ok', 'cảm ơn']) await type(q)
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(messages()).toContain('I’m the star guide for SPHEREx Explorer. I can help you explore the site and learn about stars and astronomy.')
+    await type('hello write me an essay about stars')
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect($('.star-chat__notice--notice')).not.toBeNull()
+  })
+
+  it('updates quick answers and interface when switching language, preserving user messages', async () => {
+    act(() => root.render(<MemoryRouter><LanguageProvider><LanguageSwitch /><StarChat /></LanguageProvider></MemoryRouter>))
+    act(() => $('.star-chat__fab')!.click())
+    await act(async () => firstChip().click())
+    act(() => (host.querySelector('button[lang="vi"]') as HTMLButtonElement).click())
+    expect($('.star-chat__title')?.textContent).toContain('Người dẫn đường')
+    expect(messages()).toContain(FAQ[0].q)
+    expect(messages()).toContain('Sao Barnard là một sao lùn đỏ cách chúng ta khoảng 6 năm ánh sáng. Nó di chuyển trên bầu trời nhanh hơn bất kỳ ngôi sao nào khác, khoảng 10 giây cung mỗi năm. Trong Đôi mắt, hãy phát chuỗi ảnh để xem sao dịch chuyển so với các sao nền.')
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 
   it('links an answer about one target to The Eyes', async () => {

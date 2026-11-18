@@ -191,7 +191,7 @@ export function SiteHeader({ variant = 'default', children }: { variant?: Header
   const isLanding = variant === 'landing'
   return (
     <header className={`site-header${isEyes ? ' site-header--eyes' : ''}${isLanding ? ' site-header--landing' : ''}`}>
-      <div className={`site-header__inner${isEyes ? '' : ' wrap'}`}>
+      <div className="site-header__inner wrap">
         {isEyes ? (
           <MenuButton />
         ) : (

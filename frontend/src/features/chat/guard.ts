@@ -61,6 +61,11 @@ function isGibberish(raw: string, folded: string): boolean {
   return long.length > 0 && mashed / long.length > 0.4
 }
 
+// Explicit unrelated or instruction-extraction requests stay blocked even if they mention a target.
+function isMisuse(text: string): boolean {
+  return /\b(ignore (all |your |the |previous )*(instructions|rules|prompts)|system prompt|developer (instructions|message)|api key|reveal (your |the )?(instructions|secrets|key)|write (me )?(an? )?(essay|poem|story|song|code|script|python|function)|solve (my |this |the )?(homework|equation|math)|recipe for|how to cook|viet (cho toi )?(bai van|bai tho|truyen|ma code)|giai (bai toan|bai tap)|cong thuc nau|cach nau|bo qua (cac |nhung )?(quy tac|huong dan)|tiet lo (huong dan|bi mat|khoa))\b/.test(text)
+}
+
 /**
  * Decide, without any AI call, whether a question is worth sending.
  * `followUp` is true when the user is replying inside an on-topic conversation; short follow-ups
@@ -71,6 +76,7 @@ export function guard(question: string, followUp = false): GuardVerdict {
   const folded = fold(raw)
   if (folded.replace(/ /g, '').length < 3) return { ok: false, reason: 'too-short', reply: TOO_SHORT }
   if (isGibberish(raw, folded)) return { ok: false, reason: 'gibberish', reply: GIBBERISH }
+  if (isMisuse(folded)) return { ok: false, reason: 'off-topic', reply: REFUSAL }
   if (hasTopic(folded)) return { ok: true }
   if (followUp && folded.split(' ').length <= 12) return { ok: true }
   return { ok: false, reason: 'off-topic', reply: REFUSAL }

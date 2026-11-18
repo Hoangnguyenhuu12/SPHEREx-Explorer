@@ -13,10 +13,6 @@
 html {
   scrollbar-gutter: stable;
 }
-html:has(.eyes) {
-  scrollbar-gutter: auto;
-}
-
 html,
 body {
   margin: 0;
@@ -50,10 +46,6 @@ h2 {
   font-size: 36px;
   line-height: 44px;
   font-weight: 700;
-}
-:root:lang(vi) h2 {
-  font-size: 33px;
-  line-height: 44px;
 }
 h3 {
   font-size: 24px;

@@ -3,7 +3,9 @@ import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type
 import { Link, useLocation } from 'react-router'
 import { config, PATHS } from '../../app/config'
 import { isTargetKey, type TargetKey } from '../../shared/config/targets'
-import { FAQ, faqAnswer, targetIn } from './faq'
+import { useLanguage, type Language } from '../../shared/i18n/language'
+import { FAQ, FAQ_VI, faqKey, targetIn } from './faq'
+import { CHAT_COPY, conversationalReply, type LocalReply } from './copy'
 import { guard } from './guard'
 import './chat.css'
 
@@ -13,7 +15,7 @@ import './chat.css'
  * - `notice`: filtered or refused question. `error`: request failed; `retry` holds the question to resend.
  */
 type Kind = 'user' | 'faq' | 'ai' | 'notice' | 'error'
-type Msg = { kind: Kind; content: string; send?: boolean; retry?: string }
+type Msg = { kind: Kind; content: string; send?: boolean; retry?: string; faqKey?: TargetKey; localKey?: LocalReply | 'refusal' | 'short' | 'gibberish' | 'offline' | 'network' | 'error' | 'rate' }
 
 const ENDPOINT = config.starChatUrl
 const MAX_CHARS = 400
@@ -21,8 +23,6 @@ const COUNT_FROM = 320
 const COUNT_WARN = 380
 const COOLDOWN_S = 30
 const HIDDEN_ON: readonly string[] = [PATHS.login, PATHS.signup]
-const GREETING = "Hi! I'm the star guide. Pick a question for an instant answer, or ask anything about stars and astronomy."
-const FOOTNOTE = 'AI answers may be wrong. Check the images in The Eyes.'
 
 const isAssistant = (m: Msg) => m.kind !== 'user'
 
@@ -42,6 +42,8 @@ function useMediaQuery(query: string): boolean {
 
 /** Floating star-guide chat: instant ready-made answers, AI answers for everything else. */
 export function StarChat() {
+  const { lang } = useLanguage()
+  const t = CHAT_COPY[lang]
   const location = useLocation()
   const params = new URLSearchParams(location.search)
   const onEyes = location.pathname === PATHS.explorer
@@ -130,20 +132,26 @@ export function StarChat() {
   async function ask(question: string, base: Msg[] = msgs) {
     const q = question.trim().slice(0, MAX_CHARS)
     if (!q || busy) return
-    const ready = faqAnswer(q)
+    const local = conversationalReply(q)
+    const ready = faqKey(q)
     // Zero-token filter: gibberish and off-topic questions are answered here, no request is sent.
     const lastSent = [...base].reverse().find((m) => m.send)
-    const verdict = ready ? null : guard(q, lastSent?.kind === 'ai')
+    const verdict = ready || local ? null : guard(q, lastSent?.kind === 'ai')
     // Rate limited: keep the typed question until the countdown ends (local answers still work).
     if (verdict?.ok && ENDPOINT && waitS > 0) return
     setShowFaq(false)
     setInput('')
+    if (local) {
+      setMsgs([...base, { kind: 'user', content: q }, { kind: 'faq', content: CHAT_COPY.en[local], localKey: local }])
+      return
+    }
     if (ready) {
-      setMsgs([...base, { kind: 'user', content: q }, { kind: 'faq', content: ready }])
+      setMsgs([...base, { kind: 'user', content: q }, { kind: 'faq', content: FAQ.find((f) => f.key === ready)!.a, faqKey: ready }])
       return
     }
     if (verdict && !verdict.ok) {
-      setMsgs([...base, { kind: 'user', content: q }, { kind: 'notice', content: verdict.reply }])
+      const localKey = verdict.reason === 'off-topic' ? 'refusal' : verdict.reason === 'too-short' ? 'short' : 'gibberish'
+      setMsgs([...base, { kind: 'user', content: q }, { kind: 'notice', content: verdict.reply, localKey }])
       return
     }
     const asked: Msg = { kind: 'user', content: q, send: true }
@@ -151,7 +159,7 @@ export function StarChat() {
     // Errors and refusals are not kept in the history sent to the AI.
     const fail = (m: Msg) => setMsgs([...base, { ...asked, send: false }, m])
     if (!ENDPOINT) {
-      fail({ kind: 'notice', content: 'The AI guide is offline. Try one of the suggested questions.' })
+      fail({ kind: 'notice', content: CHAT_COPY.en.offline, localKey: 'offline' })
       setShowFaq(true)
       return
     }
@@ -162,6 +170,7 @@ export function StarChat() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          language: lang,
           messages: next
             .filter((m) => m.send)
             .slice(-4)
@@ -171,18 +180,18 @@ export function StarChat() {
       const data: { reply?: string; error?: string; blocked?: boolean } = await res.json().catch(() => ({}))
       const reply = data.reply?.replace(/[`*]/g, '')
       if (reply && !data.blocked) setMsgs([...next, { kind: 'ai', content: reply, send: true }])
-      else if (reply) fail({ kind: 'notice', content: reply })
+      else if (reply) fail({ kind: 'notice', content: reply, localKey: data.blocked ? 'refusal' : undefined })
       else if (res.status === 429) {
         const until = Date.now() + COOLDOWN_S * 1000
         setNow(Date.now())
         setWaitUntil(until)
-        fail({ kind: 'error', content: data.error || 'Too many questions. Please wait a minute.' })
+        fail({ kind: 'error', content: data.error || CHAT_COPY.en.rate, localKey: 'rate' })
       } else {
         // 400 means the question itself was rejected: sending it again will not help.
-        fail({ kind: 'error', content: data.error || 'Something went wrong. Please try again.', retry: res.status === 400 ? undefined : q })
+        fail({ kind: 'error', content: data.error || CHAT_COPY.en.error, localKey: 'error', retry: res.status === 400 ? undefined : q })
       }
     } catch {
-      fail({ kind: 'error', content: 'Network error. Please try again.', retry: q })
+      fail({ kind: 'error', content: CHAT_COPY.en.network, localKey: 'network', retry: q })
     } finally {
       setBusy(false)
     }
@@ -225,7 +234,7 @@ export function StarChat() {
 
   if (hidden) return null
 
-  const placeholder = waitS > 0 ? `Wait ${waitS} s to ask again…` : 'Ask about a star…'
+  const placeholder = waitS > 0 ? t.wait(waitS) : t.placeholder
   const count = input.length
 
   return (
@@ -244,31 +253,32 @@ export function StarChat() {
           <header className="star-chat__head">
             <div className="star-chat__heading">
               <h2 id="star-chat-title" className="star-chat__title">
-                <Sparkles aria-hidden /> Star guide
+                <Sparkles aria-hidden /> {t.title}
               </h2>
-              <p className="star-chat__sub">Quick facts and AI answers</p>
+              <p className="star-chat__sub">{t.subtitle}</p>
             </div>
             <button
               type="button"
               className="icon-btn icon-btn--sm"
-              aria-label="Clear chat"
-              title="Clear chat"
+              aria-label={t.clear}
+              title={t.clear}
               disabled={!msgs.length || busy}
               onClick={clear}
             >
               <RotateCcw aria-hidden />
             </button>
-            <button type="button" className="icon-btn icon-btn--sm" aria-label="Close star guide" title="Close" onClick={close}>
+            <button type="button" className="icon-btn icon-btn--sm" aria-label={t.close} title={t.closeShort} onClick={close}>
               <X aria-hidden />
             </button>
           </header>
 
           <div className="star-chat__list" ref={listRef} aria-live="polite">
-            <p className="star-chat__msg star-chat__msg--assistant">{GREETING}</p>
+            <p className="star-chat__msg star-chat__msg--assistant">{t.greeting}</p>
             {msgs.map((m, i) => (
               <ChatItem
                 key={i}
                 msg={m}
+                lang={lang}
                 viewing={viewing}
                 onRetry={busy || waitS > 0 ? undefined : () => retry(i)}
                 onOpen={sheet ? () => setOpen(false) : undefined}
@@ -281,13 +291,13 @@ export function StarChat() {
                   <i />
                   <i />
                 </span>
-                <span className="star-chat__typing-text">Thinking…</span>
+                <span className="star-chat__typing-text">{t.thinking}</span>
               </div>
             )}
             {showFaq && (
               <div className="star-chat__faq">
                 <p className="star-chat__label" id="star-chat-suggested">
-                  Suggested
+                  {t.suggested}
                 </p>
                 <ul className="chip-list" aria-labelledby="star-chat-suggested">
                   {suggestions.map((f) => (
@@ -296,9 +306,9 @@ export function StarChat() {
                         type="button"
                         className={`chip${f.key === viewing ? ' star-chat__chip--current' : ''}`}
                         disabled={busy}
-                        onClick={() => void ask(f.q)}
+                        onClick={() => void ask(lang === 'vi' ? FAQ_VI[f.key].q : f.q)}
                       >
-                        {f.q}
+                        {lang === 'vi' ? FAQ_VI[f.key].q : f.q}
                       </button>
                     </li>
                   ))}
@@ -312,8 +322,8 @@ export function StarChat() {
               <button
                 type="button"
                 className="icon-btn"
-                aria-label={showFaq ? 'Hide suggested questions' : 'Show suggested questions'}
-                title={showFaq ? 'Hide suggestions' : 'Show suggestions'}
+                aria-label={showFaq ? t.hide : t.show}
+                title={showFaq ? t.hide : t.show}
                 aria-pressed={showFaq}
                 onClick={() => setShowFaq(!showFaq)}
               >
@@ -326,22 +336,22 @@ export function StarChat() {
                 onChange={(e) => setInput(e.target.value)}
                 placeholder={placeholder}
                 maxLength={MAX_CHARS}
-                aria-label="Your question"
+                aria-label={t.question}
                 aria-describedby="star-chat-foot"
                 enterKeyHint="send"
               />
               <button
                 type="submit"
                 className="icon-btn star-chat__send"
-                disabled={busy || waitS > 0 || !input.trim()}
-                aria-label="Send"
-                title="Send"
+                disabled={busy || !input.trim()}
+                aria-label={t.send}
+                title={t.send}
               >
                 <Send aria-hidden />
               </button>
             </div>
             <p className="star-chat__foot" id="star-chat-foot">
-              <span>{FOOTNOTE}</span>
+              <span>{t.footnote}</span>
               {count >= COUNT_FROM && (
                 <span className={`star-chat__count num${count >= COUNT_WARN ? ' star-chat__count--warn' : ''}`}>
                   {count}/{MAX_CHARS}
@@ -355,8 +365,8 @@ export function StarChat() {
         ref={fabRef}
         type="button"
         className="btn btn-primary star-chat__fab"
-        aria-label={open ? 'Close star guide' : 'Open star guide'}
-        title={open ? 'Close star guide' : 'Ask the star guide'}
+        aria-label={open ? t.close : t.open}
+        title={open ? t.close : t.ask}
         aria-expanded={open}
         aria-controls="star-chat-panel"
         onClick={() => (open ? close() : setOpen(true))}
@@ -378,11 +388,13 @@ export function StarChat() {
 
 function ChatItem({
   msg,
+  lang,
   viewing,
   onRetry,
   onOpen,
 }: {
   msg: Msg
+  lang: Language
   viewing?: TargetKey
   onRetry?: () => void
   /** Called when the visitor follows Open in The Eyes (the sheet closes so the page shows). */
@@ -390,16 +402,19 @@ function ChatItem({
 }) {
   if (msg.kind === 'user') return <p className="star-chat__msg star-chat__msg--user">{msg.content}</p>
 
+  const t = CHAT_COPY[lang]
+  const content = msg.faqKey ? (lang === 'vi' ? FAQ_VI[msg.faqKey].a : FAQ.find((f) => f.key === msg.faqKey)!.a) : msg.localKey ? t[msg.localKey] : msg.content
+
   if (msg.kind === 'notice' || msg.kind === 'error') {
     const Icon = msg.kind === 'error' ? AlertTriangle : Info
     return (
       <div className={`star-chat__notice star-chat__notice--${msg.kind}`} role={msg.kind === 'error' ? 'alert' : undefined}>
         <Icon aria-hidden />
         <div>
-          <p className="star-chat__msg">{msg.content}</p>
+          <p className="star-chat__msg">{content}</p>
           {msg.retry && (
             <button type="button" className="btn btn-ghost btn-sm star-chat__retry" disabled={!onRetry} onClick={onRetry}>
-              Try again
+              {t.retry}
             </button>
           )}
         </div>
@@ -407,18 +422,18 @@ function ChatItem({
     )
   }
 
-  const target = targetIn(msg.content)
+  const target = msg.faqKey ?? targetIn(msg.content)
   return (
     <div className="star-chat__answer">
       <p className={`star-chat__tag star-chat__tag--${msg.kind}`}>
         {msg.kind === 'ai' ? <Sparkles aria-hidden /> : <span className="star-chat__dot" aria-hidden />}
-        {msg.kind === 'ai' ? 'AI answer · may be wrong' : 'Quick answer'}
+        {msg.kind === 'ai' ? t.ai : t.quick}
         <span className="sr-only">:</span>
       </p>
-      <p className="star-chat__msg star-chat__msg--assistant">{msg.content}</p>
+      <p className="star-chat__msg star-chat__msg--assistant">{content}</p>
       {target && target !== viewing && (
         <Link className="btn btn-secondary btn-sm star-chat__open" to={`${PATHS.explorer}?q=${target}`} onClick={onOpen}>
-          <Eye aria-hidden /> Open in The Eyes
+          <Eye aria-hidden /> {t.eyes}
         </Link>
       )}
     </div>

@@ -104,6 +104,7 @@ function applySubtleGrainShader(root: THREE.Object3D): void {
 
 function ObservatoryMesh({ interactive, reduceMotion, dragOffset }: SceneProps) {
   const pivotRef = useRef<THREE.Group>(null)
+  const spinRef = useRef(0)
   const { camera, gl, scene } = useThree()
   const model = useMemo(() => {
     const built = buildSpherexObservatory()
@@ -123,18 +124,19 @@ function ObservatoryMesh({ interactive, reduceMotion, dragOffset }: SceneProps) 
   const baseYaw = 0.56
   const baseRoll = -0.18
 
-  useFrame((state) => {
+  useFrame((state, delta) => {
     const g = pivotRef.current
     if (!g) return
     const t = state.clock.getElapsedTime()
-    const idleYaw = reduceMotion ? 0 : Math.sin(t * 0.42) * 0.24
+    if (!reduceMotion && !dragOffset.current.active) spinRef.current += Math.min(delta, 0.1) * 0.16
     const idlePitch = reduceMotion ? 0 : Math.cos(t * 0.31) * 0.07
-    const targetYaw = baseYaw + idleYaw + (interactive ? dragOffset.current.yaw : 0)
+    const targetYaw = baseYaw + spinRef.current + (interactive ? dragOffset.current.yaw : 0)
     const targetPitch = basePitch + idlePitch + (interactive ? dragOffset.current.pitch : 0)
 
     g.rotation.y = THREE.MathUtils.lerp(g.rotation.y, targetYaw, 0.14)
     g.rotation.x = THREE.MathUtils.lerp(g.rotation.x, targetPitch, 0.14)
     g.rotation.z = baseRoll
+    g.position.y = reduceMotion ? 0 : Math.sin(t * 0.8) * 0.08
   })
 
   return (
@@ -170,6 +172,7 @@ export default function SpherexCraft3D({
       style={{
         width: '100%',
         height: '100%',
+        background: 'radial-gradient(ellipse at 50% 50%, rgba(151, 189, 255, 0.22) 0%, rgba(192, 144, 235, 0.1) 32%, transparent 68%)',
         pointerEvents: interactive ? 'auto' : 'none',
         cursor: interactive ? (dragging ? 'grabbing' : 'grab') : undefined,
         touchAction: interactive ? 'none' : undefined,
@@ -270,8 +273,12 @@ export default function SpherexCraft3D({
         <directionalLight position={[0.0, -5.0, 3.5]} intensity={0.55} color="#dce6fa" />
 
         {/* Soft pastel accent lights matching the space background ribbons onto metallic white & steel bevels */}
-        <directionalLight position={[-5.8, -4.4, -1.6]} intensity={0.95} color="#f472b6" />
-        <directionalLight position={[5.6, 5.0, -1.2]} intensity={0.85} color="#fcd34d" />
+        <directionalLight position={[-5.8, -4.4, -1.6]} intensity={1.25} color="#f472b6" />
+        <directionalLight position={[5.6, 5.0, -1.2]} intensity={1.1} color="#fcd34d" />
+
+        {/* Cool and rose backlights lift the silhouette against the nebula. */}
+        <directionalLight position={[-4, 3, -6]} intensity={1.15} color="#9acbff" />
+        <directionalLight position={[4, 1, -6]} intensity={0.75} color="#f4a6dd" />
 
         <ObservatoryMesh interactive={interactive} reduceMotion={reduceMotion} dragOffset={dragOffset} />
       </Canvas>

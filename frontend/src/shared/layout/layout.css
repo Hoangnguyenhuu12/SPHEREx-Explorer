@@ -46,8 +46,10 @@
     width: 100%;
   }
 }
-.site-header--eyes .site-header__inner {
-  padding-inline: var(--space-3);
+@media (min-width: 1161px) {
+  .site-header--eyes .wordmark {
+    order: -1;
+  }
 }
 .wordmark {
   /* Brand wordmark stays in the English display face so switching EN/VI never shifts its look or size. */

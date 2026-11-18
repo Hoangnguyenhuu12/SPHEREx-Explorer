@@ -19,7 +19,7 @@
   --warn: #ffb45c;
   --danger: #ff8a8a;
 
-  --font-display: 'Averia Serif Libre', Georgia, serif;
+  --font-display: 'Cambria', 'Noto Serif', 'Times New Roman', serif;
   --font-body: 'Andika', system-ui, sans-serif;
 
   --space-1: 4px;
@@ -38,7 +38,7 @@
   --wrap: 1200px;
   --gutter: 48px;
   --header-h: 64px;
-  --eyes-header-h: 56px;
+  --eyes-header-h: var(--header-h);
   --eyes-footer-h: 36px;
   --control-h: 40px;
 
@@ -63,9 +63,4 @@
   :root {
     --control-h: 44px;
   }
-}
-
-/* Averia Serif Libre and Georgia lack Vietnamese extended Latin glyphs; Cambria matches Averia's slab warmth with full VI coverage. */
-:root:lang(vi) {
-  --font-display: 'Cambria', 'Noto Serif', 'Times New Roman', serif;
 }

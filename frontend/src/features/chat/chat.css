@@ -18,11 +18,35 @@ body:has(.tour) .star-chat {
 }
 
 .star-chat .star-chat__fab {
+  position: relative;
   width: 52px;
   height: 52px;
   padding: 0;
   border-radius: 999px;
   box-shadow: 0 6px 20px rgb(0 0 0 / 0.45);
+}
+.star-chat .star-chat__fab::before,
+.star-chat .star-chat__fab::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: 2px solid var(--primary);
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .star-chat .star-chat__fab[aria-expanded='false']::before,
+  .star-chat .star-chat__fab[aria-expanded='false']::after {
+    animation: star-chat-ripple 4s ease-out infinite;
+  }
+  .star-chat .star-chat__fab[aria-expanded='false']::after {
+    animation-delay: 1s;
+  }
+}
+@keyframes star-chat-ripple {
+  0% { transform: scale(1); opacity: 0.55; }
+  100% { transform: scale(1.75); opacity: 0; }
 }
 .star-chat .star-chat__fab svg {
   width: 22px;

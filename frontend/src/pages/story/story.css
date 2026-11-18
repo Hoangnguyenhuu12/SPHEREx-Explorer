@@ -21,10 +21,6 @@
   color: var(--heading);
   max-width: 16em;
 }
-:root:lang(vi) .story-head__title {
-  font-size: 48px;
-  line-height: 64px;
-}
 .story-head__lead {
   margin-top: var(--space-4);
   font-size: 19px;
@@ -72,6 +68,21 @@
   max-width: 68ch;
   display: grid;
   gap: var(--space-9);
+}
+/* Both translations share a grid cell, so the longer one reserves the needed space. */
+.story-copy-slot {
+  display: inline-grid;
+  width: 100%;
+  min-width: 0;
+  vertical-align: top;
+}
+.story-copy-slot > span {
+  grid-area: 1 / 1;
+  min-width: 0;
+}
+.story-copy-slot > span[aria-hidden='true'] {
+  visibility: hidden;
+  pointer-events: none;
 }
 .chapter {
   display: grid;
@@ -729,15 +740,6 @@ ol.plain-list {
     min-height: 840px;
     align-content: start;
   }
-  .steps > .step {
-    min-height: 272px;
-  }
-  .steps .step__title {
-    min-height: 56px;
-  }
-  .steps .step__text {
-    min-height: 112px;
-  }
   .diagram-controls {
     min-height: 48px;
   }
@@ -749,12 +751,6 @@ ol.plain-list {
   }
   .data-table tbody tr {
     height: 48px;
-  }
-  .target-note {
-    min-height: 392px;
-  }
-  .target-note h4 {
-    min-height: 28px;
   }
   .team-card {
     min-height: 224px;

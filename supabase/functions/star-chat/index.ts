@@ -56,9 +56,9 @@ function corsFor(origin: string | null) {
 
 type Msg = { role: 'user' | 'assistant'; content: string }
 
-async function ask(key: string, messages: Msg[]): Promise<string | null> {
+async function ask(key: string, messages: Msg[], language: 'en' | 'vi'): Promise<string | null> {
   const body = JSON.stringify({
-    systemInstruction: { parts: [{ text: SYSTEM }] },
+    systemInstruction: { parts: [{ text: `${SYSTEM}\nRespond in ${language === 'vi' ? 'Vietnamese' : 'English'}, regardless of the question's language.` }] },
     contents: messages.map((m) => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] })),
     generationConfig: { maxOutputTokens: MAX_OUTPUT_TOKENS, temperature: 0.4 },
   })
@@ -101,8 +101,10 @@ Deno.serve(async (req) => {
   if (!key) return json({ error: 'The star guide is not configured yet.' }, 503)
 
   let messages: Msg[]
+  let language: 'en' | 'vi' = 'en'
   try {
     const body = await req.json()
+    language = body?.language === 'vi' ? 'vi' : 'en'
     messages = (Array.isArray(body?.messages) ? body.messages : [])
       .filter((m: Msg) => (m?.role === 'user' || m?.role === 'assistant') && typeof m.content === 'string')
       .slice(-MAX_TURNS)
@@ -120,11 +122,11 @@ Deno.serve(async (req) => {
   if (!verdict.ok) return json({ reply: verdict.reply, blocked: true })
 
   // Only stand-alone questions are cached; follow-ups depend on the conversation.
-  const key1 = messages.length === 1 ? cacheKey(last.content) : ''
+  const key1 = messages.length === 1 ? `${language}:${cacheKey(last.content)}` : ''
   const cached = key1 && cache.get(key1)
   if (cached) return json({ reply: cached, cached: true })
 
-  const reply = await ask(key, messages)
+  const reply = await ask(key, messages, language)
   if (!reply) return json({ error: 'The star guide is busy right now. Please try again in a moment.' }, 503)
   if (reply === REFUSAL) return json({ reply, blocked: true })
   if (key1) {

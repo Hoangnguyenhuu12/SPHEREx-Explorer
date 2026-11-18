@@ -99,3 +99,20 @@ export function faqAnswer(text: string): string | undefined {
   const rest = ` ${t} `.replace(` ${name} `, ' ').trim().split(' ').filter(Boolean)
   return rest.every((w) => GENERIC.has(w)) ? FAQ[i].a : undefined
 }
+
+/** Vietnamese translations are keyed by target so saved quick answers can change language instantly. */
+export const FAQ_VI: Record<TargetKey, { q: string; a: string }> = {
+  barnard: { q: 'Sao Barnard có gì đặc biệt?', a: 'Sao Barnard là một sao lùn đỏ cách chúng ta khoảng 6 năm ánh sáng. Nó di chuyển trên bầu trời nhanh hơn bất kỳ ngôi sao nào khác, khoảng 10 giây cung mỗi năm. Trong Đôi mắt, hãy phát chuỗi ảnh để xem sao dịch chuyển so với các sao nền.' },
+  wise0855: { q: 'WISE 0855 là gì?', a: 'WISE 0855−0714 là một sao lùn nâu rất lạnh, cách chúng ta khoảng 7 năm ánh sáng. Với nhiệt độ khoảng −23 °C, nó phát sáng chủ yếu trong vùng hồng ngoại. Hãy dùng các kênh bước sóng dài D5–D6 hoặc WISE W2 để tìm chấm mờ đang dịch chuyển.' },
+  epsindib: { q: 'Epsilon Indi B là gì?', a: 'Epsilon Indi B là một cặp sao lùn nâu Ba và Bb quay quanh nhau, cách chúng ta khoảng 12 năm ánh sáng. Ở độ phân giải của SPHEREx, cặp sao trông như một nguồn sáng và dịch chuyển khoảng 4,7 giây cung mỗi năm.' },
+  rwaur: { q: 'Vì sao RW Aurigae thay đổi độ sáng?', a: 'RW Aurigae là một ngôi sao rất trẻ được bao quanh bởi đĩa khí và bụi. Độ sáng của nó giảm không đều khi bụi đi qua phía trước. Hãy so sánh độ sáng giữa các thời điểm quan sát.' },
+  rdra: { q: 'R Draconis là gì?', a: 'R Draconis là một sao khổng lồ đỏ biến quang kiểu Mira. Nó phồng lên và co lại khoảng 245 ngày một lần, khiến độ sáng thay đổi. Ngôi sao rất sáng trong vùng hồng ngoại nên một số ảnh có thể làm bão hòa cảm biến.' },
+}
+
+export function faqKey(text: string): TargetKey | undefined {
+  const normalized = norm(text)
+  const translated = FAQ.find((f) => norm(FAQ_VI[f.key].q) === normalized)
+  if (translated) return translated.key
+  const answer = faqAnswer(text)
+  return FAQ.find((f) => f.a === answer)?.key
+}
