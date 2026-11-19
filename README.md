@@ -21,6 +21,30 @@ SPHEREx maps the entire sky every six months across 102 near-infrared spectral b
 
 ---
 
+## Explore the App
+
+Visit [SPHEREx Explorer](https://spherex-explorer-vn.vercel.app/) to try the interactive viewer.
+
+### 1. Start at the home page
+
+![SPHEREx Explorer home page with links to explore the sky and read the story](docs/screenshots/home.png)
+
+Choose **Explore the sky** to open the all-sky viewer, or **Watch a brown dwarf move** to jump into a featured observation. Use the EN/VI switch in the navigation bar to change the interface language.
+
+### 2. Explore the sky map
+
+![The Eyes all-sky map showing labeled stars and planets](docs/screenshots/sky-map.png)
+
+In **The Eyes**, search for an object or select one of the featured targets along the top. The bottom toolbar lets you switch sky surveys, toggle overlays such as planets and Gaia stars, and adjust the view.
+
+### 3. Follow a target through time
+
+![Barnard's Star selected on the sky map with the observation timeline open](docs/screenshots/barnards-star-timeline.png)
+
+Select a target to open its observation panel. Use **Timeline** to play through observation dates, **Compare two dates** to inspect changes, and **Science** for more context. The screenshot shows the offline illustrative demo; the panel also offers a real NASA unWISE sequence when available.
+
+---
+
 ## Data Sources, Attributions & Licenses
 
 All astronomical datasets, catalogs, and third-party open-source tools used in this project are credited below in compliance with the NASA Space Apps Challenge citation policy. See [docs/HARVESTED_DATA_SOURCES.md](docs/HARVESTED_DATA_SOURCES.md) for the full archive inventory.
